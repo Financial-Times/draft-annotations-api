@@ -39,7 +39,7 @@ func main() {
 	})
 
 	log.SetLevel(log.InfoLevel)
-	log.Infof("[Startup] %v starting", appName)
+	log.Infof("[Startup] %v starting", *appName)
 
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
