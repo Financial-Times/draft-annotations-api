@@ -1,3 +1,4 @@
 /draft-annotations-api
-/vendor
-^/vendor/vendor.json
+
+/vendor/*
+!/vendor/vendor.json
