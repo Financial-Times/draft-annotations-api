@@ -1,1 +1,3 @@
 /draft-annotations-api
+/vendor
+^/vendor/vendor.json
