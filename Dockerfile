@@ -1,6 +1,6 @@
 FROM golang:1.8-alpine
 
-ENV PROJECT=draft-content-api
+ENV PROJECT=draft-annotations-api
 COPY . /${PROJECT}-sources/
 
 RUN apk --no-cache --virtual .build-dependencies add git \
@@ -29,4 +29,4 @@ RUN apk --no-cache --virtual .build-dependencies add git \
 
 WORKDIR /
 
-CMD [ "/draft-content-api" ]
+CMD [ "/draft-annotations-api" ]

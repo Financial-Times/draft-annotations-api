@@ -19,7 +19,7 @@ import (
 const appDescription = "PAC Draft Annotations API"
 
 func main() {
-	app := cli.App("draft-content-api", appDescription)
+	app := cli.App("draft-annotations-api", appDescription)
 
 	appSystemCode := app.String(cli.StringOpt{
 		Name:   "app-system-code",
