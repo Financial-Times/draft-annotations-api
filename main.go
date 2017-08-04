@@ -2,12 +2,16 @@ package main
 
 import (
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
 
-	health "github.com/Financial-Times/go-fthealth/v1_1"
+	api "github.com/Financial-Times/api-endpoint"
+	"github.com/Financial-Times/draft-annotations-api/annotations"
+	"github.com/Financial-Times/draft-annotations-api/health"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
+	"github.com/husobee/vestigo"
 	"github.com/jawher/mow.cli"
 	log "github.com/sirupsen/logrus"
 )
@@ -15,7 +19,7 @@ import (
 const appDescription = "PAC Draft Annotations API"
 
 func main() {
-	app := cli.App("content-editorial-read", appDescription)
+	app := cli.App("draft-content-api", appDescription)
 
 	appSystemCode := app.String(cli.StringOpt{
 		Name:   "app-system-code",
@@ -38,17 +42,39 @@ func main() {
 		EnvVar: "APP_PORT",
 	})
 
+	annotationsEndpoint := app.String(cli.StringOpt{
+		Name:   "annotations-endpoint",
+		Value:  "http://test.api.ft.com/content/%v/annotations",
+		Desc:   "Endpoint to get annotations from UPP",
+		EnvVar: "ANNOTATIONS_ENDPOINT",
+	})
+
+	uppAPIKey := app.String(cli.StringOpt{
+		Name:   "upp-api-key",
+		Value:  "",
+		Desc:   "API key to access UPP",
+		EnvVar: "UPP_APIKEY",
+	})
+
+	apiYml := app.String(cli.StringOpt{
+		Name:   "api-yml",
+		Value:  "./api.yml",
+		Desc:   "Location of the API Swagger YML file.",
+		EnvVar: "API_YML",
+	})
+
 	log.SetLevel(log.InfoLevel)
-	log.Infof("[Startup] %v starting", *appName)
+	log.Infof("[Startup] %v is starting", *appSystemCode)
 
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
+		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsEndpoint, *uppAPIKey)
+		annotationsHandler := annotations.NewHandler(annotationsAPI)
+		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, annotationsAPI)
 		go func() {
-			serveAdminEndpoints(*appSystemCode, *appName, *port)
+			serveEndpoints(*port, apiYml, annotationsHandler, healthService)
 		}()
-
-		// todo: insert app code here
 
 		waitForSignal()
 	}
@@ -59,17 +85,23 @@ func main() {
 	}
 }
 
-func serveAdminEndpoints(appSystemCode string, appName string, port string) {
-	healthService := newHealthService(&healthConfig{appSystemCode: appSystemCode, appName: appName, port: port})
+func serveEndpoints(port string, apiYml *string, handler *annotations.Handler, healthService *health.HealthService) {
+	r := vestigo.NewRouter()
+	r.Get("/drafts/content/:uuid/annotations", handler.ServeHTTP)
+	r.Get("/__health", healthService.HealthCheckHandleFunc())
+	r.Get(status.GTGPath, status.NewGoodToGoHandler(healthService.GTG))
+	r.Get(status.BuildInfoPath, status.BuildInfoHandler)
 
-	serveMux := http.NewServeMux()
+	if apiYml != nil {
+		apiEndpoint, err := api.NewAPIEndpointForFile(*apiYml)
+		if err != nil {
+			log.WithError(err).WithField("file", *apiYml).Warn("Failed to serve the API Endpoint for this service. Please validate the Swagger YML and the file location.")
+		} else {
+			r.Get(api.DefaultPath, apiEndpoint.ServeHTTP)
+		}
+	}
 
-	hc := health.HealthCheck{SystemCode: appSystemCode, Name: appName, Description: appDescription, Checks: healthService.checks}
-	serveMux.HandleFunc(healthPath, health.Handler(hc))
-	serveMux.HandleFunc(status.GTGPath, status.NewGoodToGoHandler(healthService.gtgCheck))
-	serveMux.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
-
-	if err := http.ListenAndServe(":"+port, serveMux); err != nil {
+	if err := http.ListenAndServe(":"+port, r); err != nil {
 		log.Fatalf("Unable to start: %v", err)
 	}
 }
