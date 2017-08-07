@@ -34,8 +34,12 @@ go install
 $GOPATH/bin/draft-annotations-api [--help]
 
 Options:
-
-
+  --app-system-code="draft-annotations-api"                                System Code of the application ($APP_SYSTEM_CODE)
+  --app-name="draft-annotations-api"                                       Application name ($APP_NAME)
+  --port="8080"                                                            Port to listen on ($APP_PORT)
+  --annotations-endpoint="http://test.api.ft.com/content/%v/annotations"   Endpoint to get annotations from UPP ($ANNOTATIONS_ENDPOINT)
+  --upp-api-key=""                                                         API key to access UPP ($UPP_APIKEY)
+  --api-yml="./api.yml"                                                    Location of the API Swagger YML file. ($API_YML)
 ```
 
 
@@ -43,18 +47,20 @@ Options:
 
     1. Either using curl:
 
-            curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0 | json_pp
+            curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations | json_pp
 
     1. Or using [httpie](https://github.com/jkbrzt/httpie):
 
-            http GET http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0
+            http GET http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations
 
 ## Build and deployment
 
-* Built by Docker Hub on merge to master: [coco/draft-content-api](https://hub.docker.com/r/coco/draft-content-api/)
-* CI provided by CircleCI: [draft-content-api](https://circleci.com/gh/Financial-Times/draft-content-api)
+* Built by Docker Hub on merge to master: [coco/draft-annotations-api](https://hub.docker.com/r/coco/draft-annotations-api/)
+* CI provided by CircleCI: [draft-annotations-api](https://circleci.com/gh/Financial-Times/draft-annotations-api)
 
 ## Service endpoints
+
+For a full description of API endpoints for the service, please see the [Open API specification](./api/api.yml).
 
 ### GET
 
