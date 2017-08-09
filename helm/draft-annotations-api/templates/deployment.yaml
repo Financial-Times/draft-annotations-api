@@ -40,12 +40,11 @@ spec:
           tcpSocket: 
             port: 8080 
           initialDelaySeconds: 10 
-      #  readinessProbe: 
-       #   httpGet: 
-        #    path: "/__gtg" 
-        #    port: 8080 
-        #  initialDelaySeconds: 15 
-        #  periodSeconds: 30 
+        readinessProbe: 
+          httpGet: 
+            path: "/__gtg" 
+            port: 8080 
+          initialDelaySeconds: 15 
+          periodSeconds: 30 
         resources: 
 {{ toYaml .Values.resources | indent 12 }}
-
