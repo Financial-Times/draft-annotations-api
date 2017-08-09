@@ -24,12 +24,12 @@ spec:
         image: "{{ .Values.image.repository }}:{{ .Chart.Version }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         env: 
-       - name: ANNOTATIONS_ENDPOINT 
-         valueFrom:
+        - name: ANNOTATIONS_ENDPOINT 
+          valueFrom:
            configMapKeyRef:
               name: global-config
               key: annotations-endpoint
-       - name: UPP_APIKEY
+        - name: UPP_APIKEY
           valueFrom:
             configMapKeyRef:
               name: global-config
