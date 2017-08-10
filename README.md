@@ -4,7 +4,7 @@
 
 ## Introduction
 
-Draft Annotations API is a microservice that provides access to draft annotations for content stored in PAC. Currently, the service is a simple proxy to UPP Public Annoations API.
+Draft Annotations API is a microservice that provides access to draft annotations for content stored in PAC. Currently, the service is a simple proxy to UPP Public Annotations API.
 
 ## Installation
 
@@ -24,7 +24,7 @@ go build .
 
 ```
 govendor sync
-govendor test -v -race
+govendor test -v -race +local
 go install
 ```
 
@@ -77,10 +77,6 @@ http GET http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc
 ```
 
 Currently, this endpoint is a proxy to the annotations available in UPP, so it returns a payload consistent to the UPP Public Annotations API.
-
-## Utility endpoints
-
-The standard endpoint for Go profiling is available under the path `/debug/pprof`. Details regarding Go profiling are available [here](https://golang.org/pkg/net/http/pprof/)
 
 ## Healthchecks
 

@@ -5,12 +5,12 @@ import (
 	"net/http"
 
 	"github.com/Financial-Times/draft-annotations-api/annotations"
-	health "github.com/Financial-Times/go-fthealth/v1_1"
+	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/service-status-go/gtg"
 )
 
 type HealthService struct {
-	health.HealthCheck
+	fthealth.HealthCheck
 	annotationsAPI annotations.AnnotationsAPI
 }
 
@@ -19,18 +19,18 @@ func NewHealthService(appSystemCode string, appName string, appDescription strin
 	service.SystemCode = appSystemCode
 	service.Name = appName
 	service.Description = appDescription
-	service.Checks = []health.Check{
+	service.Checks = []fthealth.Check{
 		service.annotationsAPICheck(),
 	}
 	return service
 }
 
 func (service *HealthService) HealthCheckHandleFunc() func(w http.ResponseWriter, r *http.Request) {
-	return health.Handler(service)
+	return fthealth.Handler(service)
 }
 
-func (service *HealthService) annotationsAPICheck() health.Check {
-	return health.Check{
+func (service *HealthService) annotationsAPICheck() fthealth.Check {
+	return fthealth.Check{
 		ID:               "check-annotations-api-health",
 		BusinessImpact:   "Impossible to serve annotations through PAC",
 		Name:             "Check UPP Public Annotations API Health",

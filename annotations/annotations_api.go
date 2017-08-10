@@ -2,7 +2,6 @@ package annotations
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -36,12 +35,12 @@ func (api *annotationsAPI) Get(ctx context.Context, contentUUID string) (*http.R
 	apiReqURI := fmt.Sprintf(api.endpointTemplate, contentUUID)
 	getAnnotationsLog := log.WithField("url", apiReqURI).WithField("uuid", contentUUID)
 
-	tID, err := tidutils.GetTransactionIDFromContext(ctx)
+	tid, err := tidutils.GetTransactionIDFromContext(ctx)
 	if err != nil {
-		getAnnotationsLog.WithField(tidutils.TransactionIDKey, "TID Not found: "+err.Error())
-	} else {
-		getAnnotationsLog = getAnnotationsLog.WithField(tidutils.TransactionIDKey, tID)
+		tid = "not found"
 	}
+
+	getAnnotationsLog = getAnnotationsLog.WithField(tidutils.TransactionIDKey, tid)
 
 	apiReq, err := http.NewRequest("GET", apiReqURI, nil)
 	if err != nil {
@@ -50,8 +49,8 @@ func (api *annotationsAPI) Get(ctx context.Context, contentUUID string) (*http.R
 	}
 
 	apiReq.Header.Set(apiKeyHeader, api.apiKey)
-	if tID != "" {
-		apiReq.Header.Set(tidutils.TransactionIDHeader, tID)
+	if tid != "" {
+		apiReq.Header.Set(tidutils.TransactionIDHeader, tid)
 	}
 
 	getAnnotationsLog.Info("Calling UPP Public Annotations API")
@@ -76,9 +75,9 @@ func (api *annotationsAPI) GTG() error {
 	if apiResp.StatusCode != http.StatusOK {
 		errMsgBody, err := ioutil.ReadAll(apiResp.Body)
 		if err != nil {
-			return errors.New("gtg returned a non-200 HTTP status")
+			return fmt.Errorf("gtg returned a non-200 HTTP status [%v]", apiResp.StatusCode)
 		}
-		return fmt.Errorf("gtg returned a non-200 HTTP status: %v - %v", apiResp.StatusCode, string(errMsgBody))
+		return fmt.Errorf("gtg returned a non-200 HTTP status [%v]: %v", apiResp.StatusCode, string(errMsgBody))
 	}
 	return nil
 }
