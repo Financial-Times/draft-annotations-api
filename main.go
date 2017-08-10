@@ -113,7 +113,7 @@ func serveEndpoints(port string, apiYml *string, handler *annotations.Handler, h
 		}
 	}
 
-	if err := http.ListenAndServe(":"+port, r); err != nil {
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("Unable to start: %v", err)
 	}
 }
