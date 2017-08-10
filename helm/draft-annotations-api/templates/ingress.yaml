@@ -10,9 +10,7 @@ metadata:
     # message to display with an appropiate context why the authentication is required
     ingress.kubernetes.io/auth-realm: "Authentication Required"
     # to interpret the wildcard in path as a regex
-    #ingress.kubernetes.io/rewrite-target: /
     ingress.kubernetes.io/rewrite-target: /drafts/content/
-    #ingress.kubernetes.io/app-root: /drafts/content/
 spec:
   rules:
     - host: {{.Values.ingress.host}}
