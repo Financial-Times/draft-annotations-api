@@ -10,9 +10,11 @@ import (
 	api "github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/Financial-Times/draft-annotations-api/health"
+	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/husobee/vestigo"
 	"github.com/jawher/mow.cli"
+	"github.com/rcrowley/go-metrics"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -86,11 +88,21 @@ func main() {
 }
 
 func serveEndpoints(port string, apiYml *string, handler *annotations.Handler, healthService *health.HealthService) {
+
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", handler.ServeHTTP)
-	r.Get("/__health", healthService.HealthCheckHandleFunc())
-	r.Get(status.GTGPath, status.NewGoodToGoHandler(healthService.GTG))
-	r.Get(status.BuildInfoPath, status.BuildInfoHandler)
+	var monitoringRouter http.Handler = r
+	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
+	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
+	//	r.Get("/__health", healthService.HealthCheckHandleFunc())
+	//	r.Get(status.GTGPath, status.NewGoodToGoHandler(healthService.GTG))
+	//	r.Get(status.BuildInfoPath, status.BuildInfoHandler)
+
+	http.HandleFunc("/__health", healthService.HealthCheckHandleFunc())
+	http.HandleFunc(status.GTGPath, status.NewGoodToGoHandler(healthService.GTG))
+	http.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
+
+	http.Handle("/", monitoringRouter)
 
 	if apiYml != nil {
 		apiEndpoint, err := api.NewAPIEndpointForFile(*apiYml)
