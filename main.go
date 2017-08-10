@@ -107,7 +107,7 @@ func serveEndpoints(port string, apiYml *string, handler *annotations.Handler, h
 	if apiYml != nil {
 		apiEndpoint, err := api.NewAPIEndpointForFile(*apiYml)
 		if err != nil {
-			log.WithError(err).WithField("file", *apiYml).Warn("Failed to serve the API Endpoint for this service. Please validate the Swagger YML and the file location.")
+			log.WithError(err).WithField("file", *apiYml).Warn("Failed to serve the API Endpoint for this service. Please validate the Swagger YML and the file location")
 		} else {
 			r.Get(api.DefaultPath, apiEndpoint.ServeHTTP)
 		}
