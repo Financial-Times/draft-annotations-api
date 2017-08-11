@@ -12,9 +12,10 @@ Download the source code, dependencies and test dependencies:
 
 ```
 go get -u github.com/kardianos/govendor
-go get -u github.com/Financial-Times/draft-annotations-api
-cd $GOPATH/src/github.com/Financial-Times/draft-annotations-api
-govendor sync
+mkdir $GOPATH/src/github.com/Financial-Times/draft-annotations-api
+cd $GOPATH/src/github.com/Financial-Times
+git clone https://github.com/Financial-Times/draft-annotations-api.git
+cd draft-annotations-api && govendor sync
 go build .
 ```
 

@@ -37,7 +37,7 @@ func (api *annotationsAPI) Get(ctx context.Context, contentUUID string) (*http.R
 
 	tid, err := tidutils.GetTransactionIDFromContext(ctx)
 	if err != nil {
-		tid = "not found"
+		tid = "not_found"
 	}
 
 	getAnnotationsLog = getAnnotationsLog.WithField(tidutils.TransactionIDKey, tid)

@@ -23,7 +23,7 @@ func TestUnhappyAnnotationsAPIGTG(t *testing.T) {
 
 	annotationsAPI := NewAnnotationsAPI(annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
 	err := annotationsAPI.GTG()
-	assert.EqualError(t, err, "gtg returned a non-200 HTTP status: 503 - I am not happy!")
+	assert.EqualError(t, err, "gtg returned a non-200 HTTP status [503]: I am not happy!")
 }
 
 func TestAnnotationsAPIGTGWrongAPIKey(t *testing.T) {
@@ -32,7 +32,7 @@ func TestAnnotationsAPIGTGWrongAPIKey(t *testing.T) {
 
 	annotationsAPI := NewAnnotationsAPI(annotationsServerMock.URL+"/content/%v/annotations", "a-non-existing-key")
 	err := annotationsAPI.GTG()
-	assert.EqualError(t, err, "gtg returned a non-200 HTTP status: 401 - unauthorized")
+	assert.EqualError(t, err, "gtg returned a non-200 HTTP status [401]: unauthorized")
 }
 
 func TestAnnotationsAPIGTGInvalidURL(t *testing.T) {

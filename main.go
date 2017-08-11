@@ -3,8 +3,6 @@ package main
 import (
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 
 	api "github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/draft-annotations-api/annotations"
@@ -71,12 +69,10 @@ func main() {
 		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsEndpoint, *uppAPIKey)
 		annotationsHandler := annotations.NewHandler(annotationsAPI)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, annotationsAPI)
-		go func() {
-			serveEndpoints(*port, apiYml, annotationsHandler, healthService)
-		}()
 
-		waitForSignal()
+		serveEndpoints(*port, apiYml, annotationsHandler, healthService)
 	}
+
 	err := app.Run(os.Args)
 	if err != nil {
 		log.Errorf("App could not start, error=[%s]\n", err)
@@ -103,10 +99,4 @@ func serveEndpoints(port string, apiYml *string, handler *annotations.Handler, h
 	if err := http.ListenAndServe(":"+port, r); err != nil {
 		log.Fatalf("Unable to start: %v", err)
 	}
-}
-
-func waitForSignal() {
-	ch := make(chan os.Signal)
-	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
-	<-ch
 }
