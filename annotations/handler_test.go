@@ -60,6 +60,28 @@ func TestAnnotationsAPI404(t *testing.T) {
 	assert.Equal(t, "not found", string(body))
 }
 
+func TestAnnotationsAPI500(t *testing.T) {
+	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusInternalServerError, "fire!")
+	defer annotationsAPIServerMock.Close()
+
+	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	h := NewHandler(annotationsAPI)
+	r := vestigo.NewRouter()
+	r.Get("/drafts/content/:uuid/annotations", h.ServeHTTP)
+
+	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+	body, err := ioutil.ReadAll(resp.Body)
+
+	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
+	assert.NoError(t, err)
+	assert.Equal(t, `{"message":"Service unavailable"}`, string(body))
+}
+
 func TestInvalidURL(t *testing.T) {
 	annotationsAPI := NewAnnotationsAPI(":#", testAPIKey)
 	h := NewHandler(annotationsAPI)
