@@ -2,7 +2,7 @@ package annotations
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"io"
 	"net/http"
 
@@ -42,5 +42,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func writeMessage(w http.ResponseWriter, msg string, status int) {
 	w.WriteHeader(status)
-	w.Write([]byte(fmt.Sprintf(`{"message":"%v"}`, msg)))
+
+	message := make(map[string]interface{})
+	message["message"] = msg
+	j, err := json.Marshal(&message)
+
+	if err != nil {
+		log.WithError(err).Warn("Failed to parse provided message to json, this is a bug.")
+		return
+	}
+
+	w.Write(j)
 }
