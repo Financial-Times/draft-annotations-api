@@ -1,109 +1,97 @@
-# content-editorial-read
-_Should be the same as the github repo name but it isn't always._
+# Draft content API
 
-[![Circle CI](https://circleci.com/gh/Financial-Times/content-editorial-read/tree/master.png?style=shield)](https://circleci.com/gh/Financial-Times/content-editorial-read/tree/master)[![Go Report Card](https://goreportcard.com/badge/github.com/Financial-Times/content-editorial-read)](https://goreportcard.com/report/github.com/Financial-Times/content-editorial-read) [![Coverage Status](https://coveralls.io/repos/github/Financial-Times/content-editorial-read/badge.svg)](https://coveralls.io/github/Financial-Times/content-editorial-read)
+[![Circle CI](https://circleci.com/gh/Financial-Times/draft-annotations-api/tree/master.png?style=shield)](https://circleci.com/gh/Financial-Times/draft-annotations-api/tree/master)[![Go Report Card](https://goreportcard.com/badge/github.com/Financial-Times/draft-annotations-api)](https://goreportcard.com/report/github.com/Financial-Times/draft-annotations-api) [![Coverage Status](https://coveralls.io/repos/github/Financial-Times/draft-annotations-api/badge.svg)](https://coveralls.io/github/Financial-Times/draft-annotations-api)
 
 ## Introduction
 
-_What is this service and what is it for? What other services does it depend on_
-
-UPP Golang Microservice Template short description - please amend
+Draft Annotations API is a microservice that provides access to draft annotations for content stored in PAC. Currently, the service is a simple proxy to UPP Public Annotations API.
 
 ## Installation
-      
-_How can I install it_
 
 Download the source code, dependencies and test dependencies:
 
-        go get -u github.com/kardianos/govendor
-        go get -u github.com/Financial-Times/content-editorial-read
-        cd $GOPATH/src/github.com/Financial-Times/content-editorial-read
-        govendor sync
-        go build .
+```
+go get -u github.com/kardianos/govendor
+mkdir $GOPATH/src/github.com/Financial-Times/draft-annotations-api
+cd $GOPATH/src/github.com/Financial-Times
+git clone https://github.com/Financial-Times/draft-annotations-api.git
+cd draft-annotations-api && govendor sync
+go build .
+```
 
 ## Running locally
-_How can I run it_
 
 1. Run the tests and install the binary:
 
-        govendor sync
-        govendor test -v -race
-        go install
+```
+govendor sync
+govendor test -v -race +local
+go install
+```
 
 2. Run the binary (using the `help` flag to see the available optional arguments):
 
-        $GOPATH/bin/content-editorial-read [--help]
+```
+$GOPATH/bin/draft-annotations-api [--help]
 
 Options:
+  --app-system-code="draft-annotations-api"                                System Code of the application ($APP_SYSTEM_CODE)
+  --app-name="draft-annotations-api"                                       Application name ($APP_NAME)
+  --port="8080"                                                            Port to listen on ($APP_PORT)
+  --annotations-endpoint="http://test.api.ft.com/content/%v/annotations"   Endpoint to get annotations from UPP ($ANNOTATIONS_ENDPOINT)
+  --upp-api-key=""                                                         API key to access UPP ($UPP_APIKEY)
+  --api-yml="./api.yml"                                                    Location of the API Swagger YML file. ($API_YML)
+```
 
-        --app-system-code="content-editorial-read"            System Code of the application ($APP_SYSTEM_CODE)
-        --app-name="content-editorial-read"                   Application name ($APP_NAME)
-        --port="8080"                                           Port to listen on ($APP_PORT)
-        
+
 3. Test:
 
     1. Either using curl:
 
-            curl http://localhost:8080/people/143ba45c-2fb3-35bc-b227-a6ed80b5c517 | json_pp
+            curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations | json_pp
 
     1. Or using [httpie](https://github.com/jkbrzt/httpie):
 
-            http GET http://localhost:8080/people/143ba45c-2fb3-35bc-b227-a6ed80b5c517
+            http GET http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations
 
 ## Build and deployment
-_How can I build and deploy it (lots of this will be links out as the steps will be common)_
 
-* Built by Docker Hub on merge to master: [coco/content-editorial-read](https://hub.docker.com/r/coco/content-editorial-read/)
-* CI provided by CircleCI: [content-editorial-read](https://circleci.com/gh/Financial-Times/content-editorial-read)
+* Built by Docker Hub on merge to master: [coco/draft-annotations-api](https://hub.docker.com/r/coco/draft-annotations-api/)
+* CI provided by CircleCI: [draft-annotations-api](https://circleci.com/gh/Financial-Times/draft-annotations-api)
 
 ## Service endpoints
-_What are the endpoints offered by the service_
 
-e.g.
+For a full description of API endpoints for the service, please see the [Open API specification](./api/api.yml).
+
 ### GET
 
 Using curl:
 
-    curl http://localhost:8080/people/143ba45c-2fb3-35bc-b227-a6ed80b5c517 | json_pp`
+```
+curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations | jq
+```
 
 Or using [httpie](https://github.com/jkbrzt/httpie):
 
-    http GET http://localhost:8080/people/143ba45c-2fb3-35bc-b227-a6ed80b5c517
+```
+http GET http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations
+```
 
-The expected response will contain information about the person, and the organisations they are connected to (via memberships).
-
-Based on the following [google doc](https://docs.google.com/document/d/1SC4Uskl-VD78y0lg5H2Gq56VCmM4OFHofZM-OvpsOFo/edit#heading=h.qjo76xuvpj83).
-
-
-## Utility endpoints
-_Endpoints that are there for support or testing, e.g read endpoints on the writers_
+Currently, this endpoint is a proxy to the annotations available in UPP, so it returns a payload consistent to the UPP Public Annotations API.
 
 ## Healthchecks
+
 Admin endpoints are:
 
 `/__gtg`
-
 `/__health`
-
 `/__build-info`
 
-_These standard endpoints do not need to be specifically documented._
-
-_This section *should* however explain what checks are done to determine health and gtg status._
-
-There are several checks performed:
-
-_e.g._
-* Checks that a connection can be made to Neo4j, using the neo4j url supplied as a parameter in service startup.
-
-## Other information
-_Anything else you want to add._
-
-_e.g. (NB: this example may be something we want to extract as it's probably common to a lot of services)_
+At the moment the `/__health` and `/__gtg` check the availability of the UPP Public Annotations API.
 
 ### Logging
 
-* The application uses [logrus](https://github.com/Sirupsen/logrus); the log file is initialised in [main.go](main.go).
+* The application uses [logrus](https://github.com/sirupsen/logrus); the log file is initialised in [main.go](main.go).
 * Logging requires an `env` app parameter, for all environments other than `local` logs are written to file.
 * When running locally, logs are written to console. If you want to log locally to file, you need to pass in an env parameter that is != `local`.
 * NOTE: `/__build-info` and `/__gtg` endpoints are not logged as they are called every second from varnish/vulcand and this information is not needed in logs/splunk.
