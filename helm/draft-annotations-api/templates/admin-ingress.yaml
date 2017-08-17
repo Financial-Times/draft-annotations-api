@@ -10,6 +10,7 @@ metadata:
     # message to display with an appropiate context why the authentication is required
     ingress.kubernetes.io/auth-realm: "Authentication Required"
     ingress.kubernetes.io/rewrite-target: /
+    ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
   rules:
     - host: {{.Values.ingress.host}}
