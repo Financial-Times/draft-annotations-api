@@ -9,6 +9,6 @@ image:
   repository: coco/draft-annotations-api
   pullPolicy: Always
 ingress:
-  host_eu: "pre-prod-eu-pac.ft.com"
-  host_us: "pre-prod-us-pac.ft.com"
+  host_pre_prod_eu: "pre-prod-eu-pac.ft.com"
+  host_pre_prod_us: "pre-prod-us-pac.ft.com"
   host: "pre-prod-pac.ft.com"
