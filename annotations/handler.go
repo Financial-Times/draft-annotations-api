@@ -2,6 +2,7 @@ package annotations
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 
@@ -31,7 +32,25 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 
 	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(resp.StatusCode)
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusBadRequest {
+		w.WriteHeader(resp.StatusCode)
+		io.Copy(w, resp.Body)
+	} else {
+		writeMessage(w, "Service unavailable", http.StatusServiceUnavailable)
+	}
+}
 
-	io.Copy(w, resp.Body)
+func writeMessage(w http.ResponseWriter, msg string, status int) {
+	w.WriteHeader(status)
+
+	message := make(map[string]interface{})
+	message["message"] = msg
+	j, err := json.Marshal(&message)
+
+	if err != nil {
+		log.WithError(err).Warn("Failed to parse provided message to json, this is a bug.")
+		return
+	}
+
+	w.Write(j)
 }
