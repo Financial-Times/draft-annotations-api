@@ -41,7 +41,7 @@ paths:
         400:
           description: Invalid uuid supplied
         404:
-          description: Content not found
+          description: Annotations not found
 
   /__health:
     get:
