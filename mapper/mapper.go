@@ -47,7 +47,6 @@ func ConvertPredicates(body []byte) ([]byte, error) {
 			} else if predicate == PREDICATE_MAJOR_MENTIONS {
 				originalAnnotations[i]["predicate"] = PREDICATE_ABOUT
 			}
-			log.Info(originalAnnotations[i]["predicate"])
 			convertedAnnotations = append(convertedAnnotations, originalAnnotations[i])
 		}
 		// otherwise discarded
