@@ -1,7 +1,6 @@
 package mapper
 
 import (
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"testing"
@@ -19,9 +18,6 @@ func TestIsClassifiedByMappedCorrectly(t *testing.T) {
 		panic(err)
 	}
 	actualBody, _ := ConvertPredicates(originalBody)
-
-	log.Info(string(actualBody))
-	log.Info(string(expectedBody))
 
 	assert.JSONEq(t, string(expectedBody), string(actualBody), "they do not match")
 }

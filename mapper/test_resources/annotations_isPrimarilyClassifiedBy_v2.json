@@ -57,5 +57,17 @@
       "http://www.ft.com/ontology/SpecialReport"
     ],
     "prefLabel": "Destination: North of England"
+  },
+  {
+    "predicate": "http://www.ft.com/ontology/classification/isPrimarilyClassifiedBy",
+    "id": "http://api.ft.com/things/04789fc2-4598-3b95-9698-14e5ece17261",
+    "apiUrl": "http://api.ft.com/things/04789fc2-4598-3b95-9698-14e5ece17261",
+    "types": [
+      "http://www.ft.com/ontology/core/Thing",
+      "http://www.ft.com/ontology/concept/Concept",
+      "http://www.ft.com/ontology/classification/Classification",
+      "http://www.ft.com/ontology/someNewConceptTypeThatIsNotSpecialReport"
+    ],
+    "prefLabel": "Destination: North of England"
   }
 ]

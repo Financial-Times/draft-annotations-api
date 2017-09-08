@@ -1,6 +1,6 @@
 [
   {
-    "predicate": "http://www.ft.com/ontology/classification/isPrimarilyClassifiedBy",
+    "predicate": "http://www.ft.com/ontology/classification/isClassifiedBy",
     "id": "http://api.ft.com/things/039d8d2c-c892-3793-ae67-684f104b0007",
     "apiUrl": "http://api.ft.com/brands/039d8d2c-c892-3793-ae67-684f104b0007",
     "types": [
@@ -12,7 +12,7 @@
     "prefLabel": "Week in Review"
   },
   {
-    "predicate": "http://www.ft.com/ontology/classification/isPrimarilyClassifiedBy",
+    "predicate": "http://www.ft.com/ontology/classification/isClassifiedBy",
     "id": "http://www.ft.com/thing/9b40e89c-e87b-3d4f-b72c-2cf7511d2146",
     "apiUrl": "http://api.ft.com/things/9b40e89c-e87b-3d4f-b72c-2cf7511d2146",
     "types": [
