@@ -18,7 +18,7 @@ func TestHappyAnnotationsAPI(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, annotationsBody)
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey, nil)
 	assert.Equal(t, annotationsAPIServerMock.URL+"/content/%v/annotations", annotationsAPI.Endpoint())
 
 	h := NewHandler(annotationsAPI)
@@ -42,7 +42,7 @@ func TestAnnotationsAPI404(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusNotFound, "not found")
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey, nil)
 	h := NewHandler(annotationsAPI)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ServeHTTP)
@@ -64,7 +64,7 @@ func TestAnnotationsAPI500(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusInternalServerError, "fire!")
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey, nil)
 	h := NewHandler(annotationsAPI)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ServeHTTP)
@@ -83,7 +83,7 @@ func TestAnnotationsAPI500(t *testing.T) {
 }
 
 func TestInvalidURL(t *testing.T) {
-	annotationsAPI := NewAnnotationsAPI(":#", testAPIKey)
+	annotationsAPI := NewAnnotationsAPI(":#", testAPIKey, nil)
 	h := NewHandler(annotationsAPI)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ServeHTTP)
@@ -105,7 +105,7 @@ func TestConnectionError(t *testing.T) {
 	annotationsAPIServerMock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	annotationsAPIServerMock.Close()
 
-	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL, testAPIKey)
+	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL, testAPIKey, nil)
 	h := NewHandler(annotationsAPI)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ServeHTTP)

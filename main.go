@@ -7,6 +7,7 @@ import (
 	api "github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/Financial-Times/draft-annotations-api/health"
+	"github.com/Financial-Times/draft-annotations-api/implications"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/husobee/vestigo"
@@ -48,6 +49,13 @@ func main() {
 		EnvVar: "ANNOTATIONS_ENDPOINT",
 	})
 
+	brandsEndpoint := app.String(cli.StringOpt{
+		Name:   "brands-endpoint",
+		Value:  "http://test.api.ft.com/brands/%v",
+		Desc:   "Endpoint to get brands from UPP",
+		EnvVar: "BRANDS_ENDPOINT",
+	})
+
 	uppAPIKey := app.String(cli.StringOpt{
 		Name:   "upp-api-key",
 		Value:  "",
@@ -68,7 +76,8 @@ func main() {
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
-		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsEndpoint, *uppAPIKey)
+		brandsResolver := implications.NewBrandsResolver(*brandsEndpoint, *uppAPIKey)
+		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsEndpoint, *uppAPIKey, brandsResolver)
 		annotationsHandler := annotations.NewHandler(annotationsAPI)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, annotationsAPI)
 
