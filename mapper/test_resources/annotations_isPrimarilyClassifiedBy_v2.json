@@ -1,0 +1,73 @@
+[
+  {
+    "predicate": "http://www.ft.com/ontology/classification/isPrimarilyClassifiedBy",
+    "id": "http://api.ft.com/things/039d8d2c-c892-3793-ae67-684f104b0007",
+    "apiUrl": "http://api.ft.com/brands/039d8d2c-c892-3793-ae67-684f104b0007",
+    "types": [
+      "http://www.ft.com/ontology/core/Thing",
+      "http://www.ft.com/ontology/concept/Concept",
+      "http://www.ft.com/ontology/classification/Classification",
+      "http://www.ft.com/ontology/product/Brand"
+    ],
+    "prefLabel": "Week in Review"
+  },
+  {
+    "predicate": "http://www.ft.com/ontology/classification/isPrimarilyClassifiedBy",
+    "id": "http://www.ft.com/thing/9b40e89c-e87b-3d4f-b72c-2cf7511d2146",
+    "apiUrl": "http://api.ft.com/things/9b40e89c-e87b-3d4f-b72c-2cf7511d2146",
+    "types": [
+      "http://www.ft.com/ontology/core/Thing",
+      "http://www.ft.com/ontology/concept/Concept",
+      "http://www.ft.com/ontology/classification/Classification",
+      "http://www.ft.com/ontology/Genre"
+    ],
+    "prefLabel": "News"
+  },
+  {
+    "predicate": "http://www.ft.com/ontology/classification/isPrimarilyClassifiedBy",
+    "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+    "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+    "types": [
+      "http://www.ft.com/ontology/core/Thing",
+      "http://www.ft.com/ontology/concept/Concept",
+      "http://www.ft.com/ontology/classification/Classification",
+      "http://www.ft.com/ontology/Topic"
+    ],
+    "prefLabel": "Global economic growth"
+  },
+  {
+    "predicate": "http://www.ft.com/ontology/classification/isPrimarilyClassifiedBy",
+    "id": "http://api.ft.com/things/1a2a1a0a-7199-38b8-8a73-e651e2172471",
+    "apiUrl": "http://api.ft.com/things/1a2a1a0a-7199-38b8-8a73-e651e2172471",
+    "types": [
+      "http://www.ft.com/ontology/core/Thing",
+      "http://www.ft.com/ontology/concept/Concept",
+      "http://www.ft.com/ontology/Location"
+    ],
+    "prefLabel": "United Kingdom"
+  },
+  {
+    "predicate": "http://www.ft.com/ontology/classification/isPrimarilyClassifiedBy",
+    "id": "http://api.ft.com/things/04789fc2-4598-3b95-9698-14e5ece17261",
+    "apiUrl": "http://api.ft.com/things/04789fc2-4598-3b95-9698-14e5ece17261",
+    "types": [
+      "http://www.ft.com/ontology/core/Thing",
+      "http://www.ft.com/ontology/concept/Concept",
+      "http://www.ft.com/ontology/classification/Classification",
+      "http://www.ft.com/ontology/SpecialReport"
+    ],
+    "prefLabel": "Destination: North of England"
+  },
+  {
+    "predicate": "http://www.ft.com/ontology/classification/isPrimarilyClassifiedBy",
+    "id": "http://api.ft.com/things/04789fc2-4598-3b95-9698-14e5ece17261",
+    "apiUrl": "http://api.ft.com/things/04789fc2-4598-3b95-9698-14e5ece17261",
+    "types": [
+      "http://www.ft.com/ontology/core/Thing",
+      "http://www.ft.com/ontology/concept/Concept",
+      "http://www.ft.com/ontology/classification/Classification",
+      "http://www.ft.com/ontology/someNewConceptTypeThatIsNotSpecialReport"
+    ],
+    "prefLabel": "Destination: North of England"
+  }
+]

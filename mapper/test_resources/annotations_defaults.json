@@ -1,0 +1,63 @@
+[
+  {
+    "predicate": "http://www.ft.com/ontology/annotation/mentions",
+    "id": "http://api.ft.com/things/0bc9722e-0a12-31c7-b8b4-ae50187cc557",
+    "apiUrl": "http://api.ft.com/organisations/0bc9722e-0a12-31c7-b8b4-ae50187cc557",
+    "types": [
+      "http://www.ft.com/ontology/core/Thing",
+      "http://www.ft.com/ontology/concept/Concept",
+      "http://www.ft.com/ontology/organisation/Organisation",
+      "http://www.ft.com/ontology/company/Company",
+      "http://www.ft.com/ontology/company/PublicCompany"
+    ],
+    "leiCode": "HELLOLEICODE",
+    "FIGI": "FIGIFIGI",
+    "prefLabel": "HSBC Holdings PLC"
+  },
+  {
+    "predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+    "id": "http://api.ft.com/things/fd6734a1-3ae2-30f3-98a1-e373f8da8bf1",
+    "apiUrl": "http://api.ft.com/people/fd6734a1-3ae2-30f3-98a1-e373f8da8bf1",
+    "types": [
+      "http://www.ft.com/ontology/core/Thing",
+      "http://www.ft.com/ontology/concept/Concept",
+      "http://www.ft.com/ontology/person/Person"
+    ],
+    "prefLabel": "Emily Cadman"
+  },
+  {
+    "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
+    "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+    "apiUrl": "http://api.ft.com/people/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+    "types": [
+      "http://www.ft.com/ontology/core/Thing",
+      "http://www.ft.com/ontology/concept/Concept",
+      "http://www.ft.com/ontology/person/Person"
+    ],
+    "prefLabel": "Lisa Barrett"
+  },
+  {
+    "predicate": "http://www.ft.com/ontology/annotation/about",
+    "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+    "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+    "types": [
+      "http://www.ft.com/ontology/core/Thing",
+      "http://www.ft.com/ontology/concept/Concept",
+      "http://www.ft.com/ontology/classification/Classification",
+      "http://www.ft.com/ontology/Topic"
+    ],
+    "prefLabel": "Global economic growth"
+  },
+  {
+    "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
+    "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+    "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+    "types": [
+      "http://www.ft.com/ontology/core/Thing",
+      "http://www.ft.com/ontology/concept/Concept",
+      "http://www.ft.com/ontology/classification/Classification",
+      "http://www.ft.com/ontology/Topic"
+    ],
+    "prefLabel": "Global economic growth"
+  }
+]

@@ -32,10 +32,9 @@ func TestHappyAnnotationsAPI(t *testing.T) {
 	r.ServeHTTP(w, req)
 	resp := w.Result()
 	body, err := ioutil.ReadAll(resp.Body)
-
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.NoError(t, err)
-	assert.Equal(t, annotationsBody, string(body))
+	assert.JSONEq(t, string(annotationsBody), string(body))
 }
 
 func TestAnnotationsAPI404(t *testing.T) {
@@ -58,6 +57,28 @@ func TestAnnotationsAPI404(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	assert.NoError(t, err)
 	assert.Equal(t, "not found", string(body))
+}
+
+func TestAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
+	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, bannedAnnotationsBody)
+	defer annotationsAPIServerMock.Close()
+
+	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	h := NewHandler(annotationsAPI)
+	r := vestigo.NewRouter()
+	r.Get("/drafts/content/:uuid/annotations", h.ServeHTTP)
+
+	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+	body, err := ioutil.ReadAll(resp.Body)
+
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+	assert.NoError(t, err)
+	assert.Equal(t, "{\"message\":\"No annotations can be found\"}", string(body))
 }
 
 func TestAnnotationsAPI500(t *testing.T) {
@@ -134,6 +155,21 @@ func newAnnotationsAPIServerMock(t *testing.T, status int, body string) *httptes
 	}))
 	return ts
 }
+
+const bannedAnnotationsBody = `[
+	{
+		"predicate": "http://www.ft.com/ontology/classification/isClassifiedBy",
+		"id": "http://api.ft.com/things/04789fc2-4598-3b95-9698-14e5ece17261",
+		"apiUrl": "http://api.ft.com/things/04789fc2-4598-3b95-9698-14e5ece17261",
+		"types": [
+		  "http://www.ft.com/ontology/core/Thing",
+		  "http://www.ft.com/ontology/concept/Concept",
+		  "http://www.ft.com/ontology/classification/Classification",
+		  "http://www.ft.com/ontology/SpecialReport"
+		],
+		"prefLabel": "Destination: North of England"
+	}
+]`
 
 const annotationsBody = `[
    {
