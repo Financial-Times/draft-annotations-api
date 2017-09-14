@@ -1,4 +1,4 @@
-package implications
+package annotations
 
 import (
 	"encoding/json"
@@ -17,8 +17,6 @@ const (
 	lexLiveBrand = "e363dfb8-f6d9-4f2c-beba-5162b334272b"
 	lexBrand     = "2d3e16e0-61cb-4322-8aff-3b01c59f4daa"
 	reutersBrand = "ed3b6ec5-6466-47ef-b1d8-16952fd522c7"
-
-	testAPIKey = "testAPIKey"
 )
 
 type BrandsResolverTestSuite struct {

@@ -7,7 +7,6 @@ import (
 	api "github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/Financial-Times/draft-annotations-api/health"
-	"github.com/Financial-Times/draft-annotations-api/implications"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/husobee/vestigo"
@@ -56,6 +55,13 @@ func main() {
 		EnvVar: "BRANDS_ENDPOINT",
 	})
 
+	genresEndpoint := app.String(cli.StringOpt{
+		Name:   "genres-endpoint",
+		Value:  "http://test.api.ft.com/concepts?type=http%3A%2F%2Fwww.ft.com%2Fontology%2FGenre",
+		Desc:   "Endpoint to get genres from UPP",
+		EnvVar: "GENRES_ENDPOINT",
+	})
+
 	uppAPIKey := app.String(cli.StringOpt{
 		Name:   "upp-api-key",
 		Value:  "",
@@ -76,9 +82,11 @@ func main() {
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
-		brandsResolver := implications.NewBrandsResolver(*brandsEndpoint, *uppAPIKey)
-		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsEndpoint, *uppAPIKey, brandsResolver)
-		annotationsHandler := annotations.NewHandler(annotationsAPI)
+		genres, _ := annotations.NewGenresService(*genresEndpoint, *uppAPIKey).Refresh()
+		brandsResolver := annotations.NewBrandsResolver(*brandsEndpoint, *uppAPIKey)
+		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsEndpoint, *uppAPIKey)
+		annotationsService := annotations.NewAnnotationsService(annotationsAPI, brandsResolver, genres)
+		annotationsHandler := annotations.NewHandler(annotationsAPI, annotationsService)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, annotationsAPI)
 
 		serveEndpoints(*port, apiYml, annotationsHandler, healthService)
@@ -94,7 +102,8 @@ func main() {
 func serveEndpoints(port string, apiYml *string, handler *annotations.Handler, healthService *health.HealthService) {
 
 	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", handler.ServeHTTP)
+	r.Get("/drafts/content/:uuid/annotations", handler.Get)
+	r.Put("/drafts/content/:uuid/annotations", handler.Put)
 	var monitoringRouter http.Handler = r
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
 	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)

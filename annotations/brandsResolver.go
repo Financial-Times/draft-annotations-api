@@ -1,4 +1,4 @@
-package implications
+package annotations
 
 import (
 	"net/http"
@@ -11,6 +11,10 @@ import (
 	"fmt"
 )
 
+const (
+	idPrefix = "http://www.ft.com/thing/"
+)
+
 type Brand struct {
 	ID          string  `json:"id"`
 	ParentBrand *Brand  `json:"parentBrand"`
@@ -19,7 +23,8 @@ type Brand struct {
 
 type BrandsResolverService interface {
 	Refresh(brandUuids []string)
-	GetBrands(brandUuid string) []string
+	// brand can be a UUID or a URI
+	GetBrands(brand string) []string
 }
 
 type brandsResolverService struct {
@@ -159,7 +164,12 @@ func (b *brandsResolverService) getBrandUUID(brandURI string) string {
 	return brandURI[i+1:]
 }
 
-func (b *brandsResolverService) GetBrands(brandUUID string) []string {
+func (b *brandsResolverService) GetBrands(brand string) []string {
+	brandUUID := brand
+	if strings.Contains(brandUUID, "/") {
+		brandUUID = b.getBrandUUID(brandUUID)
+	}
+
 	brands, found := b.resolveBrand(brandUUID)
 	if !found {
 		brandToResolve := brandUUID
@@ -186,6 +196,10 @@ func (b *brandsResolverService) GetBrands(brandUUID string) []string {
 		if !found {
 			log.WithField("brandUUID", brandUUID).Warn("brand not found")
 		}
+	}
+
+	for i := range brands {
+		brands[i] = idPrefix + brands[i]
 	}
 
 	return brands

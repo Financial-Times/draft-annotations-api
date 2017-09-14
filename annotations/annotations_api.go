@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/Financial-Times/draft-annotations-api/implications"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
 	log "github.com/sirupsen/logrus"
 )
@@ -28,7 +27,7 @@ type annotationsAPI struct {
 	httpClient       *http.Client
 }
 
-func NewAnnotationsAPI(endpoint string, apiKey string, brandsResolver implications.BrandsResolverService) AnnotationsAPI {
+func NewAnnotationsAPI(endpoint string, apiKey string) AnnotationsAPI {
 	return &annotationsAPI{endpointTemplate: endpoint, apiKey: apiKey, httpClient: &http.Client{}}
 }
 

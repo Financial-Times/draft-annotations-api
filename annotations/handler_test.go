@@ -18,12 +18,13 @@ func TestHappyAnnotationsAPI(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, annotationsBody)
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey, nil)
+	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
 	assert.Equal(t, annotationsAPIServerMock.URL+"/content/%v/annotations", annotationsAPI.Endpoint())
 
-	h := NewHandler(annotationsAPI)
+	annotationsService := NewAnnotationsService(annotationsAPI, nil)
+	h := NewHandler(annotationsAPI, annotationsService)
 	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", h.ServeHTTP)
+	r.Get("/drafts/content/:uuid/annotations", h.Get)
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -35,17 +36,18 @@ func TestHappyAnnotationsAPI(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.NoError(t, err)
-	assert.Equal(t, annotationsBody, string(body))
+	assert.JSONEq(t, annotationsBody, string(body))
 }
 
 func TestAnnotationsAPI404(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusNotFound, "not found")
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey, nil)
-	h := NewHandler(annotationsAPI)
+	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsService := NewAnnotationsService(annotationsAPI, nil)
+	h := NewHandler(annotationsAPI, annotationsService)
 	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", h.ServeHTTP)
+	r.Get("/drafts/content/:uuid/annotations", h.Get)
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -64,10 +66,11 @@ func TestAnnotationsAPI500(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusInternalServerError, "fire!")
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey, nil)
-	h := NewHandler(annotationsAPI)
+	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsService := NewAnnotationsService(annotationsAPI, nil)
+	h := NewHandler(annotationsAPI, annotationsService)
 	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", h.ServeHTTP)
+	r.Get("/drafts/content/:uuid/annotations", h.Get)
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -83,10 +86,11 @@ func TestAnnotationsAPI500(t *testing.T) {
 }
 
 func TestInvalidURL(t *testing.T) {
-	annotationsAPI := NewAnnotationsAPI(":#", testAPIKey, nil)
-	h := NewHandler(annotationsAPI)
+	annotationsAPI := NewAnnotationsAPI(":#", testAPIKey)
+	annotationsService := NewAnnotationsService(annotationsAPI, nil)
+	h := NewHandler(annotationsAPI, annotationsService)
 	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", h.ServeHTTP)
+	r.Get("/drafts/content/:uuid/annotations", h.Get)
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -105,10 +109,11 @@ func TestConnectionError(t *testing.T) {
 	annotationsAPIServerMock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	annotationsAPIServerMock.Close()
 
-	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL, testAPIKey, nil)
-	h := NewHandler(annotationsAPI)
+	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL, testAPIKey)
+	annotationsService := NewAnnotationsService(annotationsAPI, nil)
+	h := NewHandler(annotationsAPI, annotationsService)
 	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", h.ServeHTTP)
+	r.Get("/drafts/content/:uuid/annotations", h.Get)
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
