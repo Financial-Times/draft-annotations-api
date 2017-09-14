@@ -14,6 +14,11 @@ import (
 const testAPIKey = "testAPIKey"
 const testTID = "test_tid"
 
+func idLinter() *IDLinter {
+	idLinter, _ := NewIDLinter(`^(.+)\/\/api\.ft\.com\/things\/(.+)$`, "$1//www.ft.com/thing/$2")
+	return idLinter
+}
+
 func TestHappyAnnotationsAPI(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, annotationsBody)
 	defer annotationsAPIServerMock.Close()
@@ -21,7 +26,7 @@ func TestHappyAnnotationsAPI(t *testing.T) {
 	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
 	assert.Equal(t, annotationsAPIServerMock.URL+"/content/%v/annotations", annotationsAPI.Endpoint())
 
-	annotationsService := NewAnnotationsService(annotationsAPI, nil)
+	annotationsService := NewAnnotationsService(annotationsAPI, nil, idLinter(),nil)
 	h := NewHandler(annotationsAPI, annotationsService)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.Get)
@@ -44,7 +49,7 @@ func TestAnnotationsAPI404(t *testing.T) {
 	defer annotationsAPIServerMock.Close()
 
 	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
-	annotationsService := NewAnnotationsService(annotationsAPI, nil)
+	annotationsService := NewAnnotationsService(annotationsAPI, nil, idLinter(), nil)
 	h := NewHandler(annotationsAPI, annotationsService)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.Get)
@@ -67,7 +72,7 @@ func TestAnnotationsAPI500(t *testing.T) {
 	defer annotationsAPIServerMock.Close()
 
 	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
-	annotationsService := NewAnnotationsService(annotationsAPI, nil)
+	annotationsService := NewAnnotationsService(annotationsAPI, nil, idLinter(), nil)
 	h := NewHandler(annotationsAPI, annotationsService)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.Get)
@@ -87,7 +92,7 @@ func TestAnnotationsAPI500(t *testing.T) {
 
 func TestInvalidURL(t *testing.T) {
 	annotationsAPI := NewAnnotationsAPI(":#", testAPIKey)
-	annotationsService := NewAnnotationsService(annotationsAPI, nil)
+	annotationsService := NewAnnotationsService(annotationsAPI, nil, idLinter(), nil)
 	h := NewHandler(annotationsAPI, annotationsService)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.Get)
@@ -110,7 +115,7 @@ func TestConnectionError(t *testing.T) {
 	annotationsAPIServerMock.Close()
 
 	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL, testAPIKey)
-	annotationsService := NewAnnotationsService(annotationsAPI, nil)
+	annotationsService := NewAnnotationsService(annotationsAPI, nil, idLinter(), nil)
 	h := NewHandler(annotationsAPI, annotationsService)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.Get)

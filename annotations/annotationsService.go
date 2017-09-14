@@ -24,9 +24,9 @@ type AnnotationsService interface {
 type Annotation struct {
 	Predicate string   `json:"predicate"`
 	ConceptId string   `json:"id"`
-	ApiUrl    string   `json:"apiUrl"`
-	Types     []string `json:"types"`
-	PrefLabel string   `json:"prefLabel"`
+	ApiUrl    string   `json:"apiUrl,omitempty"`
+	Types     []string `json:"types,omitempty"`
+	PrefLabel string   `json:"prefLabel,omitempty"`
 }
 
 type annotationsService struct {
@@ -44,10 +44,10 @@ func (e *UPPAnnotationsApiError) Error() string {
 	return e.msg
 }
 
-func NewAnnotationsService(uppAnnotations AnnotationsAPI, brandsResolver BrandsResolverService, genres []string) AnnotationsService {
+func NewAnnotationsService(uppAnnotations AnnotationsAPI, brandsResolver BrandsResolverService, idLinter *IDLinter, genres []string) AnnotationsService {
 	removeImplicitBrands := NewRemoveRule([]string{implicitlyClassifiedBy})
 	addImplicitBrands := NewImplicitBrandsRule([]string{isClassifiedBy}, implicitlyClassifiedBy, genres, brandsResolver)
-	reasoner := NewReasoner([]Rule{removeImplicitBrands, addImplicitBrands})
+	reasoner := NewReasoner([]Rule{idLinter, removeImplicitBrands, addImplicitBrands})
 
 	return &annotationsService{uppAnnotations: uppAnnotations, reasoner: reasoner}
 }

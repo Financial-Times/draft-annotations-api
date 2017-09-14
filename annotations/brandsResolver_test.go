@@ -22,6 +22,7 @@ const (
 type BrandsResolverTestSuite struct {
 	suite.Suite
 	brands  map[string]Brand
+	linter *IDLinter
 	handler http.HandlerFunc
 }
 
@@ -30,11 +31,16 @@ func TestBrandsResolverSuite(t *testing.T) {
 }
 
 func newBrandsResolverTestSuite() *BrandsResolverTestSuite {
-	return &BrandsResolverTestSuite{brands: make(map[string]Brand)}
+	idLinter, _ := NewIDLinter(`^(.+)\/\/api\.ft\.com\/things\/(.+)$`, "$1//www.ft.com/thing/$2")
+	return &BrandsResolverTestSuite{brands: make(map[string]Brand), linter: idLinter}
+}
+
+func conceptId(uuid string) string {
+	return "http://www.ft.com/thing/" + uuid
 }
 
 func (s *BrandsResolverTestSuite) SetupTest() {
-	s.brands[ftBrand] = Brand{ID: ftBrand}
+	s.brands[ftBrand] = Brand{ID: conceptId(ftBrand)}
 	s.handler = http.HandlerFunc(
 		func(w http.ResponseWriter, req *http.Request) {
 			assert.Equal(s.T(), testAPIKey, req.Header.Get("X-Api-Key"), "api key")
@@ -56,79 +62,79 @@ func (s *BrandsResolverTestSuite) TestGetFtBrand() {
 	server := httptest.NewServer(s.handler)
 	defer server.Close()
 
-	resolver := NewBrandsResolver(server.URL + "/%v", testAPIKey)
+	resolver := NewBrandsResolver(server.URL + "/%v", testAPIKey, s.linter)
 
-	actual := resolver.GetBrands(ftBrand)
+	actual := resolver.GetBrands(conceptId(ftBrand))
 	assert.Len(s.T(), actual, 1, "brands")
-	assert.Equal(s.T(), ftBrand, actual[0], "FT brand")
+	assert.Equal(s.T(), conceptId(ftBrand), actual[0], "FT brand")
 }
 
 func (s *BrandsResolverTestSuite) TestCacheWarming() {
 	server := httptest.NewServer(s.handler)
 	defer server.Close()
 
-	resolver := NewBrandsResolver(server.URL + "/%v", testAPIKey)
-	resolver.Refresh([]string{ftBrand})
+	resolver := NewBrandsResolver(server.URL + "/%v", testAPIKey, s.linter)
+	resolver.Refresh([]string{conceptId(ftBrand)})
 	server.Close()
 
-	actual := resolver.GetBrands(ftBrand)
+	actual := resolver.GetBrands(conceptId(ftBrand))
 	assert.Len(s.T(), actual, 1, "brands")
-	assert.Equal(s.T(), ftBrand, actual[0], "FT brand")
+	assert.Equal(s.T(), conceptId(ftBrand), actual[0], "FT brand")
 }
 
 func (s *BrandsResolverTestSuite) TestGetFtChildBrandUsingParent() {
-	s.brands[fastFtBrand] = Brand{ID: fastFtBrand, ParentBrand: &Brand{ID: ftBrand}}
+	s.brands[fastFtBrand] = Brand{ID: conceptId(fastFtBrand), ParentBrand: &Brand{ID: conceptId(ftBrand)}}
 	server := httptest.NewServer(s.handler)
 	defer server.Close()
 
-	resolver := NewBrandsResolver(server.URL + "/%v", testAPIKey)
+	resolver := NewBrandsResolver(server.URL + "/%v", testAPIKey, s.linter)
 
-	actual := resolver.GetBrands(fastFtBrand)
+	actual := resolver.GetBrands(conceptId(fastFtBrand))
 	assert.Len(s.T(), actual, 2, "brands")
-	assert.Contains(s.T(), actual, ftBrand, "FT brand")
-	assert.Contains(s.T(), actual, fastFtBrand, "FastFT brand")
+	assert.Contains(s.T(), actual, conceptId(ftBrand), "FT brand")
+	assert.Contains(s.T(), actual, conceptId(fastFtBrand), "FastFT brand")
 }
 
 func (s *BrandsResolverTestSuite) TestGetFtChildBrandUsingChildren() {
-	s.brands[ftBrand] = Brand{ID: ftBrand, ChildBrands: []Brand{{ID:fastFtBrand}}}
+	s.brands[ftBrand] = Brand{ID: conceptId(ftBrand), ChildBrands: []Brand{{ID:conceptId(fastFtBrand)}}}
 	server := httptest.NewServer(s.handler)
 	defer server.Close()
 
-	resolver := NewBrandsResolver(server.URL + "/%v", testAPIKey)
+	resolver := NewBrandsResolver(server.URL + "/%v", testAPIKey, s.linter)
 	resolver.Refresh([]string{ftBrand})
 	server.Close()
 
-	actual := resolver.GetBrands(fastFtBrand)
+	actual := resolver.GetBrands(conceptId(fastFtBrand))
 	assert.Len(s.T(), actual, 2, "brands")
-	assert.Contains(s.T(), actual, ftBrand, "FT brand")
-	assert.Contains(s.T(), actual, fastFtBrand, "FastFT brand")
+	assert.Contains(s.T(), actual, conceptId(ftBrand), "FT brand")
+	assert.Contains(s.T(), actual, conceptId(fastFtBrand), "FastFT brand")
 }
 
 func (s *BrandsResolverTestSuite) TestGetFtGrandchildBrand() {
-	s.brands[lexLiveBrand] = Brand{ID: lexLiveBrand, ParentBrand: &Brand{ID: lexBrand}}
-	s.brands[lexBrand] = Brand{ID: lexBrand, ParentBrand: &Brand{ID: ftBrand}}
+	s.brands[lexLiveBrand] = Brand{ID: conceptId(lexLiveBrand), ParentBrand: &Brand{ID: conceptId(lexBrand)}}
+	s.brands[lexBrand] = Brand{ID: conceptId(lexBrand), ParentBrand: &Brand{ID: conceptId(ftBrand)}}
 	server := httptest.NewServer(s.handler)
 	defer server.Close()
 
-	resolver := NewBrandsResolver(server.URL + "/%v", testAPIKey)
+	resolver := NewBrandsResolver(server.URL + "/%v", testAPIKey, s.linter)
 
-	actual := resolver.GetBrands(lexLiveBrand)
+	actual := resolver.GetBrands(conceptId(lexLiveBrand))
 	assert.Len(s.T(), actual, 3, "brands")
-	assert.Contains(s.T(), actual, ftBrand, "FT brand")
-	assert.Contains(s.T(), actual, lexBrand, "Lex brand")
-	assert.Contains(s.T(), actual, lexLiveBrand, "Lex Live brand")
+	assert.Contains(s.T(), actual, conceptId(ftBrand), "FT brand")
+	assert.Contains(s.T(), actual, conceptId(lexBrand), "Lex brand")
+	assert.Contains(s.T(), actual, conceptId(lexLiveBrand), "Lex Live brand")
 }
 
 func (s *BrandsResolverTestSuite) TestGetNonFtBrand() {
-	s.brands[reutersBrand] = Brand{ID: reutersBrand} // as if it were a distinct top-level brand
+	s.brands[reutersBrand] = Brand{ID: conceptId(reutersBrand)} // as if it were a distinct top-level brand
 	server := httptest.NewServer(s.handler)
 	defer server.Close()
 
-	resolver := NewBrandsResolver(server.URL + "/%v", testAPIKey)
+	resolver := NewBrandsResolver(server.URL + "/%v", testAPIKey, s.linter)
 
-	actual := resolver.GetBrands(reutersBrand)
+	actual := resolver.GetBrands(conceptId(reutersBrand))
 	assert.Len(s.T(), actual, 1, "brands")
-	assert.Equal(s.T(), reutersBrand, actual[0], "Reuters brand")
+	assert.Equal(s.T(), conceptId(reutersBrand), actual[0], "Reuters brand")
 }
 
 func (s *BrandsResolverTestSuite) TestGetUnknownBrand() {
@@ -136,9 +142,9 @@ func (s *BrandsResolverTestSuite) TestGetUnknownBrand() {
 	server := httptest.NewServer(s.handler)
 	defer server.Close()
 
-	resolver := NewBrandsResolver(server.URL + "/%v", testAPIKey)
+	resolver := NewBrandsResolver(server.URL + "/%v", testAPIKey, s.linter)
 
-	actual := resolver.GetBrands(unknownBrand)
+	actual := resolver.GetBrands(conceptId(unknownBrand))
 	assert.Empty(s.T(), actual, "brands")
 }
 
@@ -148,9 +154,9 @@ func (s *BrandsResolverTestSuite) TestBrandsApiUnavailable() {
 	}))
 	defer server.Close()
 
-	resolver := NewBrandsResolver(server.URL + "/%v", testAPIKey)
+	resolver := NewBrandsResolver(server.URL + "/%v", testAPIKey, s.linter)
 
-	actual := resolver.GetBrands(ftBrand)
+	actual := resolver.GetBrands(conceptId(ftBrand))
 	assert.Empty(s.T(), actual, "brands")
 }
 
@@ -159,10 +165,10 @@ func (s *BrandsResolverTestSuite) TestBrandsApiUnreachable() {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
 
-	resolver := NewBrandsResolver(server.URL + "/%v", testAPIKey)
+	resolver := NewBrandsResolver(server.URL + "/%v", testAPIKey, s.linter)
 	server.Close()
 
-	actual := resolver.GetBrands(ftBrand)
+	actual := resolver.GetBrands(conceptId(ftBrand))
 	assert.Empty(s.T(), actual, "brands")
 }
 
@@ -172,8 +178,8 @@ func (s *BrandsResolverTestSuite) TestBrandsApiReturnsClientError() {
 	}))
 	defer server.Close()
 
-	resolver := NewBrandsResolver(server.URL + "/%v", "")
+	resolver := NewBrandsResolver(server.URL + "/%v", "", s.linter)
 
-	actual := resolver.GetBrands(ftBrand)
+	actual := resolver.GetBrands(conceptId(ftBrand))
 	assert.Empty(s.T(), actual, "brands")
 }

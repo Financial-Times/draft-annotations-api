@@ -83,9 +83,10 @@ func main() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
 		genres, _ := annotations.NewGenresService(*genresEndpoint, *uppAPIKey).Refresh()
-		brandsResolver := annotations.NewBrandsResolver(*brandsEndpoint, *uppAPIKey)
+		idLinter, _ := annotations.NewIDLinter(`^(.+)\/\/api\.ft\.com\/things\/(.+)$`, "$1//www.ft.com/thing/$2")
+		brandsResolver := annotations.NewBrandsResolver(*brandsEndpoint, *uppAPIKey, idLinter)
 		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsEndpoint, *uppAPIKey)
-		annotationsService := annotations.NewAnnotationsService(annotationsAPI, brandsResolver, genres)
+		annotationsService := annotations.NewAnnotationsService(annotationsAPI, brandsResolver, idLinter, genres)
 		annotationsHandler := annotations.NewHandler(annotationsAPI, annotationsService)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, annotationsAPI)
 

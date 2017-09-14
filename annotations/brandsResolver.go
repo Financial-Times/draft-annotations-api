@@ -1,18 +1,14 @@
 package annotations
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
 
-	"encoding/json"
-	"errors"
 	log "github.com/sirupsen/logrus"
-	"fmt"
-)
-
-const (
-	idPrefix = "http://www.ft.com/thing/"
 )
 
 type Brand struct {
@@ -23,8 +19,7 @@ type Brand struct {
 
 type BrandsResolverService interface {
 	Refresh(brandUuids []string)
-	// brand can be a UUID or a URI
-	GetBrands(brand string) []string
+	GetBrands(brandUri string) []string
 }
 
 type brandsResolverService struct {
@@ -32,14 +27,16 @@ type brandsResolverService struct {
 	brandsApiUrl string
 	apiKey       string
 	client       *http.Client
+	idLinter     *IDLinter
 	resolver     map[string][]string
 }
 
-func NewBrandsResolver(brandsApiUrl string, apiKey string) BrandsResolverService {
+func NewBrandsResolver(brandsApiUrl string, apiKey string, idLinter *IDLinter) BrandsResolverService {
 	b := &brandsResolverService{
 		brandsApiUrl: brandsApiUrl,
 		apiKey:       apiKey,
 		client:       http.DefaultClient,
+		idLinter:     idLinter,
 		resolver:     make(map[string][]string),
 	}
 	return b
@@ -88,10 +85,10 @@ func (b *brandsResolverService) populateResolver(brand *Brand, clear bool) {
 		b.resolver = make(map[string][]string)
 	}
 
-	brandUUID := b.getBrandUUID(brand.ID)
-	resolved := map[string]struct{}{brandUUID: {}}
+	brand.ID = b.idLinter.Lint(brand.ID)
+	resolved := map[string]struct{}{brand.ID: {}}
 	if brand.ParentBrand != nil {
-		parentBrand := b.getBrandUUID(brand.ParentBrand.ID)
+		parentBrand := b.idLinter.Lint(brand.ParentBrand.ID)
 		resolved[parentBrand] = struct{}{}
 		ancestors, found := b.resolver[parentBrand]
 		if found {
@@ -102,25 +99,25 @@ func (b *brandsResolverService) populateResolver(brand *Brand, clear bool) {
 	}
 
 	resolvedBrands := mapToSlice(resolved)
-	b.resolver[brandUUID] = resolvedBrands
+	b.resolver[brand.ID] = resolvedBrands
 
 	for _, child := range brand.ChildBrands {
-		childBrand := b.getBrandUUID(child.ID)
+		childBrand := b.idLinter.Lint(child.ID)
 		b.resolver[childBrand] = append([]string{childBrand}, resolvedBrands...)
 	}
 
 	// attach these brands to any brands whose ancestor contains the resolved brand
-	for uuid, set := range b.resolver {
+	for uri, set := range b.resolver {
 		contains := false
 		for _, v := range set {
-			if v == brandUUID {
+			if v == brand.ID {
 				contains = true
 				break
 			}
 		}
 
 		if contains {
-			b.resolver[uuid] = normalize(append(b.resolver[uuid], resolvedBrands...))
+			b.resolver[uri] = normalize(append(b.resolver[uri], resolvedBrands...))
 		}
 	}
 }
@@ -164,17 +161,17 @@ func (b *brandsResolverService) getBrandUUID(brandURI string) string {
 	return brandURI[i+1:]
 }
 
-func (b *brandsResolverService) GetBrands(brand string) []string {
-	brandUUID := brand
+func (b *brandsResolverService) GetBrands(brandURI string) []string {
+	brandUUID := brandURI
 	if strings.Contains(brandUUID, "/") {
 		brandUUID = b.getBrandUUID(brandUUID)
 	}
 
-	brands, found := b.resolveBrand(brandUUID)
+	brands, found := b.resolveBrand(brandURI)
 	if !found {
-		brandToResolve := brandUUID
+		brandToResolve := brandURI
 		for {
-			brand, err := b.getBrand(brandToResolve)
+			brand, err := b.getBrand(b.getBrandUUID(brandToResolve))
 			if err != nil {
 				return []string{}
 			}
@@ -186,30 +183,26 @@ func (b *brandsResolverService) GetBrands(brand string) []string {
 			}
 
 			var resolved bool
-			brandToResolve, resolved = b.isBrandResolved(brand.ParentBrand.ID)
+			brandToResolve, resolved = b.isBrandResolved(b.idLinter.Lint(brand.ParentBrand.ID))
 			if resolved {
 				break
 			}
 		}
 
-		brands, found = b.resolveBrand(brandUUID)
+		brands, found = b.resolveBrand(brandURI)
 		if !found {
 			log.WithField("brandUUID", brandUUID).Warn("brand not found")
 		}
 	}
 
-	for i := range brands {
-		brands[i] = idPrefix + brands[i]
-	}
-
 	return brands
 }
 
-func (b *brandsResolverService) resolveBrand(brandUuid string) ([]string, bool) {
+func (b *brandsResolverService) resolveBrand(brandURI string) ([]string, bool) {
 	b.RLock()
 	defer b.RUnlock()
 
-	brands, found := b.resolver[brandUuid]
+	brands, found := b.resolver[brandURI]
 	return brands, found
 }
 
@@ -218,6 +211,6 @@ func (b *brandsResolverService) isBrandResolved(brandURI string) (string, bool) 
 	defer b.RUnlock()
 
 	brandUUID := b.getBrandUUID(brandURI)
-	_, resolved := b.resolver[brandUUID]
+	_, resolved := b.resolver[brandURI]
 	return brandUUID, resolved
 }
