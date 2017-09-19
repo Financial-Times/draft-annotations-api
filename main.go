@@ -15,7 +15,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const appDescription = "PAC Draft Annotations API"
+const (
+	appDescription = "PAC Draft Annotations API"
+	ftBrand = "http://www.ft.com/thing/dbb0bdae-1f0c-11e4-b0cb-b2227cce2b54"
+)
 
 func main() {
 	app := cli.App("draft-annotations-api", appDescription)
@@ -85,6 +88,7 @@ func main() {
 		genres, _ := annotations.NewGenresService(*genresEndpoint, *uppAPIKey).Refresh()
 		idLinter, _ := annotations.NewIDLinter(`^(.+)\/\/api\.ft\.com\/things\/(.+)$`, "$1//www.ft.com/thing/$2")
 		brandsResolver := annotations.NewBrandsResolver(*brandsEndpoint, *uppAPIKey, idLinter)
+		go brandsResolver.Refresh([]string{ftBrand})
 		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsEndpoint, *uppAPIKey)
 		annotationsService := annotations.NewAnnotationsService(annotationsAPI, brandsResolver, idLinter, genres)
 		annotationsHandler := annotations.NewHandler(annotationsAPI, annotationsService)

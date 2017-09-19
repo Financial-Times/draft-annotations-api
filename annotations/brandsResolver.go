@@ -63,12 +63,12 @@ func mapToSlice(in map[string]struct{}) []string {
 	return out
 }
 
-func (b *brandsResolverService) Refresh(brandUUIDs []string) {
+func (b *brandsResolverService) Refresh(brandURIs []string) {
 	cleared := false
-	for _, uuid := range brandUUIDs {
-		rootBrand, err := b.getBrand(uuid)
+	for _, uri := range brandURIs {
+		rootBrand, err := b.getBrand(uri)
 		if err != nil {
-			log.WithField("brandUUID", uuid).Error(err)
+			log.WithField("brandURI", uri).Error(err)
 			continue
 		}
 
@@ -122,7 +122,8 @@ func (b *brandsResolverService) populateResolver(brand *Brand, clear bool) {
 	}
 }
 
-func (b *brandsResolverService) getBrand(brandUUID string) (*Brand, error) {
+func (b *brandsResolverService) getBrand(brandURI string) (*Brand, error) {
+	brandUUID := b.getBrandUUID(brandURI)
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf(b.brandsApiUrl, brandUUID), nil)
 	if err != nil {
 		log.WithError(err).WithField("brandUUID", brandUUID).Error("unable to read brand")
@@ -162,16 +163,11 @@ func (b *brandsResolverService) getBrandUUID(brandURI string) string {
 }
 
 func (b *brandsResolverService) GetBrands(brandURI string) []string {
-	brandUUID := brandURI
-	if strings.Contains(brandUUID, "/") {
-		brandUUID = b.getBrandUUID(brandUUID)
-	}
-
 	brands, found := b.resolveBrand(brandURI)
 	if !found {
 		brandToResolve := brandURI
 		for {
-			brand, err := b.getBrand(b.getBrandUUID(brandToResolve))
+			brand, err := b.getBrand(brandToResolve)
 			if err != nil {
 				return []string{}
 			}
@@ -191,7 +187,7 @@ func (b *brandsResolverService) GetBrands(brandURI string) []string {
 
 		brands, found = b.resolveBrand(brandURI)
 		if !found {
-			log.WithField("brandUUID", brandUUID).Warn("brand not found")
+			log.WithField("brandURI", brandURI).Warn("brand not found")
 		}
 	}
 
@@ -210,7 +206,6 @@ func (b *brandsResolverService) isBrandResolved(brandURI string) (string, bool) 
 	b.RLock()
 	defer b.RUnlock()
 
-	brandUUID := b.getBrandUUID(brandURI)
 	_, resolved := b.resolver[brandURI]
-	return brandUUID, resolved
+	return brandURI, resolved
 }
