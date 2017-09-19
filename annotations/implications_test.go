@@ -13,6 +13,20 @@ const (
 	mentions = "http://www.ft.com/ontology/mentions"
 )
 
+type exclusions struct {
+	ids []string
+}
+
+func (ex *exclusions) IsConcept(id string) bool {
+		for _, x := range ex.ids {
+			if id == x {
+				return true
+			}
+		}
+
+	return false
+}
+
 func assertedBrandAnnotation() Annotation {
 	conceptUuid := uuid.NewV4().String()
 	conceptId := "http://www.ft.com/thing/" + conceptUuid
@@ -101,7 +115,7 @@ func TestImplicitBrandsRuleWithAncestors(t *testing.T) {
 
 	brandsResolver := &mockBrandsResolver{}
 	brandsResolver.On("GetBrands", ann1.ConceptId).Return([]string{ann1.ConceptId, parentBrandId, grandparentBrandId}, nil)
-	rule := NewImplicitBrandsRule([]string{isClassifiedBy}, implicitlyClassifiedBy, []string{}, brandsResolver)
+	rule := NewImplicitBrandsRule([]string{isClassifiedBy}, implicitlyClassifiedBy, &exclusions{[]string{}}, brandsResolver)
 
 	ann2 := mentionsAnnotation()
 
@@ -133,7 +147,7 @@ func TestImplicitBrandsRuleNoAncestors(t *testing.T) {
 
 	brandsResolver := &mockBrandsResolver{}
 	brandsResolver.On("GetBrands", ann1.ConceptId).Return([]string{ann1.ConceptId}, nil)
-	rule := NewImplicitBrandsRule([]string{isClassifiedBy}, implicitlyClassifiedBy, []string{}, brandsResolver)
+	rule := NewImplicitBrandsRule([]string{isClassifiedBy}, implicitlyClassifiedBy, &exclusions{[]string{}}, brandsResolver)
 
 	ann2 := mentionsAnnotation()
 
@@ -168,7 +182,7 @@ func TestImplicitBrandsRuleWithExclusion(t *testing.T) {
 	ann2 := mentionsAnnotation()
 	ann3 := assertedBrandAnnotation()
 
-	rule := NewImplicitBrandsRule([]string{isClassifiedBy}, implicitlyClassifiedBy, []string{ann3.ConceptId}, brandsResolver)
+	rule := NewImplicitBrandsRule([]string{isClassifiedBy}, implicitlyClassifiedBy, &exclusions{[]string{ann3.ConceptId}}, brandsResolver)
 
 	actual, err := rule.Apply(context.Background(), []Annotation{ann1, ann2, ann3})
 	assert.NoError(t, err)

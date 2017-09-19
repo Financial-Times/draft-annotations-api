@@ -73,23 +73,18 @@ func (r *removeRule) String() string {
 
 type implicitBrandsRule struct {
 	predicates map[string]struct{}
-	excludedConcepts map[string]struct{}
+	excludedConcepts ConceptChecker
 	implicitPredicate string
 	brandsResolverService BrandsResolverService
 }
 
-func NewImplicitBrandsRule(brandPredicates []string, implicitPredicate string, excludedConcepts []string, brandsResolverService BrandsResolverService) Rule {
+func NewImplicitBrandsRule(brandPredicates []string, implicitPredicate string, excludedConcepts ConceptChecker, brandsResolverService BrandsResolverService) Rule {
 	p := map[string]struct{}{}
 	for _, predicate := range brandPredicates {
 		p[predicate] = struct{}{}
 	}
 
-	x := map[string]struct{}{}
-	for _, excluded := range excludedConcepts {
-		x[excluded] = struct{}{}
-	}
-
-	return &implicitBrandsRule{p, x, implicitPredicate, brandsResolverService}
+	return &implicitBrandsRule{p, excludedConcepts, implicitPredicate, brandsResolverService}
 }
 
 func (r *implicitBrandsRule) Apply(ctx context.Context, in []Annotation) ([]Annotation, error) {
@@ -102,7 +97,7 @@ func (r *implicitBrandsRule) Apply(ctx context.Context, in []Annotation) ([]Anno
 			continue
 		}
 
-		if _, isExcludedConcept := r.excludedConcepts[ann.ConceptId]; isExcludedConcept {
+		if r.excludedConcepts.IsConcept(ann.ConceptId) {
 			continue
 		}
 

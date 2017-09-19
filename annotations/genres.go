@@ -1,9 +1,8 @@
 package annotations
 
 import (
-	"errors"
 	"encoding/json"
-	//"fmt"
+	"errors"
 	"net/http"
 	"sync"
 
@@ -15,8 +14,8 @@ type Genre struct {
 }
 
 type GenresService interface {
+	ConceptChecker
 	Refresh() ([]string, error)
-	// genre can be a UUID or a URI
 	IsGenre(conceptId string) bool
 }
 
@@ -25,22 +24,23 @@ type genresService struct {
 	genresApiUrl string
 	apiKey       string
 	client       *http.Client
+	idLinter     *IDLinter
 	genres       map[string]struct{}
 }
 
-func NewGenresService(genresApiUrl string, apiKey string) GenresService {
+func NewGenresService(genresApiUrl string, apiKey string, idLinter *IDLinter) GenresService {
 	g := &genresService{
 		genresApiUrl: genresApiUrl,
 		apiKey:       apiKey,
 		client:       http.DefaultClient,
+		idLinter:     idLinter,
 		genres:       make(map[string]struct{}),
 	}
 	return g
 }
 
-// http://test.api.ft.com/concepts?type=http://www.ft.com/ontology/Genre
-
 func (g *genresService) Refresh() ([]string, error) {
+	log.WithField("source", g.genresApiUrl).Info("refresh genres")
 	req, err := http.NewRequest(http.MethodGet, g.genresApiUrl, nil)
 	if err != nil {
 		log.WithError(err).Error("unable to read genres")
@@ -73,11 +73,12 @@ func (g *genresService) Refresh() ([]string, error) {
 
 	genres := []string{}
 	for _, genre := range concepts["concepts"] {
-		genres = append(genres, genre.ID)
+		genres = append(genres, g.idLinter.Lint(genre.ID))
 	}
 
 	g.populateGenres(genres)
 
+	log.WithField("count", len(g.genres)).Info("genres loaded")
 	return genres, nil
 }
 
@@ -90,6 +91,10 @@ func (g *genresService) populateGenres(genres []string) {
 	for _, genre := range genres {
 		g.genres[genre] = struct{}{}
 	}
+}
+
+func (g *genresService) IsConcept(conceptId string) bool {
+	return g.IsGenre(conceptId)
 }
 
 func (g *genresService) IsGenre(conceptId string) bool {

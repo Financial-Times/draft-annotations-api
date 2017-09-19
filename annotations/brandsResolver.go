@@ -64,6 +64,7 @@ func mapToSlice(in map[string]struct{}) []string {
 }
 
 func (b *brandsResolverService) Refresh(brandURIs []string) {
+	log.WithFields(log.Fields{"brandURIs": brandURIs, "source":b.brandsApiUrl}).Info("refresh brands")
 	cleared := false
 	for _, uri := range brandURIs {
 		rootBrand, err := b.getBrand(uri)
@@ -75,6 +76,8 @@ func (b *brandsResolverService) Refresh(brandURIs []string) {
 		b.populateResolver(rootBrand, !cleared)
 		cleared = true
 	}
+
+	log.WithField("count", len(b.resolver)).Info("brands loaded")
 }
 
 func (b *brandsResolverService) populateResolver(brand *Brand, clear bool) {

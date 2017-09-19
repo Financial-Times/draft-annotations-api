@@ -21,6 +21,10 @@ type AnnotationsService interface {
 	Write(ctx context.Context, uuid string, draftAnnotations []Annotation, imply bool) ([]Annotation, error)
 }
 
+type ConceptChecker interface {
+	IsConcept(id string) bool
+}
+
 type Annotation struct {
 	Predicate string   `json:"predicate"`
 	ConceptId string   `json:"id"`
@@ -44,7 +48,7 @@ func (e *UPPAnnotationsApiError) Error() string {
 	return e.msg
 }
 
-func NewAnnotationsService(uppAnnotations AnnotationsAPI, brandsResolver BrandsResolverService, idLinter *IDLinter, genres []string) AnnotationsService {
+func NewAnnotationsService(uppAnnotations AnnotationsAPI, brandsResolver BrandsResolverService, idLinter *IDLinter, genres ConceptChecker) AnnotationsService {
 	removeImplicitBrands := NewRemoveRule([]string{implicitlyClassifiedBy})
 	addImplicitBrands := NewImplicitBrandsRule([]string{isClassifiedBy}, implicitlyClassifiedBy, genres, brandsResolver)
 	reasoner := NewReasoner([]Rule{idLinter, removeImplicitBrands, addImplicitBrands})

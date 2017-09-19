@@ -35,12 +35,15 @@ go install
 $GOPATH/bin/draft-annotations-api [--help]
 
 Options:
-  --app-system-code="draft-annotations-api"                                System Code of the application ($APP_SYSTEM_CODE)
-  --app-name="draft-annotations-api"                                       Application name ($APP_NAME)
-  --port="8080"                                                            Port to listen on ($APP_PORT)
-  --annotations-endpoint="http://test.api.ft.com/content/%v/annotations"   Endpoint to get annotations from UPP ($ANNOTATIONS_ENDPOINT)
-  --upp-api-key=""                                                         API key to access UPP ($UPP_APIKEY)
-  --api-yml="./api.yml"                                                    Location of the API Swagger YML file. ($API_YML)
+  --app-system-code="draft-annotations-api"                                                             System Code of the application ($APP_SYSTEM_CODE)
+  --app-name="draft-annotations-api"                                                                    Application name ($APP_NAME)
+  --port="8080"                                                                                         Port to listen on ($APP_PORT)
+  --annotations-endpoint="http://test.api.ft.com/content/%v/annotations"                                Endpoint to get annotations from UPP ($ANNOTATIONS_ENDPOINT)
+  --brands-endpoint="http://test.api.ft.com/brands/%v"                                                  Endpoint to get brand information from UPP ($BRANDS_ENDPOINT)
+  --genres-endpoint="http://test.api.ft.com/concepts?type=http%3A%2F%2Fwww.ft.com%2Fontology%2FGenre"   Endpoint to get genres information from UPP ($GENRES_ENDPOINT)
+  --cache-ttl=60                                                                                        Time (in minutes) to cache brand and genres information ($CACHE_TTL)
+  --upp-api-key=""                                                                                      API key to access UPP ($UPP_APIKEY)
+  --api-yml="./api.yml"                                                                                 Location of the API Swagger YML file. ($API_YML)
 ```
 
 
@@ -78,6 +81,13 @@ http GET http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc
 ```
 
 Currently, this endpoint is a proxy to the annotations available in UPP, so it returns a payload consistent to the UPP Public Annotations API.
+
+### PUT
+
+The body received from a GET request can be round-tripped by a PUT request to the same URL.
+
+Ancestor brands are added to the response with the `implicitlyClassifiedBy` predicate.
+Note that annotations with an `isClassifiedBy` predicate that are not Brands or Genres will produce requests to the brands API that return 404s.
 
 ## Healthchecks
 

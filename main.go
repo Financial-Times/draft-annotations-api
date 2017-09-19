@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"os"
+	"time"
 
 	api "github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/draft-annotations-api/annotations"
@@ -65,6 +66,13 @@ func main() {
 		EnvVar: "GENRES_ENDPOINT",
 	})
 
+	ttl := app.Int(cli.IntOpt{
+		Name: "cache-ttl",
+		Value: 60,
+		Desc: "Time-to-live (minutes) for internal brands and genres cache",
+		EnvVar: "CACHE_TTL",
+	})
+
 	uppAPIKey := app.String(cli.StringOpt{
 		Name:   "upp-api-key",
 		Value:  "",
@@ -85,10 +93,16 @@ func main() {
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
-		genres, _ := annotations.NewGenresService(*genresEndpoint, *uppAPIKey).Refresh()
 		idLinter, _ := annotations.NewIDLinter(`^(.+)\/\/api\.ft\.com\/things\/(.+)$`, "$1//www.ft.com/thing/$2")
+		genres := annotations.NewGenresService(*genresEndpoint, *uppAPIKey, idLinter)
 		brandsResolver := annotations.NewBrandsResolver(*brandsEndpoint, *uppAPIKey, idLinter)
-		go brandsResolver.Refresh([]string{ftBrand})
+		go func() {
+			for {
+				brandsResolver.Refresh([]string{ftBrand})
+				genres.Refresh()
+				time.Sleep(time.Duration(*ttl) * time.Minute)
+			}
+		}()
 		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsEndpoint, *uppAPIKey)
 		annotationsService := annotations.NewAnnotationsService(annotationsAPI, brandsResolver, idLinter, genres)
 		annotationsHandler := annotations.NewHandler(annotationsAPI, annotationsService)
