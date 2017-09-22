@@ -6,59 +6,67 @@ import (
 	"io"
 	"net/http"
 
-	"bytes"
-	"github.com/Financial-Times/draft-annotations-api/mapper"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
 )
 
 type Handler struct {
-	annotationsAPI AnnotationsAPI
+	annotationsAPI     AnnotationsAPI
+	annotationsService AnnotationsService
 }
 
-func NewHandler(api AnnotationsAPI) *Handler {
-	return &Handler{api}
+func NewHandler(api AnnotationsAPI, srv AnnotationsService) *Handler {
+	return &Handler{api, srv}
 }
 
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	uuid := vestigo.Param(r, "uuid")
 	tID := tidutils.GetTransactionIDFromRequest(r)
 	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
-	resp, err := h.annotationsAPI.Get(ctx, uuid)
+
+	draftAnnotations, err := h.annotationsService.Read(ctx, uuid)
 	if err != nil {
-		log.WithError(err).WithField(tidutils.TransactionIDKey, tID).WithField("uuid", uuid).Error("Error in calling UPP Public Annotations API")
+		switch err.(type) {
+		case *UPPAnnotationsApiError:
+			apiError := err.(*UPPAnnotationsApiError)
+			if apiError.StatusCode == http.StatusNotFound || apiError.StatusCode == http.StatusBadRequest {
+				w.WriteHeader(apiError.StatusCode)
+				io.Copy(w, apiError.Body)
+			} else {
+				log.WithError(err).WithField(tidutils.TransactionIDKey, tID).WithField("uuid", uuid).Error("Error in reading annotations")
+				writeMessage(w, "Service unavailable", http.StatusServiceUnavailable)
+			}
+		default:
+			log.WithError(err).WithField(tidutils.TransactionIDKey, tID).WithField("uuid", uuid).Error("Error in reading annotations")
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&draftAnnotations)
+}
+
+func (h *Handler) Put(w http.ResponseWriter, r *http.Request) {
+	uuid := vestigo.Param(r, "uuid")
+	tID := tidutils.GetTransactionIDFromRequest(r)
+	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
+
+	draftAnnotations := []Annotation{}
+	json.NewDecoder(r.Body).Decode(&draftAnnotations)
+
+	draftAnnotations, err := h.annotationsService.Write(ctx, uuid, draftAnnotations, true)
+	if err != nil {
+		log.WithError(err).WithField(tidutils.TransactionIDKey, tID).WithField("uuid", uuid).Error("Error in processing annotations")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer resp.Body.Close()
 
 	w.Header().Add("Content-Type", "application/json")
-	if resp.StatusCode == http.StatusOK {
-		respBody, _ := ioutil.ReadAll(resp.Body)
-		convertedBody, err := mapper.ConvertPredicates(respBody)
-
-		if err != nil {
-			log.WithError(err).WithField(tidutils.TransactionIDKey, tID).WithField("uuid", uuid).Error("Error in calling UPP Public Annotations API")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		} else if err == nil && convertedBody == nil {
-			writeMessage(w, "No annotations can be found", http.StatusNotFound)
-			return
-		} else {
-			reader := bytes.NewReader(convertedBody)
-			w.WriteHeader(resp.StatusCode)
-			io.Copy(w, reader)
-			return
-		}
-	}
-	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusBadRequest {
-		w.WriteHeader(resp.StatusCode)
-		io.Copy(w, resp.Body)
-	} else {
-		writeMessage(w, "Service unavailable", http.StatusServiceUnavailable)
-	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&draftAnnotations)
 }
 
 func writeMessage(w http.ResponseWriter, msg string, status int) {

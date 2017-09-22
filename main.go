@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"os"
+	"time"
 
 	api "github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/draft-annotations-api/annotations"
@@ -15,7 +16,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const appDescription = "PAC Draft Annotations API"
+const (
+	appDescription = "PAC Draft Annotations API"
+	ftBrand = "http://www.ft.com/thing/dbb0bdae-1f0c-11e4-b0cb-b2227cce2b54"
+)
 
 func main() {
 	app := cli.App("draft-annotations-api", appDescription)
@@ -48,6 +52,27 @@ func main() {
 		EnvVar: "ANNOTATIONS_ENDPOINT",
 	})
 
+	brandsEndpoint := app.String(cli.StringOpt{
+		Name:   "brands-endpoint",
+		Value:  "http://test.api.ft.com/brands/%v",
+		Desc:   "Endpoint to get brands from UPP",
+		EnvVar: "BRANDS_ENDPOINT",
+	})
+
+	genresEndpoint := app.String(cli.StringOpt{
+		Name:   "genres-endpoint",
+		Value:  "http://test.api.ft.com/concepts?type=http%3A%2F%2Fwww.ft.com%2Fontology%2FGenre",
+		Desc:   "Endpoint to get genres from UPP",
+		EnvVar: "GENRES_ENDPOINT",
+	})
+
+	ttl := app.Int(cli.IntOpt{
+		Name: "cache-ttl",
+		Value: 60,
+		Desc: "Time-to-live (minutes) for internal brands and genres cache",
+		EnvVar: "CACHE_TTL",
+	})
+
 	uppAPIKey := app.String(cli.StringOpt{
 		Name:   "upp-api-key",
 		Value:  "",
@@ -68,8 +93,19 @@ func main() {
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
+		idLinter, _ := annotations.NewIDLinter(`^(.+)\/\/api\.ft\.com\/things\/(.+)$`, "$1//www.ft.com/thing/$2")
+		genres := annotations.NewGenresService(*genresEndpoint, *uppAPIKey, idLinter)
+		brandsResolver := annotations.NewBrandsResolver(*brandsEndpoint, *uppAPIKey, idLinter)
+		go func() {
+			for {
+				brandsResolver.Refresh([]string{ftBrand})
+				genres.Refresh()
+				time.Sleep(time.Duration(*ttl) * time.Minute)
+			}
+		}()
 		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsEndpoint, *uppAPIKey)
-		annotationsHandler := annotations.NewHandler(annotationsAPI)
+		annotationsService := annotations.NewAnnotationsService(annotationsAPI, brandsResolver, idLinter, genres)
+		annotationsHandler := annotations.NewHandler(annotationsAPI, annotationsService)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, annotationsAPI)
 
 		serveEndpoints(*port, apiYml, annotationsHandler, healthService)
@@ -85,7 +121,8 @@ func main() {
 func serveEndpoints(port string, apiYml *string, handler *annotations.Handler, healthService *health.HealthService) {
 
 	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", handler.ServeHTTP)
+	r.Get("/drafts/content/:uuid/annotations", handler.Get)
+	r.Put("/drafts/content/:uuid/annotations", handler.Put)
 	var monitoringRouter http.Handler = r
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
 	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
