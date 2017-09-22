@@ -78,10 +78,17 @@ func (s *annotationsService) Read(ctx context.Context, uuid string) ([]Annotatio
 	}
 
 	draftAnnotations := []Annotation{}
-
 	if err = json.NewDecoder(resp.Body).Decode(&draftAnnotations); err != nil {
 		reqLog.WithError(err).Error("unable to parse response from UPP annotations API")
 		return nil, err
+	}
+
+	draftAnnotations = ConvertPredicates(draftAnnotations)
+	if len(draftAnnotations) == 0 {
+		reqLog.WithField("uuid", uuid).Error("Error in mapping UPP annotations")
+		msg := &bytes.Buffer{}
+		json.NewEncoder(msg).Encode(map[string]interface{}{"message":"No annotations can be found"})
+		return nil, &UPPAnnotationsApiError{http.StatusNotFound, "No annotations can be found", bytes.NewReader(msg.Bytes())}
 	}
 
 	return draftAnnotations, nil

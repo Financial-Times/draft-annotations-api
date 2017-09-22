@@ -1,0 +1,24 @@
+[
+  {
+    "predicate": "http://www.ft.com/ontology/annotation/majorMentions",
+    "id": "http://api.ft.com/things/1a2a1a0a-7199-38b8-8a73-e651e2172471",
+    "apiUrl": "http://api.ft.com/things/1a2a1a0a-7199-38b8-8a73-e651e2172471",
+    "types": [
+      "http://www.ft.com/ontology/core/Thing",
+      "http://www.ft.com/ontology/concept/Concept",
+      "http://www.ft.com/ontology/Location"
+    ],
+    "prefLabel": "United Kingdom"
+  },
+  {
+    "predicate": "http://www.ft.com/ontology/annotation/majorMentions",
+    "id": "http://api.ft.com/things/370d00c5-e0cf-3853-bafb-77c384092bb6",
+    "apiUrl": "http://api.ft.com/organisations/370d00c5-e0cf-3853-bafb-77c384092bb6",
+    "types": [
+      "http://www.ft.com/ontology/core/Thing",
+      "http://www.ft.com/ontology/concept/Concept",
+      "http://www.ft.com/ontology/organisation/Organisation"
+    ],
+    "prefLabel": "Office for National Statistics UK"
+  }
+]
