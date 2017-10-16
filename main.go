@@ -69,7 +69,8 @@ func main() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
 		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsEndpoint, *uppAPIKey)
-		annotationsHandler := annotations.NewHandler(annotationsAPI)
+		c14n := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
+		annotationsHandler := annotations.NewHandler(annotationsAPI, c14n)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, annotationsAPI)
 
 		serveEndpoints(*port, apiYml, annotationsHandler, healthService)
@@ -85,7 +86,8 @@ func main() {
 func serveEndpoints(port string, apiYml *string, handler *annotations.Handler, healthService *health.HealthService) {
 
 	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", handler.ServeHTTP)
+	r.Get("/drafts/content/:uuid/annotations", handler.ReadAnnotations)
+	r.Put("/drafts/content/:uuid/annotations", handler.WriteAnnotations)
 	var monitoringRouter http.Handler = r
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
 	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
