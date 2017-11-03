@@ -48,6 +48,27 @@ func main() {
 		EnvVar: "ANNOTATIONS_ENDPOINT",
 	})
 
+	conceptsEndpoint := app.String(cli.StringOpt{
+		Name:   "concepts-endpoint",
+		Value:  "http://test.api.ft.com/concepts",
+		Desc:   "Endpoint to get concepts from UPP",
+		EnvVar: "CONCEPTS_ENDPOINT",
+	})
+
+	conceptsGTGEndpoint := app.String(cli.StringOpt{
+		Name:   "concepts-gtg-endpoint",
+		Value:  "https://pre-prod-up.ft.com/__concept-search-api/__gtg",
+		Desc:   "Endpoint to check concepts-search-api is gtg",
+		EnvVar: "CONCEPTS_GTG_ENDPOINT",
+	})
+
+	conceptsGTGCredentials := app.String(cli.StringOpt{
+		Name:   "concepts-gtg-credentials",
+		Value:  "",
+		Desc:   "credentials for Endpoint to check concepts-search-api is gtg",
+		EnvVar: "CONCEPTS_GTG_CREDENTIALS",
+	})
+
 	uppAPIKey := app.String(cli.StringOpt{
 		Name:   "upp-api-key",
 		Value:  "",
@@ -70,7 +91,11 @@ func main() {
 
 		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsEndpoint, *uppAPIKey)
 		c14n := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
-		annotationsHandler := annotations.NewHandler(annotationsAPI, c14n)
+		conceptAugmenter,err := annotations.NewConceptAugmenter(*conceptsEndpoint, *conceptsGTGEndpoint, *conceptsGTGCredentials, *uppAPIKey)
+		if err!=nil{
+			//we cant augment concepts because we can't connect to concept-serach-api
+		}
+		annotationsHandler := annotations.NewHandler(annotationsAPI, c14n, conceptAugmenter)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, annotationsAPI)
 
 		serveEndpoints(*port, apiYml, annotationsHandler, healthService)

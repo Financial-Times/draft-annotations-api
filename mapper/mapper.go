@@ -61,8 +61,6 @@ func ConvertPredicates(body []byte) ([]byte, error) {
 		}
 	}
 
-
-
 	if len(convertedAnnotations) == 0 {
 		return nil, nil
 	} else {

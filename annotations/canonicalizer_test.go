@@ -144,6 +144,7 @@ func TestCanonicalizer(t *testing.T) {
 			apiUrl[0],
 			types,
 			prefLabel[0],
+			false,
 		},
 		{
 			about,
@@ -151,6 +152,7 @@ func TestCanonicalizer(t *testing.T) {
 			apiUrl[1],
 			types,
 			prefLabel[1],
+			false,
 		},
 	}
 
@@ -208,6 +210,7 @@ func TestCanonicalizerHash(t *testing.T) {
 			apiUrl[0],
 			types,
 			prefLabel[0],
+			false,
 		},
 		{
 			about,
@@ -215,6 +218,7 @@ func TestCanonicalizerHash(t *testing.T) {
 			apiUrl[1],
 			types,
 			prefLabel[1],
+			false,
 		},
 	}
 
