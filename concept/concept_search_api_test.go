@@ -174,7 +174,7 @@ func (h *mockedSearchServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 	assert.Len(h.t, values, 1)
 	assert.True(h.t, len(values["ids"]) <= h.batchSize)
 
-	actualApiKey := r.Header.Get(upp.ApiKeyHeader)
+	actualApiKey := r.Header.Get(apiKeyHeader)
 	assert.Equal(h.t, h.apiKey, actualApiKey)
 
 	actualTID := r.Header.Get(tidUtils.TransactionIDHeader)
