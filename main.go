@@ -6,7 +6,9 @@ import (
 
 	api "github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/draft-annotations-api/annotations"
+	"github.com/Financial-Times/draft-annotations-api/concept"
 	"github.com/Financial-Times/draft-annotations-api/health"
+	"github.com/Financial-Times/draft-annotations-api/service"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/husobee/vestigo"
@@ -48,25 +50,18 @@ func main() {
 		EnvVar: "ANNOTATIONS_ENDPOINT",
 	})
 
-	conceptsEndpoint := app.String(cli.StringOpt{
-		Name:   "concepts-endpoint",
+	conceptSearchEndpoint := app.String(cli.StringOpt{
+		Name:   "concept-search-endpoint",
 		Value:  "http://test.api.ft.com/concepts",
 		Desc:   "Endpoint to get concepts from UPP",
-		EnvVar: "CONCEPTS_ENDPOINT",
+		EnvVar: "CONCEPT_SEARCH_ENDPOINT",
 	})
 
-	conceptsGTGEndpoint := app.String(cli.StringOpt{
-		Name:   "concepts-gtg-endpoint",
-		Value:  "https://pre-prod-up.ft.com/__concept-search-api/__gtg",
-		Desc:   "Endpoint to check concepts-search-api is gtg",
-		EnvVar: "CONCEPTS_GTG_ENDPOINT",
-	})
-
-	conceptsGTGCredentials := app.String(cli.StringOpt{
-		Name:   "concepts-gtg-credentials",
-		Value:  "",
-		Desc:   "credentials for Endpoint to check concepts-search-api is gtg",
-		EnvVar: "CONCEPTS_GTG_CREDENTIALS",
+	conceptSearchBatchSize := app.Int(cli.IntOpt{
+		Name:   "concept-search-endpoint",
+		Value:  30,
+		Desc:   "Concept IDs batch size to concept search API",
+		EnvVar: "CONCEPT_SEARCH_BATCH_SIZE",
 	})
 
 	uppAPIKey := app.String(cli.StringOpt{
@@ -91,11 +86,8 @@ func main() {
 
 		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsEndpoint, *uppAPIKey)
 		c14n := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
-		conceptAugmenter,err := annotations.NewConceptAugmenter(*conceptsEndpoint, *conceptsGTGEndpoint, *conceptsGTGCredentials, *uppAPIKey)
-		if err!=nil{
-			//we cant augment concepts because we can't connect to concept-serach-api
-		}
-		annotationsHandler := annotations.NewHandler(annotationsAPI, c14n, conceptAugmenter)
+		concept.NewSearchAPI(*conceptSearchEndpoint, *uppAPIKey, *conceptSearchBatchSize)
+		annotationsHandler := service.NewHandler(annotationsAPI, c14n)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, annotationsAPI)
 
 		serveEndpoints(*port, apiYml, annotationsHandler, healthService)
@@ -108,7 +100,7 @@ func main() {
 	}
 }
 
-func serveEndpoints(port string, apiYml *string, handler *annotations.Handler, healthService *health.HealthService) {
+func serveEndpoints(port string, apiYml *string, handler *service.Handler, healthService *health.HealthService) {
 
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", handler.ReadAnnotations)

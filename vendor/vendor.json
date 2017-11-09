@@ -57,6 +57,12 @@
 			"versionExact": "v0.2.0"
 		},
 		{
+			"checksumSHA1": "8tLSbloQ6bpVBB/CcPbP9sLW45Y=",
+			"path": "github.com/Pallinder/go-randomdata",
+			"revision": "8c3362a5e6781e0d1046f1267b3c1f19b2cde334",
+			"revisionTime": "2017-04-10T16:13:40Z"
+		},
+		{
 			"checksumSHA1": "mrz/kicZiUaHxkyfvC/DyQcr8Do=",
 			"path": "github.com/davecgh/go-spew/spew",
 			"revision": "adab96458c51a58dc1783b3335dcce5461522e75",
@@ -135,7 +141,7 @@
 			"revisionTime": "2017-07-18T17:12:47Z"
 		},
 		{
-			"checksumSHA1": "lzKN/3F0mwa8tLTOD/9zG5H1rN0=",
+			"checksumSHA1": "vlicYp+fe4ECQ+5QqpAk36VRA3s=",
 			"path": "golang.org/x/sys/unix",
 			"revision": "cd2c276457edda6df7fb04895d3fd6a6add42926",
 			"revisionTime": "2017-07-17T10:05:24Z"

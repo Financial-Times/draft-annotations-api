@@ -1,4 +1,4 @@
-package annotations
+package service
 
 import (
 	"io/ioutil"
@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Financial-Times/draft-annotations-api/annotations"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
 	"github.com/stretchr/testify/assert"
@@ -15,16 +16,16 @@ import (
 const testAPIKey = "testAPIKey"
 const testTID = "test_tid"
 
-var ca ConceptAugmenter
+const apiKeyHeader = "X-Api-Key" //TODO To remove during clean up
 
 func TestHappyAnnotationsAPI(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, annotationsBody)
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := annotations.NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
 	assert.Equal(t, annotationsAPIServerMock.URL+"/content/%v/annotations", annotationsAPI.Endpoint())
 
-	h := NewHandler(annotationsAPI, nil, ca)
+	h := NewHandler(annotationsAPI, nil)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -44,8 +45,8 @@ func TestAnnotationsAPI404(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusNotFound, "not found")
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
-	h := NewHandler(annotationsAPI, nil, ca)
+	annotationsAPI := annotations.NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	h := NewHandler(annotationsAPI, nil)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -66,8 +67,8 @@ func TestAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, bannedAnnotationsBody)
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
-	h := NewHandler(annotationsAPI, nil, ca)
+	annotationsAPI := annotations.NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	h := NewHandler(annotationsAPI, nil)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -88,8 +89,8 @@ func TestAnnotationsAPI500(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusInternalServerError, "fire!")
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
-	h := NewHandler(annotationsAPI, nil, ca)
+	annotationsAPI := annotations.NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	h := NewHandler(annotationsAPI, nil)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -107,8 +108,8 @@ func TestAnnotationsAPI500(t *testing.T) {
 }
 
 func TestInvalidURL(t *testing.T) {
-	annotationsAPI := NewAnnotationsAPI(":#", testAPIKey)
-	h := NewHandler(annotationsAPI, nil, ca)
+	annotationsAPI := annotations.NewAnnotationsAPI(":#", testAPIKey)
+	h := NewHandler(annotationsAPI, nil)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -129,8 +130,8 @@ func TestConnectionError(t *testing.T) {
 	annotationsAPIServerMock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	annotationsAPIServerMock.Close()
 
-	annotationsAPI := NewAnnotationsAPI(annotationsAPIServerMock.URL, testAPIKey)
-	h := NewHandler(annotationsAPI, nil, ca)
+	annotationsAPI := annotations.NewAnnotationsAPI(annotationsAPIServerMock.URL, testAPIKey)
+	h := NewHandler(annotationsAPI, nil)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -200,7 +201,7 @@ const annotationsBody = `[
 ]`
 
 func TestSaveAnnotations(t *testing.T) {
-	h := NewHandler(nil, NewCanonicalizer(NewCanonicalAnnotationSorter), ca)
+	h := NewHandler(nil, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter))
 	r := vestigo.NewRouter()
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 

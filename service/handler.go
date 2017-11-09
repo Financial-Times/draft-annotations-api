@@ -1,4 +1,4 @@
-package annotations
+package service
 
 import (
 	"context"
@@ -12,27 +12,27 @@ import (
 	"github.com/husobee/vestigo"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
+
+	"github.com/Financial-Times/draft-annotations-api/annotations"
 )
 
 type Handler struct {
-	annotationsAPI   AnnotationsAPI
-	c14n             *Canonicalizer
-	conceptAugmenter ConceptAugmenter
+	annotationsAPI annotations.API
+	c14n           *annotations.Canonicalizer
 }
 
-
-func NewHandler(api AnnotationsAPI, c14n *Canonicalizer, ca ConceptAugmenter) *Handler {
-	return &Handler{api, c14n, ca}
+func NewHandler(api annotations.API, c14n *annotations.Canonicalizer) *Handler {
+	return &Handler{api, c14n}
 }
 
 func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 	uuid := vestigo.Param(r, "uuid")
 	tID := tidutils.GetTransactionIDFromRequest(r)
 	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
-	//wire in aurora call only if uuid not foud in aurora then  call upp
-//call aurora rw
+	//wire in aurora call only if uuid not found in aurora then  call upp
+	//call aurora rw
 	//if get 404 response on content {
-		//call upp
+	//call upp
 	resp, err := h.annotationsAPI.Get(ctx, uuid)
 	if err != nil {
 		log.WithError(err).WithField(tidutils.TransactionIDKey, tID).WithField("uuid", uuid).Error("Error in calling UPP Public Annotations API")
@@ -48,9 +48,9 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 		convertedBody, err := mapper.ConvertPredicates(respBody)
 		if err != nil {
 			//error in cnversion?
-				log.WithError(err).WithField(tidutils.TransactionIDKey, tID).WithField("uuid", uuid).Error("Error in calling UPP Public Annotations API")
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
+			log.WithError(err).WithField(tidutils.TransactionIDKey, tID).WithField("uuid", uuid).Error("Error in calling UPP Public Annotations API")
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		} else if err == nil && convertedBody == nil {
 			writeMessage(w, "No annotations can be found", http.StatusNotFound)
 			return
@@ -85,10 +85,10 @@ func writeMessage(w http.ResponseWriter, msg string, status int) {
 }
 
 func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
-	draftAnnotations := []Annotation{}
+	draftAnnotations := []annotations.Annotation{}
 	json.NewDecoder(r.Body).Decode(&draftAnnotations)
 
-	h.c14n.canonicalize(draftAnnotations)
+	h.c14n.Canonicalize(draftAnnotations)
 
 	w.WriteHeader(http.StatusOK)
 }

@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const testAPIKey = "testAPIKey"
+
 func TestHappyAnnotationsAPIGTG(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIGTGServerMock(t, http.StatusOK, "I am happy!")
 	defer annotationsServerMock.Close()

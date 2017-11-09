@@ -11,10 +11,10 @@ import (
 
 type HealthService struct {
 	fthealth.HealthCheck
-	annotationsAPI annotations.AnnotationsAPI
+	annotationsAPI annotations.API
 }
 
-func NewHealthService(appSystemCode string, appName string, appDescription string, api annotations.AnnotationsAPI) *HealthService {
+func NewHealthService(appSystemCode string, appName string, appDescription string, api annotations.API) *HealthService {
 	service := &HealthService{annotationsAPI: api}
 	service.SystemCode = appSystemCode
 	service.Name = appName

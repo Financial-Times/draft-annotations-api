@@ -14,9 +14,9 @@ const (
 	about    = "http://www.ft.com/ontology/annotation/about"
 	mentions = "http://www.ft.com/ontology/annotation/mentions"
 
-	thing    = "http://www.ft.com/ontology/core/Thing"
-	concept  = "http://www.ft.com/ontology/core/Concept"
-	testType = "http://www.ft.com/ontology/TestType"
+	thingType   = "http://www.ft.com/ontology/core/Thing"
+	conceptType = "http://www.ft.com/ontology/core/Concept"
+	testType    = "http://www.ft.com/ontology/TestType"
 )
 
 func TestCanonicalAnnotationSorterOrderByPredicate(t *testing.T) {
@@ -130,7 +130,7 @@ func TestCanonicalizer(t *testing.T) {
 		apiUrl[i] = fmt.Sprintf("http://www.ft.com/thing/%s", id)
 	}
 
-	types := []string{thing, concept, testType}
+	types := []string{thingType, conceptType, testType}
 
 	prefLabel := []string{
 		"Some concept",
@@ -157,7 +157,7 @@ func TestCanonicalizer(t *testing.T) {
 	}
 
 	c14n := NewCanonicalizer(NewCanonicalAnnotationSorter)
-	actual := c14n.canonicalize(annotations)
+	actual := c14n.Canonicalize(annotations)
 
 	assert.Equal(t, about, actual[0].Predicate, "first c14n annotation predicate")
 	assert.Equal(t, conceptUuid[1], actual[0].ConceptId, "first c14n annotation concept id")
@@ -196,7 +196,7 @@ func TestCanonicalizerHash(t *testing.T) {
 		apiUrl[i] = fmt.Sprintf("http://www.ft.com/thing/%s", id)
 	}
 
-	types := []string{thing, concept, testType}
+	types := []string{thingType, conceptType, testType}
 
 	prefLabel := []string{
 		"Some concept",
