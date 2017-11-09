@@ -7,8 +7,8 @@ import (
 	api "github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/Financial-Times/draft-annotations-api/concept"
+	"github.com/Financial-Times/draft-annotations-api/handler"
 	"github.com/Financial-Times/draft-annotations-api/health"
-	"github.com/Financial-Times/draft-annotations-api/service"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/husobee/vestigo"
@@ -86,9 +86,9 @@ func main() {
 
 		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsEndpoint, *uppAPIKey)
 		c14n := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
-		concept.NewSearchAPI(*conceptSearchEndpoint, *uppAPIKey, *conceptSearchBatchSize)
-		annotationsHandler := service.NewHandler(annotationsAPI, c14n)
-		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, annotationsAPI)
+		conceptSearchAPI := concept.NewSearchAPI(*conceptSearchEndpoint, *uppAPIKey, *conceptSearchBatchSize)
+		annotationsHandler := handler.New(annotationsAPI, c14n)
+		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, annotationsAPI, conceptSearchAPI)
 
 		serveEndpoints(*port, apiYml, annotationsHandler, healthService)
 	}
@@ -100,7 +100,7 @@ func main() {
 	}
 }
 
-func serveEndpoints(port string, apiYml *string, handler *service.Handler, healthService *health.HealthService) {
+func serveEndpoints(port string, apiYml *string, handler *handler.Handler, healthService *health.HealthService) {
 
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", handler.ReadAnnotations)

@@ -18,7 +18,7 @@ func NewAugmenter(api concept.SearchAPI) *annotationAugmenter {
 }
 
 func (a *annotationAugmenter) augmentAnnotations(ctx context.Context, depletedAnnotations []Annotation) ([]Annotation, error) {
-	augmentedAnnotations := []Annotation{}
+	var augmentedAnnotations []Annotation
 
 	conceptIds := make([]string, len(depletedAnnotations))
 

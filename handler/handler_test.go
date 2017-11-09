@@ -1,4 +1,4 @@
-package service
+package handler
 
 import (
 	"io/ioutil"
@@ -25,7 +25,7 @@ func TestHappyAnnotationsAPI(t *testing.T) {
 	annotationsAPI := annotations.NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
 	assert.Equal(t, annotationsAPIServerMock.URL+"/content/%v/annotations", annotationsAPI.Endpoint())
 
-	h := NewHandler(annotationsAPI, nil)
+	h := New(annotationsAPI, nil)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -46,7 +46,7 @@ func TestAnnotationsAPI404(t *testing.T) {
 	defer annotationsAPIServerMock.Close()
 
 	annotationsAPI := annotations.NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
-	h := NewHandler(annotationsAPI, nil)
+	h := New(annotationsAPI, nil)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -68,7 +68,7 @@ func TestAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 	defer annotationsAPIServerMock.Close()
 
 	annotationsAPI := annotations.NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
-	h := NewHandler(annotationsAPI, nil)
+	h := New(annotationsAPI, nil)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -90,7 +90,7 @@ func TestAnnotationsAPI500(t *testing.T) {
 	defer annotationsAPIServerMock.Close()
 
 	annotationsAPI := annotations.NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
-	h := NewHandler(annotationsAPI, nil)
+	h := New(annotationsAPI, nil)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -109,7 +109,7 @@ func TestAnnotationsAPI500(t *testing.T) {
 
 func TestInvalidURL(t *testing.T) {
 	annotationsAPI := annotations.NewAnnotationsAPI(":#", testAPIKey)
-	h := NewHandler(annotationsAPI, nil)
+	h := New(annotationsAPI, nil)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -131,7 +131,7 @@ func TestConnectionError(t *testing.T) {
 	annotationsAPIServerMock.Close()
 
 	annotationsAPI := annotations.NewAnnotationsAPI(annotationsAPIServerMock.URL, testAPIKey)
-	h := NewHandler(annotationsAPI, nil)
+	h := New(annotationsAPI, nil)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -201,7 +201,7 @@ const annotationsBody = `[
 ]`
 
 func TestSaveAnnotations(t *testing.T) {
-	h := NewHandler(nil, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter))
+	h := New(nil, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter))
 	r := vestigo.NewRouter()
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 

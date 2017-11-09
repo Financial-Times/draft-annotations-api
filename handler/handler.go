@@ -1,4 +1,4 @@
-package service
+package handler
 
 import (
 	"context"
@@ -21,7 +21,7 @@ type Handler struct {
 	c14n           *annotations.Canonicalizer
 }
 
-func NewHandler(api annotations.API, c14n *annotations.Canonicalizer) *Handler {
+func New(api annotations.API, c14n *annotations.Canonicalizer) *Handler {
 	return &Handler{api, c14n}
 }
 
@@ -85,7 +85,7 @@ func writeMessage(w http.ResponseWriter, msg string, status int) {
 }
 
 func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
-	draftAnnotations := []annotations.Annotation{}
+	var draftAnnotations []annotations.Annotation
 	json.NewDecoder(r.Body).Decode(&draftAnnotations)
 
 	h.c14n.Canonicalize(draftAnnotations)
