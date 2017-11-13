@@ -6,13 +6,14 @@ import (
 	"fmt"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	log "github.com/sirupsen/logrus"
+	"io/ioutil"
 	"net/http"
 )
 
 type RW interface {
 	Read(ctx context.Context, contentUUID string) ([]*Annotation, bool, error)
-	//Endpoint() string TODO implement healthcheck
-	//GTG() error
+	Endpoint() string
+	GTG() error
 }
 
 type annotationsRW struct {
@@ -66,4 +67,30 @@ func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) ([]*Annot
 	default:
 		return nil, false, fmt.Errorf("annotations RW returned an unexpected HTTP status code: %v", resp.StatusCode)
 	}
+}
+
+func (rw *annotationsRW) Endpoint() string {
+	return rw.endpoint
+}
+
+func (rw *annotationsRW) GTG() error {
+	req, err := http.NewRequest("GET", rw.endpoint+"/__gtg", nil)
+	if err != nil {
+		log.WithError(err).Error("Error in creating the HTTP request to annotations RW GTG")
+		return fmt.Errorf("gtg HTTP request error: %v", err)
+	}
+
+	resp, err := rw.httpClient.Do(req)
+	if err != nil {
+		log.WithError(err).Error("Error making the HTTP request to annotations RW GTG")
+		return fmt.Errorf("gtg HTTP call error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := ioutil.ReadAll(resp.Body)
+		return fmt.Errorf("gtg returned unexpected status %v: %v", resp.StatusCode, string(body))
+	}
+
+	return nil
 }

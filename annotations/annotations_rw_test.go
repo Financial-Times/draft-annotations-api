@@ -124,6 +124,7 @@ func TestReadMissingTID(t *testing.T) {
 
 func newAnnotationsRWServerMock(t *testing.T, status int, body string, tid string) *httptest.Server {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
 		assert.Equal(t, "/drafts/content/"+testContentUUID+"/annotations", r.URL.Path)
 		if tid == "" {
 			assert.NotEmpty(t, r.Header.Get(tidUtils.TransactionIDHeader))
@@ -134,4 +135,48 @@ func newAnnotationsRWServerMock(t *testing.T, status int, body string, tid strin
 		w.Write([]byte(body))
 	}))
 	return ts
+}
+
+func TestRWHappyGTG(t *testing.T) {
+	s := newAnnotationsRWGTGServerMock(t, http.StatusOK, "")
+	defer s.Close()
+	rw := NewRW(s.URL)
+	err := rw.GTG()
+	assert.NoError(t, err)
+}
+
+func TestRWHTTPRequestErrorGTG(t *testing.T) {
+	rw := NewRW(":#")
+	err := rw.GTG()
+	assert.EqualError(t, err, "gtg HTTP request error: parse :: missing protocol scheme")
+}
+
+func TestRWHTTPCallErrorGTG(t *testing.T) {
+	rw := NewRW("")
+	err := rw.GTG()
+	assert.EqualError(t, err, "gtg HTTP call error: Get /__gtg: unsupported protocol scheme \"\"")
+}
+
+func TestRW503GTG(t *testing.T) {
+	s := newAnnotationsRWGTGServerMock(t, http.StatusServiceUnavailable, "service unavailable")
+	defer s.Close()
+	rw := NewRW(s.URL)
+	err := rw.GTG()
+	assert.EqualError(t, err, "gtg returned unexpected status 503: service unavailable")
+}
+
+func newAnnotationsRWGTGServerMock(t *testing.T, status int, body string) *httptest.Server {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, "/__gtg", r.URL.Path)
+		w.WriteHeader(status)
+		w.Write([]byte(body))
+	}))
+	return ts
+}
+
+func TestRWEndpoint(t *testing.T) {
+	testEndpoint := "http://an-endpoint.com:8080"
+	rw := NewRW(testEndpoint)
+	assert.Equal(t, testEndpoint, rw.Endpoint())
 }
