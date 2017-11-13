@@ -43,7 +43,14 @@ func main() {
 		EnvVar: "APP_PORT",
 	})
 
-	annotationsEndpoint := app.String(cli.StringOpt{
+	annotationsRWEndpoint := app.String(cli.StringOpt{
+		Name:   "concept-search-endpoint",
+		Value:  "http://locahost:8888/",
+		Desc:   "Endpoint to get concepts from UPP",
+		EnvVar: "ANNOTATIONS_RW_ENDPOINT",
+	})
+
+	annotationsAPIEndpoint := app.String(cli.StringOpt{
 		Name:   "annotations-endpoint",
 		Value:  "http://test.api.ft.com/content/%v/annotations",
 		Desc:   "Endpoint to get annotations from UPP",
@@ -84,10 +91,12 @@ func main() {
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
-		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsEndpoint, *uppAPIKey)
+		annotationsRW := annotations.NewRW(*annotationsRWEndpoint)
+		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsAPIEndpoint, *uppAPIKey)
 		c14n := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 		conceptSearchAPI := concept.NewSearchAPI(*conceptSearchEndpoint, *uppAPIKey, *conceptSearchBatchSize)
-		annotationsHandler := handler.New(annotationsAPI, c14n)
+		augmenter := annotations.NewAugmenter(conceptSearchAPI)
+		annotationsHandler := handler.New(annotationsRW, annotationsAPI, c14n, augmenter)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, annotationsAPI, conceptSearchAPI)
 
 		serveEndpoints(*port, apiYml, annotationsHandler, healthService)

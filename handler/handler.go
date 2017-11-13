@@ -13,59 +13,84 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 
+	"fmt"
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 )
 
 type Handler struct {
-	annotationsAPI annotations.API
-	c14n           *annotations.Canonicalizer
+	annotationsRW        annotations.RW
+	annotationsAPI       annotations.API
+	c14n                 *annotations.Canonicalizer
+	annotationsAugmenter annotations.Augmenter
 }
 
-func New(api annotations.API, c14n *annotations.Canonicalizer) *Handler {
-	return &Handler{api, c14n}
+func New(rw annotations.RW, annotationsAPI annotations.API, c14n *annotations.Canonicalizer, augmenter annotations.Augmenter) *Handler {
+	return &Handler{
+		rw,
+		annotationsAPI,
+		c14n,
+		augmenter,
+	}
 }
 
 func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 	uuid := vestigo.Param(r, "uuid")
 	tID := tidutils.GetTransactionIDFromRequest(r)
 	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
-	//wire in aurora call only if uuid not found in aurora then  call upp
-	//call aurora rw
-	//if get 404 response on content {
-	//call upp
-	resp, err := h.annotationsAPI.Get(ctx, uuid)
-	if err != nil {
-		log.WithError(err).WithField(tidutils.TransactionIDKey, tID).WithField("uuid", uuid).Error("Error in calling UPP Public Annotations API")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer resp.Body.Close()
+
+	readLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", uuid)
 
 	w.Header().Add("Content-Type", "application/json")
-	if resp.StatusCode == http.StatusOK {
-		respBody, _ := ioutil.ReadAll(resp.Body)
-		//prediacte mapping will only happens for the upp response return as annotations not byte[]
-		convertedBody, err := mapper.ConvertPredicates(respBody)
+
+	readLog.Info("Calling annotations RW...")
+	rwAnnotations, found, err := h.annotationsRW.Read(ctx, uuid)
+	if err != nil {
+		writeMessage(w, fmt.Sprintf("Annotations RW error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if found {
+		readLog.Info("Augmenting annotations...")
+		err = h.annotationsAugmenter.AugmentAnnotations(ctx, &rwAnnotations)
 		if err != nil {
-			//error in cnversion?
-			log.WithError(err).WithField(tidutils.TransactionIDKey, tID).WithField("uuid", uuid).Error("Error in calling UPP Public Annotations API")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		} else if err == nil && convertedBody == nil {
-			writeMessage(w, "No annotations can be found", http.StatusNotFound)
-			return
-		} else {
-			reader := bytes.NewReader(convertedBody)
-			w.WriteHeader(resp.StatusCode)
-			io.Copy(w, reader)
+			writeMessage(w, fmt.Sprintf("Annotations augmenter error: %v", err), http.StatusInternalServerError)
 			return
 		}
-	}
-	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusBadRequest {
-		w.WriteHeader(resp.StatusCode)
-		io.Copy(w, resp.Body)
+		json.NewEncoder(w).Encode(rwAnnotations)
+		return
 	} else {
-		writeMessage(w, "Service unavailable", http.StatusServiceUnavailable)
+		readLog.Info("Annotations not found: Retrieving annotations from UPP")
+		resp, err := h.annotationsAPI.Get(ctx, uuid)
+		if err != nil {
+			readLog.WithError(err).Error("Error in calling UPP Public Annotations API")
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusOK {
+			respBody, _ := ioutil.ReadAll(resp.Body)
+			convertedBody, err := mapper.ConvertPredicates(respBody)
+			if err != nil {
+				readLog.WithError(err).Error("Error converting predicates from UPP Public Annotations API response")
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			} else if err == nil && convertedBody == nil {
+				writeMessage(w, "No annotations can be found", http.StatusNotFound)
+				return
+			} else {
+				reader := bytes.NewReader(convertedBody)
+				w.WriteHeader(resp.StatusCode)
+				io.Copy(w, reader)
+				return
+			}
+		}
+		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusBadRequest {
+			w.WriteHeader(resp.StatusCode)
+			io.Copy(w, resp.Body)
+		} else {
+			writeMessage(w, "Service unavailable", http.StatusServiceUnavailable)
+		}
 	}
 }
 
