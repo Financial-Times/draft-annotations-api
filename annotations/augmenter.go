@@ -2,8 +2,8 @@ package annotations
 
 import (
 	"context"
-	"errors"
 	"github.com/Financial-Times/draft-annotations-api/concept"
+	modelMapper "github.com/Financial-Times/neo-model-utils-go/mapper"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	log "github.com/sirupsen/logrus"
 	"strings"
@@ -35,14 +35,7 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, annotation
 	var conceptIds []string
 
 	for _, ann := range *annotations {
-		conceptUUID, err := extractUUID(ann.ConceptId)
-		if err != nil {
-			log.WithField(tidUtils.TransactionIDKey, tid).
-				WithField("conceptID", ann.ConceptId).
-				WithError(err).Warn("Error in augmenting annotation with concept data")
-		} else {
-			conceptIds = append(conceptIds, conceptUUID)
-		}
+		conceptIds = append(conceptIds, ann.ConceptId)
 	}
 
 	concepts, err := a.conceptSearchApi.SearchConcepts(ctx, conceptIds)
@@ -54,24 +47,38 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, annotation
 	}
 
 	for _, ann := range *annotations {
-		conceptUUID, _ := extractUUID(ann.ConceptId)
-		concept, found := concepts[conceptUUID]
+		concept, found := concepts["http://www.ft.com/thing/"+ann.ConceptId]
 		if found {
 			ann.ApiUrl = concept.ApiUrl
 			ann.PrefLabel = concept.PrefLabel
 			ann.IsFTAuthor = concept.IsFTAuthor
-			ann.Types = concept.Types
+			ann.Types = buildTypeHierarchy(concept.Type)
+		} else {
+			log.WithField(tidUtils.TransactionIDKey, tid).
+				WithField("conceptId", ann.ConceptId).
+				Warn("Information not found for augmenting concept")
 		}
+		ann.ConceptId = modelMapper.IDURL(ann.ConceptId)
 	}
 
 	log.WithField(tidUtils.TransactionIDKey, tid).Info("Annotations augmented with concept data")
 	return nil
 }
 
-func extractUUID(conceptURI string) (string, error) {
-	i := strings.LastIndex(conceptURI, "/")
-	if i == -1 || i == len(conceptURI)-1 {
-		return "", errors.New("impossible to extract UUID from concept URI")
+func buildTypeHierarchy(t string) []string {
+	i := strings.LastIndex(t, "/")
+	if i == -1 || i == len(t)-1 {
+		return nil
 	}
-	return conceptURI[i+1:], nil
+	t = t[i+1:]
+	var types []string
+	for t != "" {
+		types = append(types, t)
+		t = modelMapper.ParentType(t)
+	}
+	types, err := modelMapper.SortTypes(types)
+	if err != nil {
+		return nil
+	}
+	return modelMapper.TypeURIs(types)
 }

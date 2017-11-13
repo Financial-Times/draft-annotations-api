@@ -169,7 +169,7 @@ func generateConcept(id string) Concept {
 	return Concept{
 		Id:         id,
 		ApiUrl:     "https://api.ft.com/things/" + id,
-		Types:      generateTypes(),
+		Type:       randomdata.SillyName(),
 		PrefLabel:  randomdata.SillyName(),
 		IsFTAuthor: randomdata.Boolean(),
 	}
@@ -181,15 +181,6 @@ func extractIDs(concepts map[string]Concept) []string {
 		ids = append(ids, id)
 	}
 	return ids
-}
-
-func generateTypes() []string {
-	n := randomdata.Number(1, 5)
-	types := make([]string, n)
-	for i := 0; i < n; i++ {
-		types[i] = randomdata.SillyName()
-	}
-	return types
 }
 
 func newMockedHappySearchService(t *testing.T, apiKey string, batchSize int, tid string, expectedConcepts map[string]Concept) *httptest.Server {

@@ -45,7 +45,7 @@ func main() {
 
 	annotationsRWEndpoint := app.String(cli.StringOpt{
 		Name:   "concept-search-endpoint",
-		Value:  "http://locahost:8888",
+		Value:  "http://localhost:8888",
 		Desc:   "Endpoint to get concepts from UPP",
 		EnvVar: "ANNOTATIONS_RW_ENDPOINT",
 	})
