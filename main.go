@@ -91,13 +91,13 @@ func main() {
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
-		annotationsRW := annotations.NewRW(*annotationsRWEndpoint)
+		rw := annotations.NewRW(*annotationsRWEndpoint)
 		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsAPIEndpoint, *uppAPIKey)
 		c14n := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 		conceptSearchAPI := concept.NewSearchAPI(*conceptSearchEndpoint, *uppAPIKey, *conceptSearchBatchSize)
 		augmenter := annotations.NewAugmenter(conceptSearchAPI)
-		annotationsHandler := handler.New(annotationsRW, annotationsAPI, c14n, augmenter)
-		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, annotationsAPI, conceptSearchAPI)
+		annotationsHandler := handler.New(rw, annotationsAPI, c14n, augmenter)
+		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, rw, annotationsAPI, conceptSearchAPI)
 
 		serveEndpoints(*port, apiYml, annotationsHandler, healthService)
 	}

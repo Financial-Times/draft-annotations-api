@@ -14,27 +14,49 @@ type service interface {
 
 type HealthService struct {
 	fthealth.HealthCheck
+	rw               service
 	annotationsAPI   service
 	conceptSearchAPI service
 }
 
-func NewHealthService(appSystemCode string, appName string, appDescription string, annotationsAPI service, conceptSearchAPI service) *HealthService {
-	service := &HealthService{
+func NewHealthService(appSystemCode string, appName string, appDescription string, rw service, annotationsAPI service, conceptSearchAPI service) *HealthService {
+	hcService := &HealthService{
+		rw:               rw,
 		annotationsAPI:   annotationsAPI,
 		conceptSearchAPI: conceptSearchAPI,
 	}
-	service.SystemCode = appSystemCode
-	service.Name = appName
-	service.Description = appDescription
-	service.Checks = []fthealth.Check{
-		service.annotationsAPICheck(),
-		service.conceptSearchAPICheck(),
+	hcService.SystemCode = appSystemCode
+	hcService.Name = appName
+	hcService.Description = appDescription
+	hcService.Checks = []fthealth.Check{
+		hcService.rwCheck(),
+		hcService.annotationsAPICheck(),
+		hcService.conceptSearchAPICheck(),
 	}
-	return service
+	return hcService
 }
 
 func (service *HealthService) HealthCheckHandleFunc() func(w http.ResponseWriter, r *http.Request) {
 	return fthealth.Handler(service)
+}
+
+func (service *HealthService) rwCheck() fthealth.Check {
+	return fthealth.Check{
+		ID:               "check-generic-rw-aurora-health",
+		BusinessImpact:   "Impossible to read and/or write annotations in PAC",
+		Name:             "Check Generic RW Aurora Health",
+		PanicGuide:       "https://dewey.ft.com/draft-annotations-api.html",
+		Severity:         1,
+		TechnicalSummary: fmt.Sprintf("Generic RW Aurora is not available at %v", service.rw.Endpoint()),
+		Checker:          service.rwChecker,
+	}
+}
+
+func (service *HealthService) rwChecker() (string, error) {
+	if err := service.rw.GTG(); err != nil {
+		return "", err
+	}
+	return "Generic RW Aurora is healthy", nil
 }
 
 func (service *HealthService) annotationsAPICheck() fthealth.Check {

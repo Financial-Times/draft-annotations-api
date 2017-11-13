@@ -373,6 +373,16 @@ func (m *RWMock) Read(ctx context.Context, contentUUID string) ([]*annotations.A
 	return args.Get(0).([]*annotations.Annotation), args.Bool(1), args.Error(2)
 }
 
+func (m *RWMock) Endpoint() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+func (m *RWMock) GTG() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
 type AnnotationsAPIMock struct {
 	mock.Mock
 }
