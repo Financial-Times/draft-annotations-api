@@ -24,7 +24,7 @@ const apiKeyHeader = "X-Api-Key"
 
 func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 	var expectedAnnotations []*annotations.Annotation
-	json.Unmarshal([]byte(annotationsBody), &expectedAnnotations)
+	json.Unmarshal([]byte(expectedAnnotationsBody), &expectedAnnotations)
 
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations, true, nil)
@@ -45,7 +45,7 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 	body, err := ioutil.ReadAll(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.NoError(t, err)
-	assert.JSONEq(t, string(annotationsBody), string(body))
+	assert.JSONEq(t, string(expectedAnnotationsBody), string(body))
 
 	rw.AssertExpectations(t)
 	aug.AssertExpectations(t)
@@ -81,7 +81,7 @@ func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
 
 func TestUnHappyAugmenter(t *testing.T) {
 	var expectedAnnotations []*annotations.Annotation
-	json.Unmarshal([]byte(annotationsBody), &expectedAnnotations)
+	json.Unmarshal([]byte(expectedAnnotationsBody), &expectedAnnotations)
 
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations, true, nil)
@@ -116,7 +116,7 @@ func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return([]*annotations.Annotation{}, false, nil)
 
-	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, annotationsBody)
+	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, annotationsAPIBody)
 	defer annotationsAPIServerMock.Close()
 
 	annotationsAPI := annotations.NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
@@ -135,7 +135,7 @@ func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 	body, err := ioutil.ReadAll(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.NoError(t, err)
-	assert.JSONEq(t, string(annotationsBody), string(body))
+	assert.JSONEq(t, string(expectedAnnotationsBody), string(body))
 
 	rw.AssertExpectations(t)
 	aug.AssertExpectations(t)
@@ -175,7 +175,7 @@ func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return([]*annotations.Annotation{}, false, nil)
 	aug := new(AugmenterMock)
 
-	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, bannedAnnotationsBody)
+	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, bannedAnnotationsAPIBody)
 	defer annotationsAPIServerMock.Close()
 
 	annotationsAPI := annotations.NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
@@ -292,7 +292,7 @@ func newAnnotationsAPIServerMock(t *testing.T, status int, body string) *httptes
 	return ts
 }
 
-const bannedAnnotationsBody = `[
+const bannedAnnotationsAPIBody = `[
 	{
 		"predicate": "http://www.ft.com/ontology/classification/isClassifiedBy",
 		"id": "http://api.ft.com/things/04789fc2-4598-3b95-9698-14e5ece17261",
@@ -307,7 +307,7 @@ const bannedAnnotationsBody = `[
 	}
 ]`
 
-const annotationsBody = `[
+const annotationsAPIBody = `[
    {
       "predicate": "http://www.ft.com/ontology/annotation/mentions",
       "id": "http://api.ft.com/things/0a619d71-9af5-3755-90dd-f789b686c67a",
@@ -332,6 +332,23 @@ const annotationsBody = `[
    }
 ]`
 
+const expectedAnnotationsBody = `[
+   {
+      "predicate": "http://www.ft.com/ontology/annotation/mentions",
+      "id": "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+      "apiUrl": "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+      "type": "http://www.ft.com/ontology/person/Person",
+      "prefLabel": "Barack H. Obama"
+   },
+   {
+      "predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+      "id": "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+      "apiUrl": "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+      "type": "http://www.ft.com/ontology/person/Person",
+      "prefLabel": "David J Lynch"
+   }
+]`
+
 func TestSaveAnnotations(t *testing.T) {
 	rw := new(RWMock)
 	aug := new(AugmenterMock)
@@ -342,7 +359,7 @@ func TestSaveAnnotations(t *testing.T) {
 	req := httptest.NewRequest(
 		"PUT",
 		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
-		strings.NewReader(annotationsBody))
+		strings.NewReader(expectedAnnotationsBody))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	w := httptest.NewRecorder()

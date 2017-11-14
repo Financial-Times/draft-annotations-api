@@ -3,10 +3,8 @@ package annotations
 import (
 	"context"
 	"github.com/Financial-Times/draft-annotations-api/concept"
-	modelMapper "github.com/Financial-Times/neo-model-utils-go/mapper"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	log "github.com/sirupsen/logrus"
-	"strings"
 )
 
 type Augmenter interface {
@@ -47,38 +45,21 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, annotation
 	}
 
 	for _, ann := range *annotations {
-		concept, found := concepts["http://www.ft.com/thing/"+ann.ConceptId]
+		ann.ConceptId = "http://www.ft.com/thing/" + ann.ConceptId
+		concept, found := concepts[ann.ConceptId]
 		if found {
 			ann.ApiUrl = concept.ApiUrl
 			ann.PrefLabel = concept.PrefLabel
 			ann.IsFTAuthor = concept.IsFTAuthor
-			ann.Types = buildTypeHierarchy(concept.Type)
+			ann.Type = concept.Type
 		} else {
 			log.WithField(tidUtils.TransactionIDKey, tid).
 				WithField("conceptId", ann.ConceptId).
 				Warn("Information not found for augmenting concept")
 		}
-		ann.ConceptId = modelMapper.IDURL(ann.ConceptId)
+
 	}
 
 	log.WithField(tidUtils.TransactionIDKey, tid).Info("Annotations augmented with concept data")
 	return nil
-}
-
-func buildTypeHierarchy(t string) []string {
-	i := strings.LastIndex(t, "/")
-	if i == -1 || i == len(t)-1 {
-		return nil
-	}
-	t = t[i+1:]
-	var types []string
-	for t != "" {
-		types = append(types, t)
-		t = modelMapper.ParentType(t)
-	}
-	types, err := modelMapper.SortTypes(types)
-	if err != nil {
-		return nil
-	}
-	return modelMapper.TypeURIs(types)
 }

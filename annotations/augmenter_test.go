@@ -51,70 +51,24 @@ var testConcepts = map[string]concept.Concept{
 	},
 }
 
-var testInvalidTypeConcepts = map[string]concept.Concept{
-	"http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619": {
-		Id:        "b224ad07-c818-3ad6-94af-a4d351dbb619",
-		ApiUrl:    "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
-		Type:      "Subject",
-		PrefLabel: "Economic Indicators",
-	},
-	"http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b": {
-		Id:         "5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-		ApiUrl:     "http://api.ft.com/things/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-		Type:       "http://www.ft.com/ontology/person/Pippo",
-		PrefLabel:  "Lisa Barrett",
-		IsFTAuthor: true,
-	},
-}
-
 var expectedAugmentedAnnotations = []*Annotation{
 	{
-		Predicate: "http://www.ft.com/ontology/classification/isClassifiedBy",
-		ConceptId: "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
-		ApiUrl:    "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
-		Types: []string{
-			"http://www.ft.com/ontology/core/Thing",
-			"http://www.ft.com/ontology/concept/Concept",
-			"http://www.ft.com/ontology/classification/Classification",
-			"http://www.ft.com/ontology/Subject",
-		},
-		PrefLabel:  "Economic Indicators",
-		IsFTAuthor: false,
-	},
-	{
-		Predicate: "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId: "http://api.ft.com/things/1a2a1a0a-7199-38b8-8a73-e651e2172471",
-	},
-	{
-		Predicate: "http://www.ft.com/ontology/hasContributor",
-		ConceptId: "http://api.ft.com/things/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-		ApiUrl:    "http://api.ft.com/things/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-		Types: []string{
-			"http://www.ft.com/ontology/core/Thing",
-			"http://www.ft.com/ontology/concept/Concept",
-			"http://www.ft.com/ontology/person/Person",
-		},
-		PrefLabel:  "Lisa Barrett",
-		IsFTAuthor: true,
-	},
-}
-
-var expectedInvalidTypeAnnotations = []*Annotation{
-	{
 		Predicate:  "http://www.ft.com/ontology/classification/isClassifiedBy",
-		ConceptId:  "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
+		ConceptId:  "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
 		ApiUrl:     "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
+		Type:       "http://www.ft.com/ontology/Subject",
 		PrefLabel:  "Economic Indicators",
 		IsFTAuthor: false,
 	},
 	{
 		Predicate: "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId: "http://api.ft.com/things/1a2a1a0a-7199-38b8-8a73-e651e2172471",
+		ConceptId: "http://www.ft.com/thing/1a2a1a0a-7199-38b8-8a73-e651e2172471",
 	},
 	{
 		Predicate:  "http://www.ft.com/ontology/hasContributor",
-		ConceptId:  "http://api.ft.com/things/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+		ConceptId:  "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
 		ApiUrl:     "http://api.ft.com/things/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+		Type:       "http://www.ft.com/ontology/person/Person",
 		PrefLabel:  "Lisa Barrett",
 		IsFTAuthor: true,
 	},
@@ -176,24 +130,6 @@ func TestAugmentAnnotationsConceptSearchError(t *testing.T) {
 	err := a.AugmentAnnotations(ctx, &annotations)
 
 	assert.Error(t, err)
-
-	conceptsSearchAPI.AssertExpectations(t)
-}
-
-func TestAugmentAnnotationsInvalidConceptType(t *testing.T) {
-	conceptsSearchAPI := new(ConceptSearchAPIMock)
-	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
-	conceptsSearchAPI.
-		On("SearchConcepts", ctx, testConceptIDs).
-		Return(testInvalidTypeConcepts, nil)
-	a := NewAugmenter(conceptsSearchAPI)
-
-	annotations := buildTestAnnotations()
-	err := a.AugmentAnnotations(ctx, &annotations)
-
-	assert.NoError(t, err)
-	assert.Equal(t, len(expectedInvalidTypeAnnotations), len(annotations))
-	assert.Equal(t, expectedInvalidTypeAnnotations, annotations)
 
 	conceptsSearchAPI.AssertExpectations(t)
 }
