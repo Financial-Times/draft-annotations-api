@@ -19,12 +19,12 @@ import (
 
 type Handler struct {
 	annotationsRW        annotations.RW
-	annotationsAPI       annotations.API
+	annotationsAPI       annotations.UPPAnnotationsAPI
 	c14n                 *annotations.Canonicalizer
 	annotationsAugmenter annotations.Augmenter
 }
 
-func New(rw annotations.RW, annotationsAPI annotations.API, c14n *annotations.Canonicalizer, augmenter annotations.Augmenter) *Handler {
+func New(rw annotations.RW, annotationsAPI annotations.UPPAnnotationsAPI, c14n *annotations.Canonicalizer, augmenter annotations.Augmenter) *Handler {
 	return &Handler{
 		rw,
 		annotationsAPI,

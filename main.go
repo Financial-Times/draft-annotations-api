@@ -93,7 +93,7 @@ func main() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
 		rw := annotations.NewRW(*annotationsRWEndpoint)
-		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsAPIEndpoint, *uppAPIKey)
+		annotationsAPI := annotations.NewUPPAnnotationsAPI(*annotationsAPIEndpoint, *uppAPIKey)
 		c14n := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 		conceptSearchAPI := concept.NewSearchAPI(*conceptSearchEndpoint, *uppAPIKey, *conceptSearchBatchSize)
 		augmenter := annotations.NewAugmenter(conceptSearchAPI)

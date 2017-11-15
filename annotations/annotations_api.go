@@ -15,7 +15,7 @@ const annotationsEndpoint = "/annotations"
 
 const syntheticContentUUID = "4f2f97ea-b8ec-11e4-b8e6-00144feab7de"
 
-type API interface {
+type UPPAnnotationsAPI interface {
 	Get(ctx context.Context, contentUUID string) (*http.Response, error)
 	Endpoint() string
 	GTG() error
@@ -27,7 +27,7 @@ type annotationsAPI struct {
 	httpClient       *http.Client
 }
 
-func NewAnnotationsAPI(endpoint string, apiKey string) API {
+func NewUPPAnnotationsAPI(endpoint string, apiKey string) UPPAnnotationsAPI {
 	return &annotationsAPI{endpointTemplate: endpoint, apiKey: apiKey, httpClient: &http.Client{}}
 }
 
