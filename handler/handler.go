@@ -15,6 +15,7 @@ import (
 
 	"fmt"
 	"github.com/Financial-Times/draft-annotations-api/annotations"
+	"github.com/satori/go.uuid"
 )
 
 type Handler struct {
@@ -42,8 +43,8 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Content-Type", "application/json")
 
-	readLog.Info("Calling annotations RW...")
-	rwAnnotations, found, err := h.annotationsRW.Read(ctx, uuid)
+	readLog.Info("Reading from annotations RW...")
+	rwAnnotations, found, err := h.annotationsRW.ReadDraft(ctx, uuid)
 	if err != nil {
 		writeMessage(w, fmt.Sprintf("Annotations RW error: %v", err), http.StatusInternalServerError)
 		return
@@ -94,6 +95,48 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+
+	uuid := vestigo.Param(r, "uuid")
+	tID := tidutils.GetTransactionIDFromRequest(r)
+	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
+
+	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", uuid)
+
+	if err := validateUUID(uuid); err != nil {
+		writeLog.WithError(err).Error("Invalid content UUID")
+		writeMessage(w, fmt.Sprintf("Invalid content UUID: %v", uuid), http.StatusBadRequest)
+		return
+	}
+
+	var draftAnnotations []annotations.Annotation
+	err := json.NewDecoder(r.Body).Decode(&draftAnnotations)
+	if err != nil {
+		writeLog.WithError(err).Error("Unable to unmarshal annotations body")
+		writeMessage(w, fmt.Sprintf("Unable to unmarshal annotations body: %v", err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	writeLog.Info("Canonicalizing annotations...")
+	draftAnnotations = h.c14n.Canonicalize(draftAnnotations)
+
+	writeLog.Info("Writing from annotations RW...")
+	err = h.annotationsRW.WriteDraft(ctx, uuid, draftAnnotations)
+	if err != nil {
+		writeLog.WithError(err).Error("Error in writing draft annotations")
+		writeMessage(w, fmt.Sprintf("Error in writing draft annotations: %v", err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func validateUUID(u string) error {
+	_, err := uuid.FromString(u)
+	return err
+}
+
 func writeMessage(w http.ResponseWriter, msg string, status int) {
 	w.WriteHeader(status)
 
@@ -107,13 +150,4 @@ func writeMessage(w http.ResponseWriter, msg string, status int) {
 	}
 
 	w.Write(j)
-}
-
-func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
-	var draftAnnotations []annotations.Annotation
-	json.NewDecoder(r.Body).Decode(&draftAnnotations)
-
-	h.c14n.Canonicalize(draftAnnotations)
-
-	w.WriteHeader(http.StatusOK)
 }

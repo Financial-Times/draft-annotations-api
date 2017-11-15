@@ -1,6 +1,7 @@
 package annotations
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,7 +12,8 @@ import (
 )
 
 type RW interface {
-	Read(ctx context.Context, contentUUID string) ([]*Annotation, bool, error)
+	ReadDraft(ctx context.Context, contentUUID string) ([]*Annotation, bool, error)
+	WriteDraft(ctx context.Context, contentUUID string, annotations []Annotation) error
 	Endpoint() string
 	GTG() error
 }
@@ -25,7 +27,7 @@ func NewRW(endpoint string) RW {
 	return &annotationsRW{endpoint, &http.Client{}}
 }
 
-func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) ([]*Annotation, bool, error) {
+func (rw *annotationsRW) ReadDraft(ctx context.Context, contentUUID string) ([]*Annotation, bool, error) {
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 
 	if err != nil {
@@ -41,14 +43,14 @@ func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) ([]*Annot
 
 	req, err := http.NewRequest("GET", rw.endpoint+"/drafts/content/"+contentUUID+"/annotations", nil)
 	if err != nil {
-		readLog.WithError(err).Error("Error in creating the HTTP request to annotations RW")
+		readLog.WithError(err).Error("Error in creating the HTTP read request to annotations RW")
 		return nil, false, err
 	}
 	req.Header.Set(tidUtils.TransactionIDHeader, tid)
 
 	resp, err := rw.httpClient.Do(req)
 	if err != nil {
-		readLog.WithError(err).Error("Error making the HTTP request to annotations RW")
+		readLog.WithError(err).Error("Error making the HTTP read request to annotations RW")
 		return nil, false, err
 	}
 	defer resp.Body.Close()
@@ -65,7 +67,49 @@ func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) ([]*Annot
 	case http.StatusNotFound:
 		return nil, false, nil
 	default:
-		return nil, false, fmt.Errorf("annotations RW returned an unexpected HTTP status code: %v", resp.StatusCode)
+		return nil, false, fmt.Errorf("annotations RW returned an unexpected HTTP status code in read operation: %v", resp.StatusCode)
+	}
+}
+
+func (rw *annotationsRW) WriteDraft(ctx context.Context, contentUUID string, annotations []Annotation) error {
+	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
+
+	if err != nil {
+		tid = tidUtils.NewTransactionID()
+		log.WithField(tidUtils.TransactionIDKey, tid).
+			WithField("uuid", contentUUID).
+			WithError(err).
+			Warn("Transaction ID error in writing annotations to RW with concept data: Generated a new transaction ID")
+		ctx = tidUtils.TransactionAwareContext(ctx, tid)
+	}
+
+	writeLog := log.WithField(tidUtils.TransactionIDKey, tid).WithField("uuid", contentUUID)
+
+	annotationsBody, err := json.Marshal(annotations)
+	if err != nil {
+		writeLog.WithError(err).Error("Unable to marshall annotations that needs to be written")
+		return err
+	}
+
+	req, err := http.NewRequest("PUT", rw.endpoint+"/drafts/content/"+contentUUID+"/annotations", bytes.NewBuffer(annotationsBody))
+	if err != nil {
+		writeLog.WithError(err).Error("Error in creating the HTTP write request to annotations RW")
+		return err
+	}
+	req.Header.Set(tidUtils.TransactionIDHeader, tid)
+
+	resp, err := rw.httpClient.Do(req)
+	if err != nil {
+		writeLog.WithError(err).Error("Error making the HTTP request to annotations RW")
+		return err
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusCreated:
+		return nil
+	default:
+		return fmt.Errorf("annotations RW returned an unexpected HTTP status code in write operation: %v", resp.StatusCode)
 	}
 }
 
@@ -82,7 +126,7 @@ func (rw *annotationsRW) GTG() error {
 
 	resp, err := rw.httpClient.Do(req)
 	if err != nil {
-		log.WithError(err).Error("Error making the HTTP request to annotations RW GTG")
+		log.WithError(err).Error("Error making the HTTP write request to annotations RW GTG")
 		return fmt.Errorf("gtg HTTP call error: %v", err)
 	}
 	defer resp.Body.Close()
