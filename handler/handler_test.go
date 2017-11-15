@@ -30,7 +30,7 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations, true, nil)
 	aug := new(AugmenterMock)
-	aug.On("AugmentAnnotations", mock.Anything, &expectedAnnotations).Return(nil)
+	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations).Return(nil)
 	annAPI := new(AnnotationsAPIMock)
 
 	h := New(rw, annAPI, nil, aug)
@@ -87,7 +87,7 @@ func TestUnHappyAugmenter(t *testing.T) {
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations, true, nil)
 	aug := new(AugmenterMock)
-	aug.On("AugmentAnnotations", mock.Anything, &expectedAnnotations).Return(errors.New("computer says no"))
+	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations).Return(errors.New("computer says no"))
 	annAPI := new(AnnotationsAPIMock)
 
 	h := New(rw, annAPI, nil, aug)
@@ -377,7 +377,7 @@ type AugmenterMock struct {
 	mock.Mock
 }
 
-func (m *AugmenterMock) AugmentAnnotations(ctx context.Context, annotations *[]*annotations.Annotation) error {
+func (m *AugmenterMock) AugmentAnnotations(ctx context.Context, annotations []*annotations.Annotation) error {
 	args := m.Called(ctx, annotations)
 	return args.Error(0)
 }

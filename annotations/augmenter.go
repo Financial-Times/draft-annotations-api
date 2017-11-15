@@ -9,7 +9,7 @@ import (
 )
 
 type Augmenter interface {
-	AugmentAnnotations(ctx context.Context, depletedAnnotations *[]*Annotation) error
+	AugmentAnnotations(ctx context.Context, depletedAnnotations []*Annotation) error
 }
 
 type annotationAugmenter struct {
@@ -20,7 +20,7 @@ func NewAugmenter(api concept.SearchAPI) *annotationAugmenter {
 	return &annotationAugmenter{api}
 }
 
-func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, annotations *[]*Annotation) error {
+func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, annotations []*Annotation) error {
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 
 	if err != nil {
@@ -33,7 +33,7 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, annotation
 
 	var conceptIds []string
 
-	for _, ann := range *annotations {
+	for _, ann := range annotations {
 		conceptIds = append(conceptIds, ann.ConceptId)
 	}
 
@@ -45,7 +45,7 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, annotation
 		return err
 	}
 
-	for _, ann := range *annotations {
+	for _, ann := range annotations {
 		ann.ConceptId = "http://www.ft.com/thing/" + ann.ConceptId
 		concept, found := concepts[ann.ConceptId]
 		if found {

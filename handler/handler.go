@@ -53,7 +53,7 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 
 	if found {
 		readLog.Info("Augmenting annotations...")
-		err = h.annotationsAugmenter.AugmentAnnotations(ctx, &rwAnnotations)
+		err = h.annotationsAugmenter.AugmentAnnotations(ctx, rwAnnotations)
 		if err != nil {
 			writeMessage(w, fmt.Sprintf("Annotations augmenter error: %v", err), http.StatusInternalServerError)
 			return

@@ -84,7 +84,7 @@ func TestAugmentAnnotations(t *testing.T) {
 	a := NewAugmenter(conceptsSearchAPI)
 
 	annotations := buildTestAnnotations()
-	err := a.AugmentAnnotations(ctx, &annotations)
+	err := a.AugmentAnnotations(ctx, annotations)
 
 	assert.NoError(t, err)
 	assert.Equal(t, len(expectedAugmentedAnnotations), len(annotations))
@@ -102,7 +102,7 @@ func TestAugmentAnnotationsMissingTransactionID(t *testing.T) {
 	a := NewAugmenter(conceptsSearchAPI)
 
 	annotations := buildTestAnnotations()
-	a.AugmentAnnotations(context.Background(), &annotations)
+	a.AugmentAnnotations(context.Background(), annotations)
 
 	var tid string
 	for i, e := range hook.AllEntries() {
@@ -128,7 +128,7 @@ func TestAugmentAnnotationsConceptSearchError(t *testing.T) {
 	a := NewAugmenter(conceptsSearchAPI)
 
 	annotations := buildTestAnnotations()
-	err := a.AugmentAnnotations(ctx, &annotations)
+	err := a.AugmentAnnotations(ctx, annotations)
 
 	assert.Error(t, err)
 
