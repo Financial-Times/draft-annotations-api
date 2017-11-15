@@ -2,13 +2,14 @@ package annotations
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	log "github.com/sirupsen/logrus"
 	logTest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 )
 
 const testContentUUID = "db4daee0-2b84-465a-addb-fc8938a608db"

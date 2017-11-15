@@ -7,13 +7,15 @@ import (
 	"net/http"
 
 	"bytes"
+	"io/ioutil"
+
 	"github.com/Financial-Times/draft-annotations-api/mapper"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
 
 	"fmt"
+
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 )
 

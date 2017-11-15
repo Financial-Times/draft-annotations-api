@@ -2,9 +2,10 @@ package health
 
 import (
 	"fmt"
+	"net/http"
+
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/service-status-go/gtg"
-	"net/http"
 )
 
 type service interface {

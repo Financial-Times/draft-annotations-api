@@ -3,13 +3,14 @@ package annotations
 import (
 	"context"
 	"errors"
+	"testing"
+
 	"github.com/Financial-Times/draft-annotations-api/concept"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	log "github.com/sirupsen/logrus"
 	logTest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"testing"
 )
 
 func buildTestAnnotations() []*Annotation {

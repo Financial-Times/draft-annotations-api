@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"

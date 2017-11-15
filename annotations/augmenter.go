@@ -2,6 +2,7 @@ package annotations
 
 import (
 	"context"
+
 	"github.com/Financial-Times/draft-annotations-api/concept"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	log "github.com/sirupsen/logrus"
