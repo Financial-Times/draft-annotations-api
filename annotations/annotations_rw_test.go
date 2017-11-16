@@ -2,13 +2,14 @@ package annotations
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	log "github.com/sirupsen/logrus"
 	logTest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 )
 
 const testContentUUID = "db4daee0-2b84-465a-addb-fc8938a608db"
@@ -68,7 +69,7 @@ func TestRead500Error(t *testing.T) {
 	rw := NewRW(s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, found, err := rw.Read(ctx, testContentUUID)
-	assert.EqualError(t, err, "annotations RW returned an unexpected HTTP status code: 500")
+	assert.EqualError(t, err, "annotations RW returned an unexpected HTTP status code in read operation: 500")
 	assert.False(t, found)
 }
 

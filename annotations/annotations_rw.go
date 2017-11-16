@@ -5,15 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	tidUtils "github.com/Financial-Times/transactionid-utils-go"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
+
+	tidUtils "github.com/Financial-Times/transactionid-utils-go"
+	log "github.com/sirupsen/logrus"
 )
 
 type RW interface {
-	ReadDraft(ctx context.Context, contentUUID string) ([]*Annotation, bool, error)
-	WriteDraft(ctx context.Context, contentUUID string, annotations []Annotation) error
+	Read(ctx context.Context, contentUUID string) ([]*Annotation, bool, error)
+	Write(ctx context.Context, contentUUID string, annotations []Annotation) error
 	Endpoint() string
 	GTG() error
 }
@@ -27,7 +28,7 @@ func NewRW(endpoint string) RW {
 	return &annotationsRW{endpoint, &http.Client{}}
 }
 
-func (rw *annotationsRW) ReadDraft(ctx context.Context, contentUUID string) ([]*Annotation, bool, error) {
+func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) ([]*Annotation, bool, error) {
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 
 	if err != nil {
@@ -71,7 +72,7 @@ func (rw *annotationsRW) ReadDraft(ctx context.Context, contentUUID string) ([]*
 	}
 }
 
-func (rw *annotationsRW) WriteDraft(ctx context.Context, contentUUID string, annotations []Annotation) error {
+func (rw *annotationsRW) Write(ctx context.Context, contentUUID string, annotations []Annotation) error {
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 
 	if err != nil {

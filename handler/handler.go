@@ -7,13 +7,15 @@ import (
 	"net/http"
 
 	"bytes"
+	"io/ioutil"
+
 	"github.com/Financial-Times/draft-annotations-api/mapper"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
 
 	"fmt"
+
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/satori/go.uuid"
 )
@@ -35,16 +37,16 @@ func New(rw annotations.RW, annotationsAPI annotations.API, c14n *annotations.Ca
 }
 
 func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
-	uuid := vestigo.Param(r, "uuid")
+	contentUUID := vestigo.Param(r, "uuid")
 	tID := tidutils.GetTransactionIDFromRequest(r)
 	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
 
-	readLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", uuid)
+	readLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
 
 	w.Header().Add("Content-Type", "application/json")
 
 	readLog.Info("Reading from annotations RW...")
-	rwAnnotations, found, err := h.annotationsRW.ReadDraft(ctx, uuid)
+	rwAnnotations, found, err := h.annotationsRW.Read(ctx, contentUUID)
 	if err != nil {
 		writeMessage(w, fmt.Sprintf("Annotations RW error: %v", err), http.StatusInternalServerError)
 		return
@@ -61,7 +63,7 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 		return
 	} else {
 		readLog.Info("Annotations not found: Retrieving annotations from UPP")
-		resp, err := h.annotationsAPI.Get(ctx, uuid)
+		resp, err := h.annotationsAPI.Get(ctx, contentUUID)
 		if err != nil {
 			readLog.WithError(err).Error("Error in calling UPP Public Annotations API")
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -98,15 +100,15 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 
-	uuid := vestigo.Param(r, "uuid")
+	contentUUID := vestigo.Param(r, "uuid")
 	tID := tidutils.GetTransactionIDFromRequest(r)
 	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
 
-	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", uuid)
+	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
 
-	if err := validateUUID(uuid); err != nil {
+	if err := validateUUID(contentUUID); err != nil {
 		writeLog.WithError(err).Error("Invalid content UUID")
-		writeMessage(w, fmt.Sprintf("Invalid content UUID: %v", uuid), http.StatusBadRequest)
+		writeMessage(w, fmt.Sprintf("Invalid content UUID: %v", contentUUID), http.StatusBadRequest)
 		return
 	}
 
@@ -122,7 +124,7 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 	draftAnnotations = h.c14n.Canonicalize(draftAnnotations)
 
 	writeLog.Info("Writing from annotations RW...")
-	err = h.annotationsRW.WriteDraft(ctx, uuid, draftAnnotations)
+	err = h.annotationsRW.Write(ctx, contentUUID, draftAnnotations)
 	if err != nil {
 		writeLog.WithError(err).Error("Error in writing draft annotations")
 		writeMessage(w, fmt.Sprintf("Error in writing draft annotations: %v", err.Error()), http.StatusInternalServerError)

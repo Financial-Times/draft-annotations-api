@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
@@ -349,8 +350,10 @@ const expectedAnnotationsBody = `[
    }
 ]`
 
+//TODO fix unit test
 func TestSaveAnnotations(t *testing.T) {
 	rw := new(RWMock)
+	rw.On("Write", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	aug := new(AugmenterMock)
 	h := New(rw, nil, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug)
 	r := vestigo.NewRouter()
@@ -388,6 +391,11 @@ type RWMock struct {
 func (m *RWMock) Read(ctx context.Context, contentUUID string) ([]*annotations.Annotation, bool, error) {
 	args := m.Called(ctx, contentUUID)
 	return args.Get(0).([]*annotations.Annotation), args.Bool(1), args.Error(2)
+}
+
+func (m *RWMock) Write(ctx context.Context, contentUUID string, a []annotations.Annotation) error {
+	args := m.Called(ctx, contentUUID, a)
+	return args.Error(0)
 }
 
 func (m *RWMock) Endpoint() string {
