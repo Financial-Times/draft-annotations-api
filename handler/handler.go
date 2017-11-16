@@ -104,7 +104,7 @@ func writeMessage(w http.ResponseWriter, msg string, status int) {
 	j, err := json.Marshal(&message)
 
 	if err != nil {
-		log.WithError(err).Warn("Failed to parse provided message to json, this is a bug.")
+		log.WithError(err).Error("Failed to parse provided message to json, this is a bug.")
 		return
 	}
 
