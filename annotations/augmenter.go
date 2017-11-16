@@ -9,7 +9,7 @@ import (
 )
 
 type Augmenter interface {
-	AugmentAnnotations(ctx context.Context, depletedAnnotations []*Annotation) error
+	AugmentAnnotations(ctx context.Context, depletedAnnotations []*Annotation) ([]*Annotation, error)
 }
 
 type annotationAugmenter struct {
@@ -20,7 +20,7 @@ func NewAugmenter(api concept.SearchAPI) *annotationAugmenter {
 	return &annotationAugmenter{api}
 }
 
-func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, annotations []*Annotation) error {
+func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, depletedAnnotations []*Annotation) ([]*Annotation, error) {
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 
 	if err != nil {
@@ -33,7 +33,7 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, annotation
 
 	var conceptIds []string
 
-	for _, ann := range annotations {
+	for _, ann := range depletedAnnotations {
 		conceptIds = append(conceptIds, ann.ConceptId)
 	}
 
@@ -42,25 +42,26 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, annotation
 	if err != nil {
 		log.WithField(tidUtils.TransactionIDKey, tid).
 			WithError(err).Error("Error in augmenting annotation with concept data")
-		return err
+		return nil, err
 	}
 
-	for _, ann := range annotations {
+	var augmentedAnnotations []*Annotation
+	for _, ann := range depletedAnnotations {
 		ann.ConceptId = "http://www.ft.com/thing/" + ann.ConceptId
-		concept, found := concepts[ann.ConceptId]
+		c, found := concepts[ann.ConceptId]
 		if found {
-			ann.ApiUrl = concept.ApiUrl
-			ann.PrefLabel = concept.PrefLabel
-			ann.IsFTAuthor = concept.IsFTAuthor
-			ann.Type = concept.Type
+			ann.ApiUrl = c.ApiUrl
+			ann.PrefLabel = c.PrefLabel
+			ann.IsFTAuthor = c.IsFTAuthor
+			ann.Type = c.Type
+			augmentedAnnotations = append(augmentedAnnotations, ann)
 		} else {
 			log.WithField(tidUtils.TransactionIDKey, tid).
 				WithField("conceptId", ann.ConceptId).
-				Warn("Information not found for augmenting concept")
+				Error("Information not found for augmenting concept")
 		}
-
 	}
 
 	log.WithField(tidUtils.TransactionIDKey, tid).Info("Annotations augmented with concept data")
-	return nil
+	return augmentedAnnotations, nil
 }

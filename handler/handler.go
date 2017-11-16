@@ -53,12 +53,12 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 
 	if found {
 		readLog.Info("Augmenting annotations...")
-		err = h.annotationsAugmenter.AugmentAnnotations(ctx, rwAnnotations)
+		augmentedAnnotations, err := h.annotationsAugmenter.AugmentAnnotations(ctx, rwAnnotations)
 		if err != nil {
 			writeMessage(w, fmt.Sprintf("Annotations augmenter error: %v", err), http.StatusInternalServerError)
 			return
 		}
-		json.NewEncoder(w).Encode(rwAnnotations)
+		json.NewEncoder(w).Encode(augmentedAnnotations)
 		return
 	} else {
 		readLog.Info("Annotations not found: Retrieving annotations from UPP")

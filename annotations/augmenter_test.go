@@ -27,6 +27,10 @@ func buildTestAnnotations() []*Annotation {
 			Predicate: "http://www.ft.com/ontology/hasContributor",
 			ConceptId: "5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
 		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "1fb3faf1-bf00-3a15-8efb-1038a59653f7",
+		},
 	}
 }
 
@@ -34,6 +38,7 @@ var testConceptIDs = []string{
 	"b224ad07-c818-3ad6-94af-a4d351dbb619",
 	"1a2a1a0a-7199-38b8-8a73-e651e2172471",
 	"5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+	"1fb3faf1-bf00-3a15-8efb-1038a59653f7",
 }
 
 var testConcepts = map[string]concept.Concept{
@@ -62,10 +67,6 @@ var expectedAugmentedAnnotations = []*Annotation{
 		IsFTAuthor: false,
 	},
 	{
-		Predicate: "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId: "http://www.ft.com/thing/1a2a1a0a-7199-38b8-8a73-e651e2172471",
-	},
-	{
 		Predicate:  "http://www.ft.com/ontology/hasContributor",
 		ConceptId:  "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
 		ApiUrl:     "http://api.ft.com/things/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
@@ -84,7 +85,7 @@ func TestAugmentAnnotations(t *testing.T) {
 	a := NewAugmenter(conceptsSearchAPI)
 
 	annotations := buildTestAnnotations()
-	err := a.AugmentAnnotations(ctx, annotations)
+	annotations, err := a.AugmentAnnotations(ctx, annotations)
 
 	assert.NoError(t, err)
 	assert.Equal(t, len(expectedAugmentedAnnotations), len(annotations))
@@ -128,7 +129,7 @@ func TestAugmentAnnotationsConceptSearchError(t *testing.T) {
 	a := NewAugmenter(conceptsSearchAPI)
 
 	annotations := buildTestAnnotations()
-	err := a.AugmentAnnotations(ctx, annotations)
+	annotations, err := a.AugmentAnnotations(ctx, annotations)
 
 	assert.Error(t, err)
 
