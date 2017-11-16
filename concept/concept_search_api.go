@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	log "github.com/sirupsen/logrus"
-	"net/http"
 )
 
 type SearchAPI interface {
@@ -31,7 +32,7 @@ func NewSearchAPI(endpoint string, apiKey string, batchSize int) SearchAPI {
 	}
 }
 
-func (s *conceptSearchAPI) SearchConcepts(ctx context.Context, conceptIDs []string) (map[string]Concept, error) {
+func (search *conceptSearchAPI) SearchConcepts(ctx context.Context, conceptIDs []string) (map[string]Concept, error) {
 	combinedResult := make(map[string]Concept)
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 
@@ -44,10 +45,11 @@ func (s *conceptSearchAPI) SearchConcepts(ctx context.Context, conceptIDs []stri
 	}
 
 	var conceptIDsBatch []string
-	for i := 0; i < len(conceptIDs); i++ {
+	n := len(conceptIDs)
+	for i := 0; i < n; i++ {
 		conceptIDsBatch = append(conceptIDsBatch, conceptIDs[i])
-		if ((i+1)%s.batchSize == 0) && (i != 0) || (i+1 == len(conceptIDs)) {
-			conceptsBatch, err := s.searchConceptBatch(ctx, conceptIDsBatch)
+		if ((i+1)%search.batchSize == 0) && (i != 0) || (i+1 == n) {
+			conceptsBatch, err := search.searchConceptBatch(ctx, conceptIDsBatch)
 			if err != nil {
 				log.WithField(tidUtils.TransactionIDKey, tid).Info("Concepts information fetched successfully")
 				return nil, err
@@ -64,16 +66,16 @@ func (s *conceptSearchAPI) SearchConcepts(ctx context.Context, conceptIDs []stri
 
 const apiKeyHeader = "X-Api-Key"
 
-func (s *conceptSearchAPI) searchConceptBatch(ctx context.Context, conceptIDs []string) ([]Concept, error) {
+func (search *conceptSearchAPI) searchConceptBatch(ctx context.Context, conceptIDs []string) ([]Concept, error) {
 	tid, _ := tidUtils.GetTransactionIDFromContext(ctx)
 	batchConceptsLog := log.WithField(tidUtils.TransactionIDKey, tid)
 
-	req, err := http.NewRequest("GET", s.endpoint, nil)
+	req, err := http.NewRequest("GET", search.endpoint, nil)
 	if err != nil {
 		batchConceptsLog.WithError(err).Error("Error in creating the HTTP request to concept search API")
 		return nil, err
 	}
-	req.Header.Set(apiKeyHeader, s.apiKey)
+	req.Header.Set(apiKeyHeader, search.apiKey)
 	req.Header.Set(tidUtils.TransactionIDHeader, tid)
 
 	q := req.URL.Query()
@@ -82,7 +84,7 @@ func (s *conceptSearchAPI) searchConceptBatch(ctx context.Context, conceptIDs []
 	}
 	req.URL.RawQuery = q.Encode()
 
-	resp, err := s.httpClient.Do(req)
+	resp, err := search.httpClient.Do(req)
 	if err != nil {
 		batchConceptsLog.WithError(err).Error("Error making the HTTP request to concept search API")
 		return nil, err
@@ -105,16 +107,16 @@ func (s *conceptSearchAPI) searchConceptBatch(ctx context.Context, conceptIDs []
 	return result.Concepts, nil
 }
 
-func (s *conceptSearchAPI) Endpoint() string {
-	return s.endpoint
+func (search *conceptSearchAPI) Endpoint() string {
+	return search.endpoint
 }
 
 const ftBrandUUID = "dbb0bdae-1f0c-11e4-b0cb-b2227cce2b54"
 
-func (s *conceptSearchAPI) GTG() error {
+func (search *conceptSearchAPI) GTG() error {
 	tid := tidUtils.NewTransactionID()
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	_, err := s.searchConceptBatch(ctx, []string{ftBrandUUID})
+	_, err := search.searchConceptBatch(ctx, []string{ftBrandUUID})
 	if err != nil {
 		log.WithError(err).WithField(tidUtils.TransactionIDKey, tid).Error("Concept search API is not good-to-go")
 	}

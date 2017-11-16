@@ -2,24 +2,25 @@ package health
 
 import (
 	"fmt"
+	"net/http"
+
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/service-status-go/gtg"
-	"net/http"
 )
 
-type service interface {
+type externalService interface {
 	Endpoint() string
 	GTG() error
 }
 
 type HealthService struct {
 	fthealth.HealthCheck
-	rw               service
-	annotationsAPI   service
-	conceptSearchAPI service
+	rw               externalService
+	annotationsAPI   externalService
+	conceptSearchAPI externalService
 }
 
-func NewHealthService(appSystemCode string, appName string, appDescription string, rw service, annotationsAPI service, conceptSearchAPI service) *HealthService {
+func NewHealthService(appSystemCode string, appName string, appDescription string, rw externalService, annotationsAPI externalService, conceptSearchAPI externalService) *HealthService {
 	hcService := &HealthService{
 		rw:               rw,
 		annotationsAPI:   annotationsAPI,

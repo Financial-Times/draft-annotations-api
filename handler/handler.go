@@ -1,33 +1,30 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 
-	"bytes"
-	"io/ioutil"
-
+	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/Financial-Times/draft-annotations-api/mapper"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
-	log "github.com/sirupsen/logrus"
-
-	"fmt"
-
-	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/satori/go.uuid"
+	log "github.com/sirupsen/logrus"
 )
 
 type Handler struct {
 	annotationsRW        annotations.RW
-	annotationsAPI       annotations.API
+	annotationsAPI       annotations.UPPAnnotationsAPI
 	c14n                 *annotations.Canonicalizer
 	annotationsAugmenter annotations.Augmenter
 }
 
-func New(rw annotations.RW, annotationsAPI annotations.API, c14n *annotations.Canonicalizer, augmenter annotations.Augmenter) *Handler {
+func New(rw annotations.RW, annotationsAPI annotations.UPPAnnotationsAPI, c14n *annotations.Canonicalizer, augmenter annotations.Augmenter) *Handler {
 	return &Handler{
 		rw,
 		annotationsAPI,
@@ -54,12 +51,12 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 
 	if found {
 		readLog.Info("Augmenting annotations...")
-		err = h.annotationsAugmenter.AugmentAnnotations(ctx, &rwAnnotations)
+		augmentedAnnotations, err := h.annotationsAugmenter.AugmentAnnotations(ctx, rwAnnotations)
 		if err != nil {
 			writeMessage(w, fmt.Sprintf("Annotations augmenter error: %v", err), http.StatusInternalServerError)
 			return
 		}
-		json.NewEncoder(w).Encode(rwAnnotations)
+		json.NewEncoder(w).Encode(augmentedAnnotations)
 		return
 	} else {
 		readLog.Info("Annotations not found: Retrieving annotations from UPP")
@@ -147,7 +144,7 @@ func writeMessage(w http.ResponseWriter, msg string, status int) {
 	j, err := json.Marshal(&message)
 
 	if err != nil {
-		log.WithError(err).Warn("Failed to parse provided message to json, this is a bug.")
+		log.WithError(err).Error("Failed to parse provided message to json, this is a bug.")
 		return
 	}
 

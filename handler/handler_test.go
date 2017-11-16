@@ -30,7 +30,7 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations, true, nil)
 	aug := new(AugmenterMock)
-	aug.On("AugmentAnnotations", mock.Anything, &expectedAnnotations).Return(nil)
+	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations).Return(expectedAnnotations, nil)
 	annAPI := new(AnnotationsAPIMock)
 
 	h := New(rw, annAPI, nil, aug)
@@ -87,7 +87,7 @@ func TestUnHappyAugmenter(t *testing.T) {
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations, true, nil)
 	aug := new(AugmenterMock)
-	aug.On("AugmentAnnotations", mock.Anything, &expectedAnnotations).Return(errors.New("computer says no"))
+	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations).Return([]*annotations.Annotation{}, errors.New("computer says no"))
 	annAPI := new(AnnotationsAPIMock)
 
 	h := New(rw, annAPI, nil, aug)
@@ -120,7 +120,7 @@ func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, annotationsAPIBody)
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
 	assert.Equal(t, annotationsAPIServerMock.URL+"/content/%v/annotations", annotationsAPI.Endpoint())
 
 	h := New(rw, annotationsAPI, nil, aug)
@@ -150,7 +150,7 @@ func TestFetchFromAnnotationsAPI404(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusNotFound, "not found")
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
 	h := New(rw, annotationsAPI, nil, aug)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -179,7 +179,7 @@ func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, bannedAnnotationsAPIBody)
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
 	h := New(rw, annotationsAPI, nil, aug)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -207,7 +207,7 @@ func TestFetchFromAnnotationsAPI500(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusInternalServerError, "fire!")
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
 	h := New(rw, annotationsAPI, nil, aug)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -232,7 +232,7 @@ func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return([]*annotations.Annotation{}, false, nil)
 	aug := new(AugmenterMock)
-	annotationsAPI := annotations.NewAnnotationsAPI(":#", testAPIKey)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(":#", testAPIKey)
 	h := New(rw, annotationsAPI, nil, aug)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -260,7 +260,7 @@ func TestFetchFromAnnotationsAPIWithConnectionError(t *testing.T) {
 	annotationsAPIServerMock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewAnnotationsAPI(annotationsAPIServerMock.URL, testAPIKey)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(annotationsAPIServerMock.URL, testAPIKey)
 	h := New(rw, annotationsAPI, nil, aug)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -379,9 +379,9 @@ type AugmenterMock struct {
 	mock.Mock
 }
 
-func (m *AugmenterMock) AugmentAnnotations(ctx context.Context, annotations *[]*annotations.Annotation) error {
-	args := m.Called(ctx, annotations)
-	return args.Error(0)
+func (m *AugmenterMock) AugmentAnnotations(ctx context.Context, depletedAnnotations []*annotations.Annotation) ([]*annotations.Annotation, error) {
+	args := m.Called(ctx, depletedAnnotations)
+	return args.Get(0).([]*annotations.Annotation), args.Error(1)
 }
 
 type RWMock struct {
