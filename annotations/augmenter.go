@@ -2,6 +2,7 @@ package annotations
 
 import (
 	"context"
+	"strings"
 
 	"github.com/Financial-Times/draft-annotations-api/concept"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
@@ -34,7 +35,10 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, depletedAn
 	var conceptIds []string
 
 	for _, ann := range depletedAnnotations {
-		conceptIds = append(conceptIds, ann.ConceptId)
+		conceptUUID := extractUUID(ann.ConceptId)
+		if conceptUUID != "" {
+			conceptIds = append(conceptIds, conceptUUID)
+		}
 	}
 
 	concepts, err := a.conceptSearchApi.SearchConcepts(ctx, conceptIds)
@@ -47,7 +51,6 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, depletedAn
 
 	var augmentedAnnotations []*Annotation
 	for _, ann := range depletedAnnotations {
-		ann.ConceptId = "http://www.ft.com/thing/" + ann.ConceptId
 		c, found := concepts[ann.ConceptId]
 		if found {
 			ann.ApiUrl = c.ApiUrl
@@ -64,4 +67,12 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, depletedAn
 
 	log.WithField(tidUtils.TransactionIDKey, tid).Info("Annotations augmented with concept data")
 	return augmentedAnnotations, nil
+}
+
+func extractUUID(conceptID string) string {
+	i := strings.LastIndex(conceptID, "/")
+	if i == -1 || i == len(conceptID)-1 {
+		return ""
+	}
+	return conceptID[i+1:]
 }

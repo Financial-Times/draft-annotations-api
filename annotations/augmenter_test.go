@@ -17,19 +17,19 @@ func buildTestAnnotations() []*Annotation {
 	return []*Annotation{
 		{
 			Predicate: "http://www.ft.com/ontology/classification/isClassifiedBy",
-			ConceptId: "b224ad07-c818-3ad6-94af-a4d351dbb619",
+			ConceptId: "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
 		},
 		{
 			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "1a2a1a0a-7199-38b8-8a73-e651e2172471",
+			ConceptId: "http://www.ft.com/thing/1a2a1a0a-7199-38b8-8a73-e651e2172471",
 		},
 		{
 			Predicate: "http://www.ft.com/ontology/hasContributor",
-			ConceptId: "5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+			ConceptId: "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
 		},
 		{
 			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "1fb3faf1-bf00-3a15-8efb-1038a59653f7",
+			ConceptId: "http://www.ft.com/thing/1fb3faf1-bf00-3a15-8efb-1038a59653f7",
 		},
 	}
 }
@@ -43,13 +43,13 @@ var testConceptIDs = []string{
 
 var testConcepts = map[string]concept.Concept{
 	"http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619": {
-		Id:        "b224ad07-c818-3ad6-94af-a4d351dbb619",
+		Id:        "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
 		ApiUrl:    "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
 		Type:      "http://www.ft.com/ontology/Subject",
 		PrefLabel: "Economic Indicators",
 	},
 	"http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b": {
-		Id:         "5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+		Id:         "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
 		ApiUrl:     "http://api.ft.com/things/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
 		Type:       "http://www.ft.com/ontology/person/Person",
 		PrefLabel:  "Lisa Barrett",
@@ -132,6 +132,25 @@ func TestAugmentAnnotationsConceptSearchError(t *testing.T) {
 	annotations, err := a.AugmentAnnotations(ctx, annotations)
 
 	assert.Error(t, err)
+
+	conceptsSearchAPI.AssertExpectations(t)
+}
+
+func TestAugmentAnnotationsWithInvalidConceptID(t *testing.T) {
+	conceptsSearchAPI := new(ConceptSearchAPIMock)
+	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
+	conceptsSearchAPI.
+		On("SearchConcepts", ctx, testConceptIDs).
+		Return(testConcepts, nil)
+	a := NewAugmenter(conceptsSearchAPI)
+
+	annotations := buildTestAnnotations()
+	annotations = append(annotations, &Annotation{ConceptId: "xyz"})
+	annotations, err := a.AugmentAnnotations(ctx, annotations)
+
+	assert.NoError(t, err)
+	assert.Equal(t, len(expectedAugmentedAnnotations), len(annotations))
+	assert.Equal(t, expectedAugmentedAnnotations, annotations)
 
 	conceptsSearchAPI.AssertExpectations(t)
 }
