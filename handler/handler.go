@@ -1,22 +1,19 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 
-	"bytes"
-	"io/ioutil"
-
+	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/Financial-Times/draft-annotations-api/mapper"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
 	log "github.com/sirupsen/logrus"
-
-	"fmt"
-
-	"github.com/Financial-Times/draft-annotations-api/annotations"
 )
 
 type Handler struct {
