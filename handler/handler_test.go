@@ -350,12 +350,25 @@ const expectedAnnotationsBody = `[
    }
 ]`
 
-//TODO fix unit test
+var expectedDepletedAnnotations = []annotations.Annotation{
+	{
+		Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
+		ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+	},
+	{
+		Predicate: "http://www.ft.com/ontology/annotation/mentions",
+		ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+	},
+}
+
 func TestSaveAnnotations(t *testing.T) {
 	rw := new(RWMock)
-	rw.On("Write", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedDepletedAnnotations).Return(nil)
+
 	aug := new(AugmenterMock)
-	h := New(rw, nil, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug)
+	annotationsAPI := new(AnnotationsAPIMock)
+
+	h := New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug)
 	r := vestigo.NewRouter()
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 
@@ -373,6 +386,96 @@ func TestSaveAnnotations(t *testing.T) {
 
 	rw.AssertExpectations(t)
 	aug.AssertExpectations(t)
+	annotationsAPI.AssertExpectations(t)
+}
+
+func TestSaveAnnotationsInvalidContentUUID(t *testing.T) {
+	rw := new(RWMock)
+	aug := new(AugmenterMock)
+	annotationsAPI := new(AnnotationsAPIMock)
+
+	h := New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug)
+	r := vestigo.NewRouter()
+	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
+
+	req := httptest.NewRequest(
+		"PUT",
+		"http://api.ft.com/drafts/content/not-a-valid-uuid/annotations",
+		strings.NewReader(expectedAnnotationsBody))
+
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	body, err := ioutil.ReadAll(resp.Body)
+	assert.NoError(t, err)
+	assert.JSONEq(t, `{"message":"Invalid content UUID: not-a-valid-uuid"}`, string(body))
+
+	rw.AssertExpectations(t)
+	aug.AssertExpectations(t)
+	annotationsAPI.AssertExpectations(t)
+}
+
+func TestSaveAnnotationsInvalidAnnotationsBody(t *testing.T) {
+	rw := new(RWMock)
+	aug := new(AugmenterMock)
+	annotationsAPI := new(AnnotationsAPIMock)
+
+	h := New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug)
+	r := vestigo.NewRouter()
+	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
+
+	req := httptest.NewRequest(
+		"PUT",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		strings.NewReader(`{invalid-json}`))
+
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	body, err := ioutil.ReadAll(resp.Body)
+	assert.NoError(t, err)
+	assert.JSONEq(t, `{"message":"Unable to unmarshal annotations body: invalid character 'i' looking for beginning of object key string"}`, string(body))
+
+	rw.AssertExpectations(t)
+	aug.AssertExpectations(t)
+	annotationsAPI.AssertExpectations(t)
+}
+
+func TestSaveAnnotationsErrorFromRW(t *testing.T) {
+	rw := new(RWMock)
+	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedDepletedAnnotations).Return(errors.New("computer says no"))
+
+	aug := new(AugmenterMock)
+	annotationsAPI := new(AnnotationsAPIMock)
+
+	h := New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug)
+	r := vestigo.NewRouter()
+	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
+
+	req := httptest.NewRequest(
+		"PUT",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		strings.NewReader(expectedAnnotationsBody))
+
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	body, err := ioutil.ReadAll(resp.Body)
+	assert.NoError(t, err)
+	assert.JSONEq(t, `{"message":"Error in writing draft annotations: computer says no"}`, string(body))
+
+	rw.AssertExpectations(t)
+	aug.AssertExpectations(t)
+	annotationsAPI.AssertExpectations(t)
 }
 
 type AugmenterMock struct {
