@@ -44,14 +44,14 @@ func main() {
 	})
 
 	annotationsRWEndpoint := app.String(cli.StringOpt{
-		Name:   "concept-search-endpoint",
+		Name:   "annotations-rw-endpoint",
 		Value:  "http://localhost:8888",
 		Desc:   "Endpoint to get concepts from UPP",
 		EnvVar: "ANNOTATIONS_RW_ENDPOINT",
 	})
 
 	annotationsAPIEndpoint := app.String(cli.StringOpt{
-		Name:   "annotations-endpoint",
+		Name:   "upp-annotations-endpoint",
 		Value:  "http://test.api.ft.com/content/%v/annotations",
 		Desc:   "Endpoint to get annotations from UPP",
 		EnvVar: "ANNOTATIONS_ENDPOINT",
@@ -65,7 +65,7 @@ func main() {
 	})
 
 	conceptSearchBatchSize := app.Int(cli.IntOpt{
-		Name:   "concept-search-endpoint",
+		Name:   "concept-search-batch-size",
 		Value:  30,
 		Desc:   "Concept IDs batch size to concept search API",
 		EnvVar: "CONCEPT_SEARCH_BATCH_SIZE",
