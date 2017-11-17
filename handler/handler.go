@@ -120,7 +120,7 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 	writeLog.Info("Canonicalizing annotations...")
 	draftAnnotations = h.c14n.Canonicalize(draftAnnotations)
 
-	writeLog.Info("Writing from annotations RW...")
+	writeLog.Info("Writing to annotations RW...")
 	err = h.annotationsRW.Write(ctx, contentUUID, draftAnnotations)
 	if err != nil {
 		writeLog.WithError(err).Error("Error in writing draft annotations")
