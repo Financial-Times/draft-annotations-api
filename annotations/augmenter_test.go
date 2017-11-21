@@ -13,25 +13,23 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func buildTestAnnotations() []*Annotation {
-	return []*Annotation{
-		{
-			Predicate: "http://www.ft.com/ontology/classification/isClassifiedBy",
-			ConceptId: "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/1a2a1a0a-7199-38b8-8a73-e651e2172471",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/hasContributor",
-			ConceptId: "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/1fb3faf1-bf00-3a15-8efb-1038a59653f7",
-		},
-	}
+var testCanonicalizedAnnotations = []Annotation{
+	{
+		Predicate: "http://www.ft.com/ontology/classification/isClassifiedBy",
+		ConceptId: "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
+	},
+	{
+		Predicate: "http://www.ft.com/ontology/annotation/mentions",
+		ConceptId: "http://www.ft.com/thing/1a2a1a0a-7199-38b8-8a73-e651e2172471",
+	},
+	{
+		Predicate: "http://www.ft.com/ontology/hasContributor",
+		ConceptId: "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+	},
+	{
+		Predicate: "http://www.ft.com/ontology/annotation/mentions",
+		ConceptId: "http://www.ft.com/thing/1fb3faf1-bf00-3a15-8efb-1038a59653f7",
+	},
 }
 
 var testConceptIDs = []string{
@@ -57,7 +55,7 @@ var testConcepts = map[string]concept.Concept{
 	},
 }
 
-var expectedAugmentedAnnotations = []*Annotation{
+var expectedAugmentedAnnotations = []Annotation{
 	{
 		Predicate:  "http://www.ft.com/ontology/classification/isClassifiedBy",
 		ConceptId:  "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
@@ -84,8 +82,7 @@ func TestAugmentAnnotations(t *testing.T) {
 		Return(testConcepts, nil)
 	a := NewAugmenter(conceptsSearchAPI)
 
-	annotations := buildTestAnnotations()
-	annotations, err := a.AugmentAnnotations(ctx, annotations)
+	annotations, err := a.AugmentAnnotations(ctx, testCanonicalizedAnnotations)
 
 	assert.NoError(t, err)
 	assert.Equal(t, len(expectedAugmentedAnnotations), len(annotations))
@@ -102,8 +99,7 @@ func TestAugmentAnnotationsMissingTransactionID(t *testing.T) {
 		Return(testConcepts, nil)
 	a := NewAugmenter(conceptsSearchAPI)
 
-	annotations := buildTestAnnotations()
-	a.AugmentAnnotations(context.Background(), annotations)
+	a.AugmentAnnotations(context.Background(), testCanonicalizedAnnotations)
 
 	var tid string
 	for i, e := range hook.AllEntries() {
@@ -128,8 +124,7 @@ func TestAugmentAnnotationsConceptSearchError(t *testing.T) {
 		Return(map[string]concept.Concept{}, errors.New("one minute to midnight"))
 	a := NewAugmenter(conceptsSearchAPI)
 
-	annotations := buildTestAnnotations()
-	annotations, err := a.AugmentAnnotations(ctx, annotations)
+	_, err := a.AugmentAnnotations(ctx, testCanonicalizedAnnotations)
 
 	assert.Error(t, err)
 
@@ -144,9 +139,8 @@ func TestAugmentAnnotationsWithInvalidConceptID(t *testing.T) {
 		Return(testConcepts, nil)
 	a := NewAugmenter(conceptsSearchAPI)
 
-	annotations := buildTestAnnotations()
-	annotations = append(annotations, &Annotation{ConceptId: "xyz"})
-	annotations, err := a.AugmentAnnotations(ctx, annotations)
+	testCanonicalizedAnnotations = append(testCanonicalizedAnnotations, Annotation{ConceptId: "xyz"})
+	annotations, err := a.AugmentAnnotations(ctx, testCanonicalizedAnnotations)
 
 	assert.NoError(t, err)
 	assert.Equal(t, len(expectedAugmentedAnnotations), len(annotations))

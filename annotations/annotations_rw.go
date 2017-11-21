@@ -15,7 +15,7 @@ import (
 const rwURLPattern = "%s/drafts/content/%s/annotations"
 
 type RW interface {
-	Read(ctx context.Context, contentUUID string) ([]*Annotation, bool, error)
+	Read(ctx context.Context, contentUUID string) ([]Annotation, bool, error)
 	Write(ctx context.Context, contentUUID string, annotations []Annotation) error
 	Endpoint() string
 	GTG() error
@@ -30,7 +30,7 @@ func NewRW(endpoint string) RW {
 	return &annotationsRW{endpoint, &http.Client{}}
 }
 
-func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) ([]*Annotation, bool, error) {
+func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) ([]Annotation, bool, error) {
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 
 	if err != nil {
@@ -60,7 +60,7 @@ func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) ([]*Annot
 
 	switch resp.StatusCode {
 	case http.StatusOK:
-		var annotations []*Annotation
+		var annotations []Annotation
 		err = json.NewDecoder(resp.Body).Decode(&annotations)
 		if err != nil {
 			readLog.WithError(err).Error("Error in unmarshalling the HTTP response from annotations RW")

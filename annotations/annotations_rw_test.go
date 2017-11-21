@@ -26,18 +26,7 @@ const testRWBody = `[
 	}
 ]`
 
-var expectedReadAnnotations = []*Annotation{
-	{
-		Predicate: "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
-	},
-	{
-		Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
-		ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
-	},
-}
-
-var expectedWriteAnnotations = []Annotation{
+var expectedCanonicalizedAnnotations = []Annotation{
 	{
 		Predicate: "http://www.ft.com/ontology/annotation/mentions",
 		ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
@@ -58,7 +47,7 @@ func TestHappyRead(t *testing.T) {
 	actualAnnotations, found, err := rw.Read(ctx, testContentUUID)
 	assert.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, expectedReadAnnotations, actualAnnotations)
+	assert.Equal(t, expectedCanonicalizedAnnotations, actualAnnotations)
 }
 
 func TestReadAnnotationsNotFound(t *testing.T) {
@@ -142,7 +131,7 @@ func TestHappyWriteStatusCreate(t *testing.T) {
 
 	rw := NewRW(s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	err := rw.Write(ctx, testContentUUID, expectedWriteAnnotations)
+	err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations)
 	assert.NoError(t, err)
 }
 
@@ -153,7 +142,7 @@ func TestHappyWriteStatusOK(t *testing.T) {
 
 	rw := NewRW(s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	err := rw.Write(ctx, testContentUUID, expectedWriteAnnotations)
+	err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations)
 	assert.NoError(t, err)
 }
 
@@ -164,7 +153,7 @@ func TestUnhappyWriteStatus500(t *testing.T) {
 
 	rw := NewRW(s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	err := rw.Write(ctx, testContentUUID, expectedWriteAnnotations)
+	err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations)
 	assert.Error(t, err, "")
 }
 
@@ -173,7 +162,7 @@ func TestWriteHTTPRequestError(t *testing.T) {
 
 	rw := NewRW(":#")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	err := rw.Write(ctx, testContentUUID, expectedWriteAnnotations)
+	err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations)
 	assert.EqualError(t, err, "parse :: missing protocol scheme")
 }
 
@@ -182,7 +171,7 @@ func TestWriteHTTPCallError(t *testing.T) {
 
 	rw := NewRW("")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	err := rw.Write(ctx, testContentUUID, expectedWriteAnnotations)
+	err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations)
 	assert.EqualError(t, err, "Put /drafts/content/db4daee0-2b84-465a-addb-fc8938a608db/annotations: unsupported protocol scheme \"\"")
 }
 
@@ -190,7 +179,7 @@ func TestWriteMissingTID(t *testing.T) {
 	hook := logTest.NewGlobal()
 
 	rw := NewRW("")
-	rw.Write(context.Background(), testContentUUID, expectedWriteAnnotations)
+	rw.Write(context.Background(), testContentUUID, expectedCanonicalizedAnnotations)
 	var tid string
 	for i, e := range hook.AllEntries() {
 		if i == 0 {
