@@ -12,6 +12,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const rwURLPattern = "%s/drafts/content/%s/annotations"
+
 type RW interface {
 	Read(ctx context.Context, contentUUID string) ([]*Annotation, bool, error)
 	Write(ctx context.Context, contentUUID string, annotations []Annotation) error
@@ -42,7 +44,7 @@ func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) ([]*Annot
 
 	readLog := log.WithField(tidUtils.TransactionIDKey, tid).WithField("uuid", contentUUID)
 
-	req, err := http.NewRequest("GET", rw.endpoint+"/drafts/content/"+contentUUID+"/annotations", nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf(rwURLPattern, rw.endpoint, contentUUID), nil)
 	if err != nil {
 		readLog.WithError(err).Error("Error in creating the HTTP read request to annotations RW")
 		return nil, false, err
@@ -92,7 +94,7 @@ func (rw *annotationsRW) Write(ctx context.Context, contentUUID string, annotati
 		return err
 	}
 
-	req, err := http.NewRequest("PUT", rw.endpoint+"/drafts/content/"+contentUUID+"/annotations", bytes.NewBuffer(annotationsBody))
+	req, err := http.NewRequest("PUT", fmt.Sprintf(rwURLPattern, rw.endpoint, contentUUID), bytes.NewBuffer(annotationsBody))
 	if err != nil {
 		writeLog.WithError(err).Error("Error in creating the HTTP write request to annotations RW")
 		return err
