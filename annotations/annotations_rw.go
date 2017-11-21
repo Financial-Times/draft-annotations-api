@@ -127,7 +127,7 @@ func (rw *annotationsRW) GTG() error {
 
 	resp, err := rw.httpClient.Do(req)
 	if err != nil {
-		log.WithError(err).Error("Error making the HTTP write request to annotations RW GTG")
+		log.WithError(err).Error("Error making the HTTP request to annotations RW GTG")
 		return fmt.Errorf("gtg HTTP call error: %v", err)
 	}
 	defer resp.Body.Close()
