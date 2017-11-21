@@ -350,6 +350,17 @@ const expectedAnnotationsBody = `[
    }
 ]`
 
+const expectedCanonicalisedAnnotationsBody = `[
+   {
+      "predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+      "id": "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4"
+   },
+   {
+      "predicate": "http://www.ft.com/ontology/annotation/mentions",
+      "id": "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a"
+   }
+]`
+
 var expectedDepletedAnnotations = []annotations.Annotation{
 	{
 		Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
@@ -382,7 +393,10 @@ func TestSaveAnnotations(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	body, err := ioutil.ReadAll(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.NoError(t, err)
+	assert.JSONEq(t, string(expectedCanonicalisedAnnotationsBody), string(body))
 
 	rw.AssertExpectations(t)
 	aug.AssertExpectations(t)
