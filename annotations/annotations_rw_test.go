@@ -18,33 +18,33 @@ const testContentUUID = "db4daee0-2b84-465a-addb-fc8938a608db"
 const testRWBody = `[
 	{
 		"predicate": "http://www.ft.com/ontology/annotation/mentions",
-		"id": "http://api.ft.com/things/0a619d71-9af5-3755-90dd-f789b686c67a"
+		"id": "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a"
 	},
 	{
 		"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
-		"id": "http://api.ft.com/things/838b3fbe-efbc-3cfe-b5c0-d38c046492a4"
+		"id": "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4"
 	}
 ]`
 
 var expectedReadAnnotations = []*Annotation{
 	{
 		Predicate: "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId: "http://api.ft.com/things/0a619d71-9af5-3755-90dd-f789b686c67a",
+		ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
 	},
 	{
 		Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
-		ConceptId: "http://api.ft.com/things/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+		ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
 	},
 }
 
 var expectedWriteAnnotations = []Annotation{
 	{
 		Predicate: "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId: "http://api.ft.com/things/0a619d71-9af5-3755-90dd-f789b686c67a",
+		ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
 	},
 	{
 		Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
-		ConceptId: "http://api.ft.com/things/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+		ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
 	},
 }
 
