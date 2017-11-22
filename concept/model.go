@@ -1,8 +1,11 @@
-package annotations
+package concept
 
-type Annotation struct {
-	Predicate  string `json:"predicate"`
-	ConceptId  string `json:"id"`
+type SearchResult struct {
+	Concepts []Concept `"json:concepts"`
+}
+
+type Concept struct {
+	Id         string `json:"id"`
 	ApiUrl     string `json:"apiUrl,omitempty"`
 	Type       string `json:"type,omitempty"`
 	PrefLabel  string `json:"prefLabel,omitempty"`

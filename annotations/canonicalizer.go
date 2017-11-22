@@ -21,7 +21,7 @@ func NewCanonicalizer(sorterFactory func(ann []Annotation) sort.Interface) *Cano
 	return &Canonicalizer{sorterFactory}
 }
 
-func (c *Canonicalizer) canonicalize(in []Annotation) []Annotation {
+func (c *Canonicalizer) Canonicalize(in []Annotation) []Annotation {
 	out := make([]Annotation, len(in))
 	for i, ann := range in {
 		out[i] = *c.deplete(ann)
@@ -38,7 +38,7 @@ func (c *Canonicalizer) deplete(in Annotation) *Annotation {
 // Hash hashes the given payload in SHA224 + Hex
 func (c *Canonicalizer) hash(ann []Annotation) string {
 	out := bytes.NewBuffer([]byte{})
-	canonical := c.canonicalize(ann)
+	canonical := c.Canonicalize(ann)
 	json.NewEncoder(out).Encode(canonical)
 	hash := sha256.New224()
 	hash.Write(out.Bytes())

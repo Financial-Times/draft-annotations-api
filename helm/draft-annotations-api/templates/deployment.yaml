@@ -23,12 +23,19 @@ spec:
       - name: {{ .Values.service.name }} 
         image: "{{ .Values.image.repository }}:{{ .Chart.Version }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        env: 
+        env:
+        - name: ANNOTATIONS_RW_ENDPOINT
+          value: "http://generic-rw-aurora:8080"
         - name: ANNOTATIONS_ENDPOINT 
           valueFrom:
-           configMapKeyRef:
+            configMapKeyRef:
               name: global-config
               key: annotations-endpoint
+        - name: CONCEPT_SEARCH_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: global-config
+              key: concept-search-endpoint
         - name: UPP_APIKEY
           valueFrom:
             configMapKeyRef:
