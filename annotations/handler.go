@@ -16,13 +16,14 @@ import (
 
 type Handler struct {
 	annotationsAPI AnnotationsAPI
+	c14n *Canonicalizer
 }
 
-func NewHandler(api AnnotationsAPI) *Handler {
-	return &Handler{api}
+func NewHandler(api AnnotationsAPI, c14n *Canonicalizer) *Handler {
+	return &Handler{api, c14n}
 }
 
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 	uuid := vestigo.Param(r, "uuid")
 	tID := tidutils.GetTransactionIDFromRequest(r)
 	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
@@ -74,4 +75,13 @@ func writeMessage(w http.ResponseWriter, msg string, status int) {
 	}
 
 	w.Write(j)
+}
+
+func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
+	draftAnnotations := []Annotation{}
+	json.NewDecoder(r.Body).Decode(&draftAnnotations)
+
+	h.c14n.canonicalize(draftAnnotations)
+
+	w.WriteHeader(http.StatusOK)
 }

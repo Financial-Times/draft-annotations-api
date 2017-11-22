@@ -3,3 +3,5 @@
 /vendor/*
 !/vendor/vendor.json
 *.exe
+
+.idea/
