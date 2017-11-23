@@ -2,6 +2,7 @@ package annotations
 
 import (
 	"context"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,28 +18,28 @@ const testContentUUID = "db4daee0-2b84-465a-addb-fc8938a608db"
 const testRWBody = `[
 	{
 		"predicate": "http://www.ft.com/ontology/annotation/mentions",
-		"id": "http://api.ft.com/things/0a619d71-9af5-3755-90dd-f789b686c67a"
+		"id": "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a"
 	},
 	{
 		"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
-		"id": "http://api.ft.com/things/838b3fbe-efbc-3cfe-b5c0-d38c046492a4"
+		"id": "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4"
 	}
 ]`
 
-var expectedRWAnnotations = []*Annotation{
+var expectedCanonicalizedAnnotations = []Annotation{
 	{
 		Predicate: "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId: "http://api.ft.com/things/0a619d71-9af5-3755-90dd-f789b686c67a",
+		ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
 	},
 	{
 		Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
-		ConceptId: "http://api.ft.com/things/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+		ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
 	},
 }
 
 func TestHappyRead(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
-	s := newAnnotationsRWServerMock(t, http.StatusOK, testRWBody, tid)
+	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusOK, testRWBody, tid)
 	defer s.Close()
 
 	rw := NewRW(s.URL)
@@ -46,12 +47,12 @@ func TestHappyRead(t *testing.T) {
 	actualAnnotations, found, err := rw.Read(ctx, testContentUUID)
 	assert.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, expectedRWAnnotations, actualAnnotations)
+	assert.Equal(t, expectedCanonicalizedAnnotations, actualAnnotations)
 }
 
 func TestReadAnnotationsNotFound(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
-	s := newAnnotationsRWServerMock(t, http.StatusNotFound, "", tid)
+	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusNotFound, "", tid)
 	defer s.Close()
 
 	rw := NewRW(s.URL)
@@ -63,13 +64,13 @@ func TestReadAnnotationsNotFound(t *testing.T) {
 
 func TestRead500Error(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
-	s := newAnnotationsRWServerMock(t, http.StatusInternalServerError, "", tid)
+	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusInternalServerError, "", tid)
 	defer s.Close()
 
 	rw := NewRW(s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, found, err := rw.Read(ctx, testContentUUID)
-	assert.EqualError(t, err, "annotations RW returned an unexpected HTTP status code: 500")
+	assert.EqualError(t, err, "annotations RW returned an unexpected HTTP status code in read operation: 500")
 	assert.False(t, found)
 }
 
@@ -95,7 +96,7 @@ func TestReadHTTPCallError(t *testing.T) {
 
 func TestReadInvalidBodyError(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
-	s := newAnnotationsRWServerMock(t, http.StatusOK, "{invalid-body}", tid)
+	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusOK, "{invalid-body}", tid)
 	defer s.Close()
 
 	rw := NewRW(s.URL)
@@ -123,9 +124,78 @@ func TestReadMissingTID(t *testing.T) {
 	}
 }
 
-func newAnnotationsRWServerMock(t *testing.T, status int, body string, tid string) *httptest.Server {
+func TestHappyWriteStatusCreate(t *testing.T) {
+	tid := tidUtils.NewTransactionID()
+	s := newAnnotationsRWServerMock(t, http.MethodPut, http.StatusCreated, testRWBody, tid)
+	defer s.Close()
+
+	rw := NewRW(s.URL)
+	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
+	err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations)
+	assert.NoError(t, err)
+}
+
+func TestHappyWriteStatusOK(t *testing.T) {
+	tid := tidUtils.NewTransactionID()
+	s := newAnnotationsRWServerMock(t, http.MethodPut, http.StatusOK, testRWBody, tid)
+	defer s.Close()
+
+	rw := NewRW(s.URL)
+	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
+	err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations)
+	assert.NoError(t, err)
+}
+
+func TestUnhappyWriteStatus500(t *testing.T) {
+	tid := tidUtils.NewTransactionID()
+	s := newAnnotationsRWServerMock(t, http.MethodPut, http.StatusInternalServerError, testRWBody, tid)
+	defer s.Close()
+
+	rw := NewRW(s.URL)
+	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
+	err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations)
+	assert.Error(t, err, "")
+}
+
+func TestWriteHTTPRequestError(t *testing.T) {
+	tid := tidUtils.NewTransactionID()
+
+	rw := NewRW(":#")
+	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
+	err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations)
+	assert.EqualError(t, err, "parse :: missing protocol scheme")
+}
+
+func TestWriteHTTPCallError(t *testing.T) {
+	tid := tidUtils.NewTransactionID()
+
+	rw := NewRW("")
+	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
+	err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations)
+	assert.EqualError(t, err, "Put /drafts/content/db4daee0-2b84-465a-addb-fc8938a608db/annotations: unsupported protocol scheme \"\"")
+}
+
+func TestWriteMissingTID(t *testing.T) {
+	hook := logTest.NewGlobal()
+
+	rw := NewRW("")
+	rw.Write(context.Background(), testContentUUID, expectedCanonicalizedAnnotations)
+	var tid string
+	for i, e := range hook.AllEntries() {
+		if i == 0 {
+			assert.Equal(t, log.WarnLevel, e.Level)
+			assert.Equal(t, "Transaction ID error in writing annotations to RW with concept data: Generated a new transaction ID", e.Message)
+			tid = e.Data[tidUtils.TransactionIDKey].(string)
+			assert.NotEmpty(t, tid)
+		} else {
+			assert.Equal(t, tid, e.Data[tidUtils.TransactionIDKey])
+		}
+	}
+}
+
+func newAnnotationsRWServerMock(t *testing.T, method string, status int, body string, tid string) *httptest.Server {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, method, r.Method)
 		assert.Equal(t, "/drafts/content/"+testContentUUID+"/annotations", r.URL.Path)
 		if tid == "" {
 			assert.NotEmpty(t, r.Header.Get(tidUtils.TransactionIDHeader))
@@ -133,7 +203,14 @@ func newAnnotationsRWServerMock(t *testing.T, status int, body string, tid strin
 			assert.Equal(t, tid, r.Header.Get(tidUtils.TransactionIDHeader))
 		}
 		w.WriteHeader(status)
-		w.Write([]byte(body))
+
+		switch r.Method {
+		case http.MethodGet:
+			w.Write([]byte(body))
+		case http.MethodPut:
+			rBody, _ := ioutil.ReadAll(r.Body)
+			assert.JSONEq(t, body, string(rBody))
+		}
 	}))
 	return ts
 }

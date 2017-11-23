@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"os"
 
-	api "github.com/Financial-Times/api-endpoint"
+	"github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/Financial-Times/draft-annotations-api/concept"
 	"github.com/Financial-Times/draft-annotations-api/handler"
