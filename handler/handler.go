@@ -43,7 +43,7 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 
 	readLog.Info("Reading from annotations RW...")
-	rwAnnotations, found, err := h.annotationsRW.Read(ctx, contentUUID)
+	rwAnnotations, hash, found, err := h.annotationsRW.Read(ctx, contentUUID)
 	if err != nil {
 		writeMessage(w, fmt.Sprintf("Annotations RW error: %v", err), http.StatusInternalServerError)
 		return
@@ -56,6 +56,7 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 			writeMessage(w, fmt.Sprintf("Annotations augmenter error: %v", err), http.StatusInternalServerError)
 			return
 		}
+		w.Header().Set(annotations.DocumentHashHeader, hash)
 		json.NewEncoder(w).Encode(augmentedAnnotations)
 		return
 	} else {
@@ -101,6 +102,8 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 	tID := tidutils.GetTransactionIDFromRequest(r)
 	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
 
+	oldHash := r.Header.Get(annotations.PreviousDocumentHashHeader)
+
 	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
 
 	if err := validateUUID(contentUUID); err != nil {
@@ -121,13 +124,14 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 	draftAnnotations = h.c14n.Canonicalize(draftAnnotations)
 
 	writeLog.Info("Writing to annotations RW...")
-	err = h.annotationsRW.Write(ctx, contentUUID, draftAnnotations)
+	newHash, err := h.annotationsRW.Write(ctx, contentUUID, draftAnnotations, oldHash)
 	if err != nil {
 		writeLog.WithError(err).Error("Error in writing draft annotations")
 		writeMessage(w, fmt.Sprintf("Error in writing draft annotations: %v", err.Error()), http.StatusInternalServerError)
 		return
 	}
 
+	w.Header().Set(annotations.DocumentHashHeader, newHash)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(draftAnnotations)
 }
