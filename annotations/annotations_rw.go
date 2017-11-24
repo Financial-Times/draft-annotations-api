@@ -13,8 +13,8 @@ import (
 )
 
 const rwURLPattern = "%s/drafts/content/%s/annotations"
-const DocumentHashHeader = "X-Document-Hash"
-const PreviousDocumentHashHeader = "X-Previous-Document-Hash"
+const DocumentHashHeader = "Document-Hash"
+const PreviousDocumentHashHeader = "Previous-Document-Hash"
 
 type RW interface {
 	Read(ctx context.Context, contentUUID string) ([]Annotation, string, bool, error)
