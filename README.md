@@ -114,7 +114,7 @@ This is an example of response body:
 ]
 ```
 
-### PUT - Writing draft annotations from PAC
+### PUT - Writing draft annotations to PAC
 
 Using curl:
 ```
@@ -146,6 +146,7 @@ curl -X PUT \
 ```
 
 A PUT request on this endpoint writes the draft annotations in PAC. 
+The input body is an array of annotation JSON objects in which only `predicate` and `id` are the required fields.
 If the write operation is successful, the application returns the canonicalized input body with 
 a HTTP 200 response code.
 The listings below shows an example of canonicalized response.
