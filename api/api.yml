@@ -19,7 +19,7 @@ schemes:
 paths:
   /drafts/content/{uuid}/annotations:
     get:
-      summary: Get Annotations for Content
+      summary: Get Annotations Drafts for Content
       description: Returns the draft annotations for the content with the given uuid.
       tags:
         - Public API
@@ -34,7 +34,7 @@ paths:
           x-example: f368bbac-4bd9-11e7-919a-1e14ce4af89b
       responses:
         200:
-          description: Returns an array of UPP format annotations for the given content uuid.
+          description: Returns an array of PAC format annotations for the given content uuid.
           examples:
             application/json:
               - id: http://api.ft.com/things/5507ab98-b747-3ebc-b816-11603b9009f4
@@ -42,7 +42,34 @@ paths:
           description: Invalid uuid supplied
         404:
           description: Annotations not found
-
+    put:
+      summary: Write Annotations Drafts for Content
+      description: Returns the draft annotations for the content with the given uuid.
+      tags:
+        - Public API
+      produces:
+        - application/json
+      parameters:
+        - name: uuid
+          in: path
+          description: The UUID of the content
+          required: true
+          type: string
+          x-example: f368bbac-4bd9-11e7-919a-1e14ce4af89b
+        - name: body
+          in: body
+          required: true
+          description: An array of PAC format annotations for the given content uuid
+      responses:
+        200:
+          description: Returns the canonicalized input array of annotations that have been successufully written in PAC.
+          examples:
+            application/json:
+              - id: http://api.ft.com/things/5507ab98-b747-3ebc-b816-11603b9009f4
+        400:
+          description: Invalid uuid or annotations body supplied
+        500:
+          description: Internal service error
   /__health:
     get:
       summary: Healthchecks
