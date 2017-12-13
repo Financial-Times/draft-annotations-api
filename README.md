@@ -4,7 +4,7 @@
 
 ## Introduction
 
-Draft Annotations API is a microservice that provides access to draft annotations for content stored in PAC. Currently, the service is a simple proxy to UPP Public Annotations API.
+Draft Annotations API is a microservice that provides access to draft annotations for content stored in PAC.
 
 ## Installation
 
@@ -35,12 +35,15 @@ go install
 $GOPATH/bin/draft-annotations-api [--help]
 
 Options:
-  --app-system-code="draft-annotations-api"                                System Code of the application ($APP_SYSTEM_CODE)
-  --app-name="draft-annotations-api"                                       Application name ($APP_NAME)
-  --port="8080"                                                            Port to listen on ($APP_PORT)
-  --annotations-endpoint="http://test.api.ft.com/content/%v/annotations"   Endpoint to get annotations from UPP ($ANNOTATIONS_ENDPOINT)
-  --upp-api-key=""                                                         API key to access UPP ($UPP_APIKEY)
-  --api-yml="./api.yml"                                                    Location of the API Swagger YML file. ($API_YML)
+  --app-system-code="draft-annotations-api"                                    System Code of the application ($APP_SYSTEM_CODE)
+  --app-name="draft-annotations-api"                                           Application name ($APP_NAME)
+  --port="8080"                                                                Port to listen on ($APP_PORT)
+  --annotations-rw-endpoint="http://localhost:8888"                            Endpoint to get concepts from UPP ($ANNOTATIONS_RW_ENDPOINT)
+  --upp-annotations-endpoint="http://test.api.ft.com/content/%v/annotations"   Endpoint to get annotations from UPP ($ANNOTATIONS_ENDPOINT)
+  --concept-search-endpoint="http://test.api.ft.com/concepts"                  Endpoint to get concepts from UPP ($CONCEPT_SEARCH_ENDPOINT)
+  --concept-search-batch-size=30                                               Concept IDs batch size to concept search API ($CONCEPT_SEARCH_BATCH_SIZE)
+  --upp-api-key=""                                                             API key to access UPP ($UPP_APIKEY)
+  --api-yml="./api.yml"                                                        Location of the API Swagger YML file. ($API_YML)
 ```
 
 
@@ -56,28 +59,114 @@ Options:
 
 ## Build and deployment
 
-* Built by Docker Hub on merge to master: [coco/draft-annotations-api](https://hub.docker.com/r/coco/draft-annotations-api/)
+* The application is built as a docker image inside a helm chart to be deployed in a Kubernetes cluster.
+  An internal Jenkins job takes care to push the Docker image to Docker Hub and deploy the chart when a tag is created.
+  This is the Docker Hub repository: [coco/draft-annotations-api](https://hub.docker.com/r/coco/draft-annotations-api)
 * CI provided by CircleCI: [draft-annotations-api](https://circleci.com/gh/Financial-Times/draft-annotations-api)
 
 ## Service endpoints
 
 For a full description of API endpoints for the service, please see the [Open API specification](./api/api.yml).
 
-### GET
+### GET - Reading draft annotations from PAC
 
 Using curl:
 
 ```
-curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations | jq
+curl http://localhost:8080/draft/content/{content-uuid}/annotations | jq
 ```
 
-Or using [httpie](https://github.com/jkbrzt/httpie):
+A GET request on this endpoint fetches the draft annotations for a specific piece of content by calling 
+[Generic RW Aurora](https://github.com/Financial-Times/generic-rw-aurora).
+In case the success, annotations are enriched with concept information by calling 
+[UPP Concept Search API](https://github.com/Financial-Times/concept-search-api).
+In case annotations are not available in PAC, 
+Draft Annotations API fetches published annotations by calling 
+[UPP Public Annotations API](https://github.com/Financial-Times/public-annotations-api).
+Fetching published annotations is part of the strategy for dynamic importing legacy annotations in PAC. 
+
+This is an example of response body:
+```
+[
+  {
+    "predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+    "id": "http://www.ft.com/thing/fd6734a1-3ae2-30f3-98a1-e373f8da8bf1",
+    "apiUrl": "http://api.ft.com/people/fd6734a1-3ae2-30f3-98a1-e373f8da8bf1",
+    "type": "http://www.ft.com/ontology/person/Person",
+    "prefLabel": "Emily Cadman",
+    "isFTAuthor": true,
+  },
+  {
+    "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
+    "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+    "apiUrl": "http://api.ft.com/people/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+    "type": "http://www.ft.com/ontology/person/Person",
+    "prefLabel": "Lisa Barrett",
+    "isFTAuthor": true,
+  },
+  {
+    "predicate": "http://www.ft.com/ontology/annotation/about",
+    "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+    "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+    "type": "http://www.ft.com/ontology/Topic",
+    "prefLabel": "Global economic growth"
+  }
+]
+```
+
+### PUT - Writing draft annotations to PAC
+
+Using curl:
+```
+curl -X PUT \
+  http://localhost:8080/drafts/content/{content-uuid}/annotations \
+  -d '[
+        {
+          "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
+          "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+          "apiUrl": "http://api.ft.com/people/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+          "type": "http://www.ft.com/ontology/person/Person",
+          "prefLabel": "Lisa Barrett"
+        },
+        {
+          "predicate": "http://www.ft.com/ontology/annotation/about",
+          "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+          "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+          "type": "http://www.ft.com/ontology/Topic",
+          "prefLabel": "Global economic growth"
+        },
+        {
+          "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
+          "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+          "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+          "type": "http://www.ft.com/ontology/Topic",
+          "prefLabel": "Global economic growth"
+        }
+      ]'
+```
+
+A PUT request on this endpoint writes the draft annotations in PAC. 
+The input body is an array of annotation JSON objects in which only `predicate` and `id` are the required fields.
+If the write operation is successful, the application returns the canonicalized input body with 
+a HTTP 200 response code.
+The listings below shows an example of canonicalized response.
 
 ```
-http GET http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations
+[
+  {
+    "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
+    "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+  },
+  {
+    "predicate": "http://www.ft.com/ontology/annotation/about",
+    "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+  },
+  {
+    "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
+    "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+  }
+]
 ```
-
-Currently, this endpoint is a proxy to the annotations available in UPP, so it returns a payload consistent to the UPP Public Annotations API.
 
 ## Healthchecks
 
