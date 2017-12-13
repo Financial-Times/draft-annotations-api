@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
+	"github.com/Pallinder/go-randomdata"
 	log "github.com/sirupsen/logrus"
 	logTest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -39,37 +40,39 @@ var expectedCanonicalizedAnnotations = []Annotation{
 
 func TestHappyRead(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
-	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusOK, testRWBody, tid)
+	expectedHash := randomdata.RandStringRunes(56)
+	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusOK, testRWBody, "", expectedHash, tid)
 	defer s.Close()
 
 	rw := NewRW(s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	actualAnnotations, found, err := rw.Read(ctx, testContentUUID)
+	actualAnnotations, actualHash, found, err := rw.Read(ctx, testContentUUID)
 	assert.NoError(t, err)
 	assert.True(t, found)
 	assert.Equal(t, expectedCanonicalizedAnnotations, actualAnnotations)
+	assert.Equal(t, expectedHash, actualHash)
 }
 
 func TestReadAnnotationsNotFound(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
-	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusNotFound, "", tid)
+	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusNotFound, "", "", "", tid)
 	defer s.Close()
 
 	rw := NewRW(s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	_, found, err := rw.Read(ctx, testContentUUID)
+	_, _, found, err := rw.Read(ctx, testContentUUID)
 	assert.NoError(t, err)
 	assert.False(t, found)
 }
 
 func TestRead500Error(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
-	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusInternalServerError, "", tid)
+	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusInternalServerError, "", "", "", tid)
 	defer s.Close()
 
 	rw := NewRW(s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	_, found, err := rw.Read(ctx, testContentUUID)
+	_, _, found, err := rw.Read(ctx, testContentUUID)
 	assert.EqualError(t, err, "annotations RW returned an unexpected HTTP status code in read operation: 500")
 	assert.False(t, found)
 }
@@ -79,7 +82,7 @@ func TestReadHTTPRequestError(t *testing.T) {
 
 	rw := NewRW(":#")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	_, found, err := rw.Read(ctx, testContentUUID)
+	_, _, found, err := rw.Read(ctx, testContentUUID)
 	assert.EqualError(t, err, "parse :: missing protocol scheme")
 	assert.False(t, found)
 }
@@ -89,19 +92,19 @@ func TestReadHTTPCallError(t *testing.T) {
 
 	rw := NewRW("")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	_, found, err := rw.Read(ctx, testContentUUID)
+	_, _, found, err := rw.Read(ctx, testContentUUID)
 	assert.EqualError(t, err, "Get /drafts/content/db4daee0-2b84-465a-addb-fc8938a608db/annotations: unsupported protocol scheme \"\"")
 	assert.False(t, found)
 }
 
 func TestReadInvalidBodyError(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
-	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusOK, "{invalid-body}", tid)
+	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusOK, "{invalid-body}", "", "", tid)
 	defer s.Close()
 
 	rw := NewRW(s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	_, found, err := rw.Read(ctx, testContentUUID)
+	_, _, found, err := rw.Read(ctx, testContentUUID)
 	assert.EqualError(t, err, "invalid character 'i' looking for beginning of object key string")
 	assert.False(t, found)
 }
@@ -126,60 +129,67 @@ func TestReadMissingTID(t *testing.T) {
 
 func TestHappyWriteStatusCreate(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
-	s := newAnnotationsRWServerMock(t, http.MethodPut, http.StatusCreated, testRWBody, tid)
+	oldHash := randomdata.RandStringRunes(56)
+	newHash := randomdata.RandStringRunes(56)
+	s := newAnnotationsRWServerMock(t, http.MethodPut, http.StatusCreated, testRWBody, oldHash, newHash, tid)
 	defer s.Close()
 
 	rw := NewRW(s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations)
+	actualNewHash, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
 	assert.NoError(t, err)
+	assert.Equal(t, newHash, actualNewHash)
 }
 
 func TestHappyWriteStatusOK(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
-	s := newAnnotationsRWServerMock(t, http.MethodPut, http.StatusOK, testRWBody, tid)
+	oldHash := randomdata.RandStringRunes(56)
+	newHash := randomdata.RandStringRunes(56)
+	s := newAnnotationsRWServerMock(t, http.MethodPut, http.StatusOK, testRWBody, oldHash, newHash, tid)
 	defer s.Close()
 
 	rw := NewRW(s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations)
+	actualNewHash, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
 	assert.NoError(t, err)
+	assert.Equal(t, newHash, actualNewHash)
 }
 
 func TestUnhappyWriteStatus500(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
-	s := newAnnotationsRWServerMock(t, http.MethodPut, http.StatusInternalServerError, testRWBody, tid)
+	oldHash := randomdata.RandStringRunes(56)
+	s := newAnnotationsRWServerMock(t, http.MethodPut, http.StatusInternalServerError, testRWBody, oldHash, "", tid)
 	defer s.Close()
 
 	rw := NewRW(s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations)
-	assert.Error(t, err, "")
+	_, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
+	assert.EqualError(t, err, "annotations RW returned an unexpected HTTP status code in write operation: 500")
 }
 
 func TestWriteHTTPRequestError(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
-
+	oldHash := randomdata.RandStringRunes(56)
 	rw := NewRW(":#")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations)
+	_, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
 	assert.EqualError(t, err, "parse :: missing protocol scheme")
 }
 
 func TestWriteHTTPCallError(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
-
+	oldHash := randomdata.RandStringRunes(56)
 	rw := NewRW("")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations)
+	_, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
 	assert.EqualError(t, err, "Put /drafts/content/db4daee0-2b84-465a-addb-fc8938a608db/annotations: unsupported protocol scheme \"\"")
 }
 
 func TestWriteMissingTID(t *testing.T) {
 	hook := logTest.NewGlobal()
-
+	oldHash := randomdata.RandStringRunes(56)
 	rw := NewRW("")
-	rw.Write(context.Background(), testContentUUID, expectedCanonicalizedAnnotations)
+	rw.Write(context.Background(), testContentUUID, expectedCanonicalizedAnnotations, oldHash)
 	var tid string
 	for i, e := range hook.AllEntries() {
 		if i == 0 {
@@ -193,7 +203,7 @@ func TestWriteMissingTID(t *testing.T) {
 	}
 }
 
-func newAnnotationsRWServerMock(t *testing.T, method string, status int, body string, tid string) *httptest.Server {
+func newAnnotationsRWServerMock(t *testing.T, method string, status int, body string, hashIn string, hashOut string, tid string) *httptest.Server {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, method, r.Method)
 		assert.Equal(t, "/drafts/content/"+testContentUUID+"/annotations", r.URL.Path)
@@ -202,12 +212,15 @@ func newAnnotationsRWServerMock(t *testing.T, method string, status int, body st
 		} else {
 			assert.Equal(t, tid, r.Header.Get(tidUtils.TransactionIDHeader))
 		}
+
+		w.Header().Set(DocumentHashHeader, hashOut)
 		w.WriteHeader(status)
 
 		switch r.Method {
 		case http.MethodGet:
 			w.Write([]byte(body))
 		case http.MethodPut:
+			assert.Equal(t, hashIn, r.Header.Get(PreviousDocumentHashHeader))
 			rBody, _ := ioutil.ReadAll(r.Body)
 			assert.JSONEq(t, body, string(rBody))
 		}
