@@ -57,7 +57,7 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set(annotations.DocumentHashHeader, hash)
-		json.NewEncoder(w).Encode(augmentedAnnotations)
+		json.NewEncoder(w).Encode(map[string]interface{}{"annotations":augmentedAnnotations})
 		return
 	} else {
 		readLog.Info("Annotations not found: Retrieving annotations from UPP")

@@ -25,8 +25,6 @@ const testTID = "test_tid"
 const apiKeyHeader = "X-Api-Key"
 
 func TestHappyFetchFromAnnotationsRW(t *testing.T) {
-	var expectedAnnotations []annotations.Annotation
-	json.Unmarshal([]byte(expectedAnnotationsBody), &expectedAnnotations)
 	hash := randomdata.RandStringRunes(56)
 
 	rw := new(RWMock)
@@ -45,10 +43,13 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
-	body, err := ioutil.ReadAll(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	actual := make(map[string][]annotations.Annotation)
+	err := json.NewDecoder(resp.Body).Decode(&actual)
 	assert.NoError(t, err)
-	assert.JSONEq(t, string(expectedAnnotationsBody), string(body))
+
+	assert.Equal(t, expectedAnnotations, actual["annotations"])
 	assert.Equal(t, hash, resp.Header.Get(annotations.DocumentHashHeader))
 
 	rw.AssertExpectations(t)
@@ -85,9 +86,6 @@ func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
 }
 
 func TestUnHappyAugmenter(t *testing.T) {
-	var expectedAnnotations []annotations.Annotation
-	json.Unmarshal([]byte(expectedAnnotationsBody), &expectedAnnotations)
-
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations, "", true, nil)
 	aug := new(AugmenterMock)
@@ -355,6 +353,22 @@ const expectedAnnotationsBody = `[
       "prefLabel": "David J Lynch"
    }
 ]`
+var expectedAnnotations = []annotations.Annotation{
+	{
+		Predicate: "http://www.ft.com/ontology/annotation/mentions",
+		ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		ApiUrl: "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+		Type: "http://www.ft.com/ontology/person/Person",
+		PrefLabel: "Barack H. Obama",
+	},
+	{
+		Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
+		ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+		ApiUrl: "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+		Type: "http://www.ft.com/ontology/person/Person",
+		PrefLabel: "David J Lynch",
+	},
+}
 
 const expectedCanonicalisedAnnotationsBody = `[
    {
