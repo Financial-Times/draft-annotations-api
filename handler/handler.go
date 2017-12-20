@@ -48,16 +48,11 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var rawAnnotations []annotations.Annotation
 	var response annotations.Annotations
 	if found {
-		readLog.Info("Augmenting annotations...")
-		augmentedAnnotations, err := h.annotationsAugmenter.AugmentAnnotations(ctx, rwAnnotations.Annotations)
-		if err != nil {
-			writeMessage(w, fmt.Sprintf("Annotations augmenter error: %v", err), http.StatusInternalServerError)
-			return
-		}
+		rawAnnotations = rwAnnotations.Annotations
 		w.Header().Set(annotations.DocumentHashHeader, hash)
-		response = annotations.Annotations{augmentedAnnotations}
 	} else {
 		readLog.Info("Annotations not found: Retrieving annotations from UPP")
 		uppResponse, err := h.annotationsAPI.Get(ctx, contentUUID)
@@ -87,20 +82,21 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 		} else if err == nil && convertedBody == nil {
 			writeMessage(w, "No annotations can be found", http.StatusNotFound)
 			return
-		} else {
-			uppAnnotations := []annotations.Annotation{}
-			json.Unmarshal(convertedBody, &uppAnnotations)
-
-			readLog.Info("Augmenting annotations...")
-			augmentedAnnotations, err := h.annotationsAugmenter.AugmentAnnotations(ctx, uppAnnotations)
-			if err != nil {
-				writeMessage(w, fmt.Sprintf("Annotations augmenter error: %v", err), http.StatusInternalServerError)
-				return
-			}
-			response = annotations.Annotations{augmentedAnnotations}
-			w.WriteHeader(uppResponse.StatusCode)
 		}
+
+		rawAnnotations = []annotations.Annotation{}
+		json.Unmarshal(convertedBody, &rawAnnotations)
+
+		w.WriteHeader(uppResponse.StatusCode)
 	}
+
+	readLog.Info("Augmenting annotations...")
+	augmentedAnnotations, err := h.annotationsAugmenter.AugmentAnnotations(ctx, rawAnnotations)
+	if err != nil {
+		writeMessage(w, fmt.Sprintf("Annotations augmenter error: %v", err), http.StatusInternalServerError)
+		return
+	}
+	response = annotations.Annotations{augmentedAnnotations}
 
 	json.NewEncoder(w).Encode(&response)
 }
