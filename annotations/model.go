@@ -1,5 +1,9 @@
 package annotations
 
+type Annotations struct {
+	Annotations []Annotation `json:"annotations"`
+}
+
 type Annotation struct {
 	Predicate  string `json:"predicate"`
 	ConceptId  string `json:"id"`

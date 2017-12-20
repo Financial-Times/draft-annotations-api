@@ -51,13 +51,13 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 
 	if found {
 		readLog.Info("Augmenting annotations...")
-		augmentedAnnotations, err := h.annotationsAugmenter.AugmentAnnotations(ctx, rwAnnotations)
+		augmentedAnnotations, err := h.annotationsAugmenter.AugmentAnnotations(ctx, rwAnnotations.Annotations)
 		if err != nil {
 			writeMessage(w, fmt.Sprintf("Annotations augmenter error: %v", err), http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set(annotations.DocumentHashHeader, hash)
-		json.NewEncoder(w).Encode(map[string]interface{}{"annotations":augmentedAnnotations})
+		json.NewEncoder(w).Encode(&annotations.Annotations{augmentedAnnotations})
 		return
 	} else {
 		readLog.Info("Annotations not found: Retrieving annotations from UPP")
@@ -112,7 +112,7 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var draftAnnotations []annotations.Annotation
+	var draftAnnotations annotations.Annotations
 	err := json.NewDecoder(r.Body).Decode(&draftAnnotations)
 	if err != nil {
 		writeLog.WithError(err).Error("Unable to unmarshal annotations body")
@@ -121,10 +121,10 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeLog.Info("Canonicalizing annotations...")
-	draftAnnotations = h.c14n.Canonicalize(draftAnnotations)
+	draftAnnotations.Annotations = h.c14n.Canonicalize(draftAnnotations.Annotations)
 
 	writeLog.Info("Writing to annotations RW...")
-	newHash, err := h.annotationsRW.Write(ctx, contentUUID, draftAnnotations, oldHash)
+	newHash, err := h.annotationsRW.Write(ctx, contentUUID, &draftAnnotations, oldHash)
 	if err != nil {
 		writeLog.WithError(err).Error("Error in writing draft annotations")
 		writeMessage(w, fmt.Sprintf("Error in writing draft annotations: %v", err.Error()), http.StatusInternalServerError)
