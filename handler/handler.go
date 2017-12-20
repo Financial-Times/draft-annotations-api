@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -49,6 +48,7 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var response annotations.Annotations
 	if found {
 		readLog.Info("Augmenting annotations...")
 		augmentedAnnotations, err := h.annotationsAugmenter.AugmentAnnotations(ctx, rwAnnotations.Annotations)
@@ -57,42 +57,52 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set(annotations.DocumentHashHeader, hash)
-		json.NewEncoder(w).Encode(&annotations.Annotations{augmentedAnnotations})
-		return
+		response = annotations.Annotations{augmentedAnnotations}
 	} else {
 		readLog.Info("Annotations not found: Retrieving annotations from UPP")
-		resp, err := h.annotationsAPI.Get(ctx, contentUUID)
+		uppResponse, err := h.annotationsAPI.Get(ctx, contentUUID)
 		if err != nil {
 			readLog.WithError(err).Error("Error in calling UPP Public Annotations API")
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer resp.Body.Close()
+		defer uppResponse.Body.Close()
 
-		if resp.StatusCode == http.StatusOK {
-			respBody, _ := ioutil.ReadAll(resp.Body)
-			convertedBody, err := mapper.ConvertPredicates(respBody)
-			if err != nil {
-				readLog.WithError(err).Error("Error converting predicates from UPP Public Annotations API response")
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			} else if err == nil && convertedBody == nil {
-				writeMessage(w, "No annotations can be found", http.StatusNotFound)
-				return
+		if uppResponse.StatusCode != http.StatusOK {
+			if uppResponse.StatusCode == http.StatusNotFound || uppResponse.StatusCode == http.StatusBadRequest {
+				w.WriteHeader(uppResponse.StatusCode)
+				io.Copy(w, uppResponse.Body)
 			} else {
-				reader := bytes.NewReader(convertedBody)
-				w.WriteHeader(resp.StatusCode)
-				io.Copy(w, reader)
+				writeMessage(w, "Service unavailable", http.StatusServiceUnavailable)
+			}
+			return
+		}
+
+		respBody, _ := ioutil.ReadAll(uppResponse.Body)
+		convertedBody, err := mapper.ConvertPredicates(respBody)
+		if err != nil {
+			readLog.WithError(err).Error("Error converting predicates from UPP Public Annotations API response")
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		} else if err == nil && convertedBody == nil {
+			writeMessage(w, "No annotations can be found", http.StatusNotFound)
+			return
+		} else {
+			uppAnnotations := []annotations.Annotation{}
+			json.Unmarshal(convertedBody, &uppAnnotations)
+
+			readLog.Info("Augmenting annotations...")
+			augmentedAnnotations, err := h.annotationsAugmenter.AugmentAnnotations(ctx, uppAnnotations)
+			if err != nil {
+				writeMessage(w, fmt.Sprintf("Annotations augmenter error: %v", err), http.StatusInternalServerError)
 				return
 			}
-		}
-		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusBadRequest {
-			w.WriteHeader(resp.StatusCode)
-			io.Copy(w, resp.Body)
-		} else {
-			writeMessage(w, "Service unavailable", http.StatusServiceUnavailable)
+			response = annotations.Annotations{augmentedAnnotations}
+			w.WriteHeader(uppResponse.StatusCode)
 		}
 	}
+
+	json.NewEncoder(w).Encode(&response)
 }
 
 func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {

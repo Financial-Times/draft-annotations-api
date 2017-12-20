@@ -117,6 +117,8 @@ func TestUnHappyAugmenter(t *testing.T) {
 
 func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 	aug := new(AugmenterMock)
+	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations.Annotations).Return(expectedAnnotations.Annotations, nil)
+
 	rw := new(RWMock)
 
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
@@ -137,10 +139,13 @@ func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
-	body, err := ioutil.ReadAll(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	actual := annotations.Annotations{}
+	err := json.NewDecoder(resp.Body).Decode(&actual)
 	assert.NoError(t, err)
-	assert.JSONEq(t, string(expectedAnnotationsBody), string(body))
+
+	assert.Equal(t, expectedAnnotations, actual)
 	assert.Empty(t, resp.Header.Get(annotations.DocumentHashHeader))
 
 	rw.AssertExpectations(t)
