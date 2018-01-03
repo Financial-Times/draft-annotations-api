@@ -16,7 +16,7 @@ type SearchAPI interface {
 	GTG() error
 }
 
-type conceptSearchAPI struct {
+type internalConcordancesAPI struct {
 	endpoint   string
 	apiKey     string
 	httpClient *http.Client
@@ -24,7 +24,7 @@ type conceptSearchAPI struct {
 }
 
 func NewSearchAPI(endpoint string, apiKey string, batchSize int) SearchAPI {
-	return &conceptSearchAPI{
+	return &internalConcordancesAPI{
 		endpoint:   endpoint,
 		apiKey:     apiKey,
 		httpClient: &http.Client{},
@@ -32,19 +32,19 @@ func NewSearchAPI(endpoint string, apiKey string, batchSize int) SearchAPI {
 	}
 }
 
-func (search *conceptSearchAPI) SearchConcepts(ctx context.Context, conceptIDs []string) (map[string]Concept, error) {
-	combinedResult := make(map[string]Concept)
+func (search *internalConcordancesAPI) SearchConcepts(ctx context.Context, conceptIDs []string) (map[string]Concept, error) {
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
-
 	if err != nil {
 		tid = tidUtils.NewTransactionID()
 		log.WithField(tidUtils.TransactionIDKey, tid).
 			WithError(err).
-			Warn("Transaction ID error for requests of concepts to concept search API: Generated a new transaction ID")
+			Info("No Transaction ID provided for concept request, generating a new transaction id")
 		ctx = tidUtils.TransactionAwareContext(ctx, tid)
 	}
 
 	var conceptIDsBatch []string
+	combinedResult := make(map[string]Concept)
+
 	n := len(conceptIDs)
 	for i := 0; i < n; i++ {
 		conceptIDsBatch = append(conceptIDsBatch, conceptIDs[i])
@@ -54,8 +54,9 @@ func (search *conceptSearchAPI) SearchConcepts(ctx context.Context, conceptIDs [
 				log.WithField(tidUtils.TransactionIDKey, tid).Info("Concepts information fetched successfully")
 				return nil, err
 			}
-			for _, c := range conceptsBatch {
-				combinedResult[c.Id] = c
+
+			for uuid, c := range conceptsBatch {
+				combinedResult[uuid] = c
 			}
 			conceptIDsBatch = []string{}
 		}
@@ -66,7 +67,7 @@ func (search *conceptSearchAPI) SearchConcepts(ctx context.Context, conceptIDs [
 
 const apiKeyHeader = "X-Api-Key"
 
-func (search *conceptSearchAPI) searchConceptBatch(ctx context.Context, conceptIDs []string) ([]Concept, error) {
+func (search *internalConcordancesAPI) searchConceptBatch(ctx context.Context, conceptIDs []string) (map[string]Concept, error) {
 	tid, _ := tidUtils.GetTransactionIDFromContext(ctx)
 	batchConceptsLog := log.WithField(tidUtils.TransactionIDKey, tid)
 
@@ -107,13 +108,13 @@ func (search *conceptSearchAPI) searchConceptBatch(ctx context.Context, conceptI
 	return result.Concepts, nil
 }
 
-func (search *conceptSearchAPI) Endpoint() string {
+func (search *internalConcordancesAPI) Endpoint() string {
 	return search.endpoint
 }
 
 const ftBrandUUID = "dbb0bdae-1f0c-11e4-b0cb-b2227cce2b54"
 
-func (search *conceptSearchAPI) GTG() error {
+func (search *internalConcordancesAPI) GTG() error {
 	tid := tidUtils.NewTransactionID()
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, err := search.searchConceptBatch(ctx, []string{ftBrandUUID})

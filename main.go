@@ -57,18 +57,18 @@ func main() {
 		EnvVar: "ANNOTATIONS_ENDPOINT",
 	})
 
-	conceptSearchEndpoint := app.String(cli.StringOpt{
-		Name:   "concept-search-endpoint",
-		Value:  "http://test.api.ft.com/concepts",
+	internalConcordancesEndpoint := app.String(cli.StringOpt{
+		Name:   "internal-concordances-endpoint",
+		Value:  "http://test.api.ft.com/internalconcordances",
 		Desc:   "Endpoint to get concepts from UPP",
-		EnvVar: "CONCEPT_SEARCH_ENDPOINT",
+		EnvVar: "INTERNAL_CONCORDANCES_ENDPOINT",
 	})
 
-	conceptSearchBatchSize := app.Int(cli.IntOpt{
-		Name:   "concept-search-batch-size",
+	internalConcordancesBatchSize := app.Int(cli.IntOpt{
+		Name:   "internal-concordances-batch-size",
 		Value:  30,
-		Desc:   "Concept IDs batch size to concept search API",
-		EnvVar: "CONCEPT_SEARCH_BATCH_SIZE",
+		Desc:   "Concept IDs maximum batch size to use when querying the UPP Internal Concordances API",
+		EnvVar: "INTERNAL_CONCORDANCES_BATCH_SIZE",
 	})
 
 	uppAPIKey := app.String(cli.StringOpt{
@@ -95,7 +95,7 @@ func main() {
 		rw := annotations.NewRW(*annotationsRWEndpoint)
 		annotationsAPI := annotations.NewUPPAnnotationsAPI(*annotationsAPIEndpoint, *uppAPIKey)
 		c14n := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
-		conceptSearchAPI := concept.NewSearchAPI(*conceptSearchEndpoint, *uppAPIKey, *conceptSearchBatchSize)
+		conceptSearchAPI := concept.NewSearchAPI(*internalConcordancesEndpoint, *uppAPIKey, *internalConcordancesBatchSize)
 		augmenter := annotations.NewAugmenter(conceptSearchAPI)
 		annotationsHandler := handler.New(rw, annotationsAPI, c14n, augmenter)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, rw, annotationsAPI, conceptSearchAPI)
@@ -111,8 +111,8 @@ func main() {
 }
 
 func serveEndpoints(port string, apiYml *string, handler *handler.Handler, healthService *health.HealthService) {
-
 	r := vestigo.NewRouter()
+
 	r.Get("/drafts/content/:uuid/annotations", handler.ReadAnnotations)
 	r.Put("/drafts/content/:uuid/annotations", handler.WriteAnnotations)
 	var monitoringRouter http.Handler = r

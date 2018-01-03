@@ -21,7 +21,7 @@ func NewAugmenter(api concept.SearchAPI) *annotationAugmenter {
 	return &annotationAugmenter{api}
 }
 
-func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, depletedAnnotations []Annotation) ([]Annotation, error) {
+func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations []Annotation) ([]Annotation, error) {
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 
 	if err != nil {
@@ -32,41 +32,48 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, depletedAn
 		ctx = tidUtils.TransactionAwareContext(ctx, tid)
 	}
 
-	var conceptIds []string
+	uuids, mappedAnnotations := toMap(canonicalAnnotations)
 
-	for _, ann := range depletedAnnotations {
-		conceptUUID := extractUUID(ann.ConceptId)
-		if conceptUUID != "" {
-			conceptIds = append(conceptIds, conceptUUID)
-		}
-	}
-
-	concepts, err := a.conceptSearchApi.SearchConcepts(ctx, conceptIds)
+	concepts, err := a.conceptSearchApi.SearchConcepts(ctx, uuids)
 
 	if err != nil {
 		log.WithField(tidUtils.TransactionIDKey, tid).
-			WithError(err).Error("Error in augmenting annotation with concept data")
+			WithError(err).Error("Request failed when attempting to augment annotations from UPP concept data")
 		return nil, err
 	}
 
 	var augmentedAnnotations []Annotation
-	for _, ann := range depletedAnnotations {
-		c, found := concepts[ann.ConceptId]
+	for uuid, ann := range mappedAnnotations {
+		concept, found := concepts[uuid]
 		if found {
-			ann.ApiUrl = c.ApiUrl
-			ann.PrefLabel = c.PrefLabel
-			ann.IsFTAuthor = c.IsFTAuthor
-			ann.Type = c.Type
+			ann.ConceptId = concept.ID
+			ann.ApiUrl = concept.ApiUrl
+			ann.PrefLabel = concept.PrefLabel
+			ann.IsFTAuthor = concept.IsFTAuthor
+			ann.Type = concept.Type
 			augmentedAnnotations = append(augmentedAnnotations, ann)
 		} else {
 			log.WithField(tidUtils.TransactionIDKey, tid).
 				WithField("conceptId", ann.ConceptId).
-				Error("Information not found for augmenting concept")
+				Info("Concept data for this annotation was not found, and will be removed from the list of annotations.")
 		}
 	}
 
 	log.WithField(tidUtils.TransactionIDKey, tid).Info("Annotations augmented with concept data")
 	return augmentedAnnotations, nil
+}
+
+func toMap(canonicalAnnotations []Annotation) ([]string, map[string]Annotation) {
+	mappedConcepts := make(map[string]Annotation)
+	var keys []string
+	for _, ann := range canonicalAnnotations {
+		conceptUUID := extractUUID(ann.ConceptId)
+		if conceptUUID != "" {
+			keys = append(keys, conceptUUID)
+			mappedConcepts[conceptUUID] = ann
+		}
+	}
+	return keys, mappedConcepts
 }
 
 func extractUUID(conceptID string) string {

@@ -68,8 +68,8 @@ func TestSearchConceptsMissingTID(t *testing.T) {
 	var tid string
 	for i, e := range hook.AllEntries() {
 		if i == 0 {
-			assert.Equal(t, log.WarnLevel, e.Level)
-			assert.Equal(t, "Transaction ID error for requests of concepts to concept search API: Generated a new transaction ID", e.Message)
+			assert.Equal(t, log.InfoLevel, e.Level)
+			assert.Equal(t, "No Transaction ID provided for concept request, generating a new transaction id", e.Message)
 			tid = e.Data[tidUtils.TransactionIDKey].(string)
 			assert.NotEmpty(t, tid)
 		} else {
@@ -168,7 +168,7 @@ func generateConcepts(n int) map[string]Concept {
 
 func generateConcept(id string) Concept {
 	return Concept{
-		Id:         id,
+		ID:         id,
 		ApiUrl:     "https://api.ft.com/things/" + id,
 		Type:       randomdata.SillyName(),
 		PrefLabel:  randomdata.SillyName(),
@@ -222,12 +222,12 @@ func (h *mockedSearchServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 		assert.NotEmpty(h.t, actualTID)
 	}
 
-	var concepts []Concept
+	concepts := make(map[string]Concept)
 
 	for _, id := range values["ids"] {
 		c, found := h.expectedConcepts[id]
 		assert.True(h.t, found)
-		concepts = append(concepts, c)
+		concepts[c.ID] = c
 	}
 
 	b, err := json.Marshal(SearchResult{concepts})
