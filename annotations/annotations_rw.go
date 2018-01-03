@@ -17,8 +17,8 @@ const DocumentHashHeader = "Document-Hash"
 const PreviousDocumentHashHeader = "Previous-Document-Hash"
 
 type RW interface {
-	Read(ctx context.Context, contentUUID string) ([]Annotation, string, bool, error)
-	Write(ctx context.Context, contentUUID string, annotations []Annotation, hash string) (string, error)
+	Read(ctx context.Context, contentUUID string) (*Annotations, string, bool, error)
+	Write(ctx context.Context, contentUUID string, annotations *Annotations, hash string) (string, error)
 	Endpoint() string
 	GTG() error
 }
@@ -32,7 +32,7 @@ func NewRW(endpoint string) RW {
 	return &annotationsRW{endpoint, &http.Client{}}
 }
 
-func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) ([]Annotation, string, bool, error) {
+func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) (*Annotations, string, bool, error) {
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 
 	if err != nil {
@@ -62,14 +62,14 @@ func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) ([]Annota
 
 	switch resp.StatusCode {
 	case http.StatusOK:
-		var annotations []Annotation
+		var annotations Annotations
 		err = json.NewDecoder(resp.Body).Decode(&annotations)
 		if err != nil {
 			readLog.WithError(err).Error("Error in unmarshalling the HTTP response from annotations RW")
 			return nil, "", false, err
 		}
 		hash := resp.Header.Get(DocumentHashHeader)
-		return annotations, hash, true, nil
+		return &annotations, hash, true, nil
 	case http.StatusNotFound:
 		return nil, "", false, nil
 	default:
@@ -77,7 +77,7 @@ func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) ([]Annota
 	}
 }
 
-func (rw *annotationsRW) Write(ctx context.Context, contentUUID string, annotations []Annotation, hash string) (string, error) {
+func (rw *annotationsRW) Write(ctx context.Context, contentUUID string, annotations *Annotations, hash string) (string, error) {
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 
 	if err != nil {

@@ -38,7 +38,7 @@ Options:
   --app-system-code="draft-annotations-api"                                    System Code of the application ($APP_SYSTEM_CODE)
   --app-name="draft-annotations-api"                                           Application name ($APP_NAME)
   --port="8080"                                                                Port to listen on ($APP_PORT)
-  --annotations-rw-endpoint="http://localhost:8888"                            Endpoint to get concepts from UPP ($ANNOTATIONS_RW_ENDPOINT)
+  --annotations-rw-endpoint="http://localhost:8888"                            Endpoint to get concepts from PAC ($ANNOTATIONS_RW_ENDPOINT)
   --upp-annotations-endpoint="http://test.api.ft.com/content/%v/annotations"   Endpoint to get annotations from UPP ($ANNOTATIONS_ENDPOINT)
   --concept-search-endpoint="http://test.api.ft.com/concepts"                  Endpoint to get concepts from UPP ($CONCEPT_SEARCH_ENDPOINT)
   --concept-search-batch-size=30                                               Concept IDs batch size to concept search API ($CONCEPT_SEARCH_BATCH_SIZE)
@@ -87,31 +87,33 @@ Fetching published annotations is part of the strategy for dynamic importing leg
 
 This is an example of response body:
 ```
-[
-  {
-    "predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
-    "id": "http://www.ft.com/thing/fd6734a1-3ae2-30f3-98a1-e373f8da8bf1",
-    "apiUrl": "http://api.ft.com/people/fd6734a1-3ae2-30f3-98a1-e373f8da8bf1",
-    "type": "http://www.ft.com/ontology/person/Person",
-    "prefLabel": "Emily Cadman",
-    "isFTAuthor": true,
-  },
-  {
-    "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
-    "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-    "apiUrl": "http://api.ft.com/people/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-    "type": "http://www.ft.com/ontology/person/Person",
-    "prefLabel": "Lisa Barrett",
-    "isFTAuthor": true,
-  },
-  {
-    "predicate": "http://www.ft.com/ontology/annotation/about",
-    "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-    "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-    "type": "http://www.ft.com/ontology/Topic",
-    "prefLabel": "Global economic growth"
-  }
-]
+{
+      "annotations":[
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+        "id": "http://www.ft.com/thing/fd6734a1-3ae2-30f3-98a1-e373f8da8bf1",
+        "apiUrl": "http://api.ft.com/people/fd6734a1-3ae2-30f3-98a1-e373f8da8bf1",
+        "type": "http://www.ft.com/ontology/person/Person",
+        "prefLabel": "Emily Cadman",
+        "isFTAuthor": true,
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
+        "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+        "apiUrl": "http://api.ft.com/people/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+        "type": "http://www.ft.com/ontology/person/Person",
+        "prefLabel": "Lisa Barrett",
+        "isFTAuthor": true,
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/about",
+        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+        "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+        "type": "http://www.ft.com/ontology/Topic",
+        "prefLabel": "Global economic growth"
+      }
+    ]
+}
 ```
 
 ### PUT - Writing draft annotations to PAC
@@ -120,29 +122,31 @@ Using curl:
 ```
 curl -X PUT \
   http://localhost:8080/drafts/content/{content-uuid}/annotations \
-  -d '[
-        {
-          "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
-          "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-          "apiUrl": "http://api.ft.com/people/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-          "type": "http://www.ft.com/ontology/person/Person",
-          "prefLabel": "Lisa Barrett"
-        },
-        {
-          "predicate": "http://www.ft.com/ontology/annotation/about",
-          "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-          "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-          "type": "http://www.ft.com/ontology/Topic",
-          "prefLabel": "Global economic growth"
-        },
-        {
-          "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
-          "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-          "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-          "type": "http://www.ft.com/ontology/Topic",
-          "prefLabel": "Global economic growth"
-        }
-      ]'
+  -d '{
+            "annotations":[
+            {
+              "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
+              "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+              "apiUrl": "http://api.ft.com/people/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+              "type": "http://www.ft.com/ontology/person/Person",
+              "prefLabel": "Lisa Barrett"
+            },
+            {
+              "predicate": "http://www.ft.com/ontology/annotation/about",
+              "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+              "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+              "type": "http://www.ft.com/ontology/Topic",
+              "prefLabel": "Global economic growth"
+            },
+            {
+              "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
+              "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+              "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+              "type": "http://www.ft.com/ontology/Topic",
+              "prefLabel": "Global economic growth"
+            }
+          ]
+      }'
 ```
 
 A PUT request on this endpoint writes the draft annotations in PAC. 
@@ -152,20 +156,22 @@ a HTTP 200 response code.
 The listings below shows an example of canonicalized response.
 
 ```
-[
-  {
-    "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
-    "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-  },
-  {
-    "predicate": "http://www.ft.com/ontology/annotation/about",
-    "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-  },
-  {
-    "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
-    "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-  }
-]
+{
+      "annotations":[
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
+        "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/about",
+        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
+        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+      }
+    ]
+}
 ```
 
 ## Healthchecks

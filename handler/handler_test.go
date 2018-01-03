@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -25,14 +26,12 @@ const testTID = "test_tid"
 const apiKeyHeader = "X-Api-Key"
 
 func TestHappyFetchFromAnnotationsRW(t *testing.T) {
-	var expectedAnnotations []annotations.Annotation
-	json.Unmarshal([]byte(expectedAnnotationsBody), &expectedAnnotations)
 	hash := randomdata.RandStringRunes(56)
 
 	rw := new(RWMock)
-	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations, hash, true, nil)
+	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(&expectedAnnotations, hash, true, nil)
 	aug := new(AugmenterMock)
-	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations).Return(expectedAnnotations, nil)
+	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations.Annotations).Return(expectedAnnotations.Annotations, nil)
 	annAPI := new(AnnotationsAPIMock)
 
 	h := New(rw, annAPI, nil, aug)
@@ -45,10 +44,13 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
-	body, err := ioutil.ReadAll(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	actual := annotations.Annotations{}
+	err := json.NewDecoder(resp.Body).Decode(&actual)
 	assert.NoError(t, err)
-	assert.JSONEq(t, string(expectedAnnotationsBody), string(body))
+
+	assert.Equal(t, expectedAnnotations, actual)
 	assert.Equal(t, hash, resp.Header.Get(annotations.DocumentHashHeader))
 
 	rw.AssertExpectations(t)
@@ -58,7 +60,7 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 
 func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
 	rw := new(RWMock)
-	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return([]annotations.Annotation{}, "", false, errors.New("computer says no"))
+	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, errors.New("computer says no"))
 	aug := new(AugmenterMock)
 	annAPI := new(AnnotationsAPIMock)
 
@@ -85,13 +87,10 @@ func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
 }
 
 func TestUnHappyAugmenter(t *testing.T) {
-	var expectedAnnotations []annotations.Annotation
-	json.Unmarshal([]byte(expectedAnnotationsBody), &expectedAnnotations)
-
 	rw := new(RWMock)
-	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations, "", true, nil)
+	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(&expectedAnnotations, "", true, nil)
 	aug := new(AugmenterMock)
-	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations).Return([]annotations.Annotation{}, errors.New("computer says no"))
+	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations.Annotations).Return([]annotations.Annotation{}, errors.New("computer says no"))
 	annAPI := new(AnnotationsAPIMock)
 
 	h := New(rw, annAPI, nil, aug)
@@ -118,9 +117,11 @@ func TestUnHappyAugmenter(t *testing.T) {
 
 func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 	aug := new(AugmenterMock)
+	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations.Annotations).Return(expectedAnnotations.Annotations, nil)
+
 	rw := new(RWMock)
 
-	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return([]annotations.Annotation{}, "", false, nil)
+	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, annotationsAPIBody)
 	defer annotationsAPIServerMock.Close()
@@ -138,10 +139,13 @@ func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
-	body, err := ioutil.ReadAll(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	actual := annotations.Annotations{}
+	err := json.NewDecoder(resp.Body).Decode(&actual)
 	assert.NoError(t, err)
-	assert.JSONEq(t, string(expectedAnnotationsBody), string(body))
+
+	assert.Equal(t, expectedAnnotations, actual)
 	assert.Empty(t, resp.Header.Get(annotations.DocumentHashHeader))
 
 	rw.AssertExpectations(t)
@@ -151,7 +155,7 @@ func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 func TestFetchFromAnnotationsAPI404(t *testing.T) {
 	aug := new(AugmenterMock)
 	rw := new(RWMock)
-	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return([]annotations.Annotation{}, "", false, nil)
+	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusNotFound, "not found")
 	defer annotationsAPIServerMock.Close()
@@ -179,7 +183,7 @@ func TestFetchFromAnnotationsAPI404(t *testing.T) {
 
 func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 	rw := new(RWMock)
-	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return([]annotations.Annotation{}, "", false, nil)
+	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 	aug := new(AugmenterMock)
 
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, bannedAnnotationsAPIBody)
@@ -208,7 +212,7 @@ func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 
 func TestFetchFromAnnotationsAPI500(t *testing.T) {
 	rw := new(RWMock)
-	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return([]annotations.Annotation{}, "", false, nil)
+	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 	aug := new(AugmenterMock)
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusInternalServerError, "fire!")
 	defer annotationsAPIServerMock.Close()
@@ -236,7 +240,7 @@ func TestFetchFromAnnotationsAPI500(t *testing.T) {
 
 func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
 	rw := new(RWMock)
-	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return([]annotations.Annotation{}, "", false, nil)
+	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 	aug := new(AugmenterMock)
 	annotationsAPI := annotations.NewUPPAnnotationsAPI(":#", testAPIKey)
 	h := New(rw, annotationsAPI, nil, aug)
@@ -261,7 +265,7 @@ func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
 
 func TestFetchFromAnnotationsAPIWithConnectionError(t *testing.T) {
 	rw := new(RWMock)
-	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return([]annotations.Annotation{}, "", false, nil)
+	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 	aug := new(AugmenterMock)
 	annotationsAPIServerMock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	annotationsAPIServerMock.Close()
@@ -355,26 +359,35 @@ const expectedAnnotationsBody = `[
       "prefLabel": "David J Lynch"
    }
 ]`
-
-const expectedCanonicalisedAnnotationsBody = `[
-   {
-      "predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
-      "id": "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4"
-   },
-   {
-      "predicate": "http://www.ft.com/ontology/annotation/mentions",
-      "id": "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a"
-   }
-]`
-
-var expectedDepletedAnnotations = []annotations.Annotation{
-	{
-		Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
-		ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+var expectedAnnotations = annotations.Annotations{
+	[]annotations.Annotation{
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			Type:      "http://www.ft.com/ontology/person/Person",
+			PrefLabel: "Barack H. Obama",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
+			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			ApiUrl:    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			Type:      "http://www.ft.com/ontology/person/Person",
+			PrefLabel: "David J Lynch",
+		},
 	},
-	{
-		Predicate: "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+}
+
+var expectedCanonicalisedAnnotationsBody = annotations.Annotations{
+	[]annotations.Annotation{
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
+			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		},
 	},
 }
 
@@ -382,7 +395,7 @@ func TestSaveAnnotations(t *testing.T) {
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
 	rw := new(RWMock)
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedDepletedAnnotations, oldHash).Return(newHash, nil)
+	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsBody, oldHash).Return(newHash, nil)
 
 	aug := new(AugmenterMock)
 	annotationsAPI := new(AnnotationsAPIMock)
@@ -391,10 +404,13 @@ func TestSaveAnnotations(t *testing.T) {
 	r := vestigo.NewRouter()
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 
+	entity := bytes.Buffer{}
+	json.NewEncoder(&entity).Encode(&expectedAnnotations)
+
 	req := httptest.NewRequest(
 		"PUT",
 		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
-		strings.NewReader(expectedAnnotationsBody))
+		&entity)
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
@@ -402,10 +418,13 @@ func TestSaveAnnotations(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
-	body, err := ioutil.ReadAll(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	actual := annotations.Annotations{}
+	err := json.NewDecoder(resp.Body).Decode(&actual)
 	assert.NoError(t, err)
-	assert.JSONEq(t, string(expectedCanonicalisedAnnotationsBody), string(body))
+
+	assert.Equal(t, expectedCanonicalisedAnnotationsBody, actual)
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 
 	rw.AssertExpectations(t)
@@ -478,7 +497,7 @@ func TestSaveAnnotationsInvalidAnnotationsBody(t *testing.T) {
 func TestSaveAnnotationsErrorFromRW(t *testing.T) {
 	oldHash := randomdata.RandStringRunes(56)
 	rw := new(RWMock)
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedDepletedAnnotations, oldHash).Return("", errors.New("computer says no"))
+	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsBody, oldHash).Return("", errors.New("computer says no"))
 
 	aug := new(AugmenterMock)
 	annotationsAPI := new(AnnotationsAPIMock)
@@ -487,10 +506,13 @@ func TestSaveAnnotationsErrorFromRW(t *testing.T) {
 	r := vestigo.NewRouter()
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 
+	entity := bytes.Buffer{}
+	json.NewEncoder(&entity).Encode(&expectedAnnotations)
+
 	req := httptest.NewRequest(
 		"PUT",
 		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
-		strings.NewReader(expectedAnnotationsBody))
+		&entity)
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
@@ -521,12 +543,18 @@ type RWMock struct {
 	mock.Mock
 }
 
-func (m *RWMock) Read(ctx context.Context, contentUUID string) ([]annotations.Annotation, string, bool, error) {
+func (m *RWMock) Read(ctx context.Context, contentUUID string) (*annotations.Annotations, string, bool, error) {
 	args := m.Called(ctx, contentUUID)
-	return args.Get(0).([]annotations.Annotation), args.String(1), args.Bool(2), args.Error(3)
+
+	var ann *annotations.Annotations
+	if v := args.Get(0); v != nil {
+		ann = v.(*annotations.Annotations)
+	}
+
+	return ann, args.String(1), args.Bool(2), args.Error(3)
 }
 
-func (m *RWMock) Write(ctx context.Context, contentUUID string, a []annotations.Annotation, hash string) (string, error) {
+func (m *RWMock) Write(ctx context.Context, contentUUID string, a *annotations.Annotations, hash string) (string, error) {
 	args := m.Called(ctx, contentUUID, a, hash)
 	return args.String(0), args.Error(1)
 }

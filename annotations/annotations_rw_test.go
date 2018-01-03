@@ -16,25 +16,29 @@ import (
 
 const testContentUUID = "db4daee0-2b84-465a-addb-fc8938a608db"
 
-const testRWBody = `[
-	{
-		"predicate": "http://www.ft.com/ontology/annotation/mentions",
-		"id": "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a"
-	},
-	{
-		"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
-		"id": "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4"
-	}
-]`
+const testRWBody = `{
+    "annotations":[
+    	{
+		    "predicate": "http://www.ft.com/ontology/annotation/mentions",
+	    	"id": "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a"
+    	},
+	    {
+	    	"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+    		"id": "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4"
+	    }
+    ]
+}`
 
-var expectedCanonicalizedAnnotations = []Annotation{
-	{
-		Predicate: "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
-	},
-	{
-		Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
-		ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+var expectedCanonicalizedAnnotations = Annotations{
+	Annotations:[]Annotation{
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
+			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+		},
 	},
 }
 
@@ -49,7 +53,7 @@ func TestHappyRead(t *testing.T) {
 	actualAnnotations, actualHash, found, err := rw.Read(ctx, testContentUUID)
 	assert.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, expectedCanonicalizedAnnotations, actualAnnotations)
+	assert.Equal(t, expectedCanonicalizedAnnotations, *actualAnnotations)
 	assert.Equal(t, expectedHash, actualHash)
 }
 
@@ -136,7 +140,7 @@ func TestHappyWriteStatusCreate(t *testing.T) {
 
 	rw := NewRW(s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	actualNewHash, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
+	actualNewHash, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
 	assert.NoError(t, err)
 	assert.Equal(t, newHash, actualNewHash)
 }
@@ -150,7 +154,7 @@ func TestHappyWriteStatusOK(t *testing.T) {
 
 	rw := NewRW(s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	actualNewHash, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
+	actualNewHash, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
 	assert.NoError(t, err)
 	assert.Equal(t, newHash, actualNewHash)
 }
@@ -163,7 +167,7 @@ func TestUnhappyWriteStatus500(t *testing.T) {
 
 	rw := NewRW(s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	_, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
+	_, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
 	assert.EqualError(t, err, "annotations RW returned an unexpected HTTP status code in write operation: 500")
 }
 
@@ -172,7 +176,7 @@ func TestWriteHTTPRequestError(t *testing.T) {
 	oldHash := randomdata.RandStringRunes(56)
 	rw := NewRW(":#")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	_, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
+	_, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
 	assert.EqualError(t, err, "parse :: missing protocol scheme")
 }
 
@@ -181,7 +185,7 @@ func TestWriteHTTPCallError(t *testing.T) {
 	oldHash := randomdata.RandStringRunes(56)
 	rw := NewRW("")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	_, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
+	_, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
 	assert.EqualError(t, err, "Put /drafts/content/db4daee0-2b84-465a-addb-fc8938a608db/annotations: unsupported protocol scheme \"\"")
 }
 
@@ -189,7 +193,7 @@ func TestWriteMissingTID(t *testing.T) {
 	hook := logTest.NewGlobal()
 	oldHash := randomdata.RandStringRunes(56)
 	rw := NewRW("")
-	rw.Write(context.Background(), testContentUUID, expectedCanonicalizedAnnotations, oldHash)
+	rw.Write(context.Background(), testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
 	var tid string
 	for i, e := range hook.AllEntries() {
 		if i == 0 {
