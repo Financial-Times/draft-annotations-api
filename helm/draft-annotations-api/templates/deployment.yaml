@@ -39,7 +39,7 @@ spec:
         - name: UPP_APIKEY
           valueFrom:
             secretKeyRef:
-              name: upp-api-key
+              name: draft-annotations-api
               key: upp-api-key
         ports:
         - containerPort: 8080
