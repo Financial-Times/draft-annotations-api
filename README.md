@@ -88,31 +88,31 @@ Fetching published annotations is part of the strategy for dynamic importing leg
 This is an example of response body:
 ```
 {
-  "annotations":[
-  {
-    "predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
-    "id": "http://www.ft.com/thing/fd6734a1-3ae2-30f3-98a1-e373f8da8bf1",
-    "apiUrl": "http://api.ft.com/people/fd6734a1-3ae2-30f3-98a1-e373f8da8bf1",
-    "type": "http://www.ft.com/ontology/person/Person",
-    "prefLabel": "Emily Cadman",
-    "isFTAuthor": true,
-  },
-  {
-    "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
-    "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-    "apiUrl": "http://api.ft.com/people/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-    "type": "http://www.ft.com/ontology/person/Person",
-    "prefLabel": "Lisa Barrett",
-    "isFTAuthor": true,
-  },
-  {
-    "predicate": "http://www.ft.com/ontology/annotation/about",
-    "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-    "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-    "type": "http://www.ft.com/ontology/Topic",
-    "prefLabel": "Global economic growth"
-  }
-]
+      "annotations":[
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+        "id": "http://www.ft.com/thing/fd6734a1-3ae2-30f3-98a1-e373f8da8bf1",
+        "apiUrl": "http://api.ft.com/people/fd6734a1-3ae2-30f3-98a1-e373f8da8bf1",
+        "type": "http://www.ft.com/ontology/person/Person",
+        "prefLabel": "Emily Cadman",
+        "isFTAuthor": true,
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
+        "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+        "apiUrl": "http://api.ft.com/people/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+        "type": "http://www.ft.com/ontology/person/Person",
+        "prefLabel": "Lisa Barrett",
+        "isFTAuthor": true,
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/about",
+        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+        "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+        "type": "http://www.ft.com/ontology/Topic",
+        "prefLabel": "Global economic growth"
+      }
+    ]
 }
 ```
 
@@ -123,29 +123,29 @@ Using curl:
 curl -X PUT \
   http://localhost:8080/drafts/content/{content-uuid}/annotations \
   -d '{
-        "annotations":[
-        {
-          "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
-          "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-          "apiUrl": "http://api.ft.com/people/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-          "type": "http://www.ft.com/ontology/person/Person",
-          "prefLabel": "Lisa Barrett"
-        },
-        {
-          "predicate": "http://www.ft.com/ontology/annotation/about",
-          "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-          "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-          "type": "http://www.ft.com/ontology/Topic",
-          "prefLabel": "Global economic growth"
-        },
-        {
-          "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
-          "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-          "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-          "type": "http://www.ft.com/ontology/Topic",
-          "prefLabel": "Global economic growth"
-        }
-      ]
+            "annotations":[
+            {
+              "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
+              "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+              "apiUrl": "http://api.ft.com/people/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+              "type": "http://www.ft.com/ontology/person/Person",
+              "prefLabel": "Lisa Barrett"
+            },
+            {
+              "predicate": "http://www.ft.com/ontology/annotation/about",
+              "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+              "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+              "type": "http://www.ft.com/ontology/Topic",
+              "prefLabel": "Global economic growth"
+            },
+            {
+              "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
+              "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+              "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+              "type": "http://www.ft.com/ontology/Topic",
+              "prefLabel": "Global economic growth"
+            }
+          ]
       }'
 ```
 
@@ -157,20 +157,20 @@ The listings below shows an example of canonicalized response.
 
 ```
 {
-  "annotations":[
-  {
-    "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
-    "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-  },
-  {
-    "predicate": "http://www.ft.com/ontology/annotation/about",
-    "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-  },
-  {
-    "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
-    "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-  }
-]
+      "annotations":[
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
+        "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/about",
+        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
+        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+      }
+    ]
 }
 ```
 
