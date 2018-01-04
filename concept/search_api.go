@@ -38,7 +38,7 @@ func (search *internalConcordancesAPI) SearchConcepts(ctx context.Context, conce
 		tid = tidUtils.NewTransactionID()
 		log.WithField(tidUtils.TransactionIDKey, tid).
 			WithError(err).
-			Info("No Transaction ID provided for concept request, generating a new transaction id")
+			Info("No Transaction ID provided for concept request, so a new one has been generated.")
 		ctx = tidUtils.TransactionAwareContext(ctx, tid)
 	}
 

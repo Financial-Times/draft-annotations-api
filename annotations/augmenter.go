@@ -55,7 +55,7 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, canonicalA
 		} else {
 			log.WithField(tidUtils.TransactionIDKey, tid).
 				WithField("conceptId", ann.ConceptId).
-				Info("Concept data for this annotation was not found, and will be removed from the list of annotations.")
+				Warn("Concept data for this annotation was not found, and will be removed from the list of annotations.")
 		}
 	}
 

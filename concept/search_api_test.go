@@ -69,7 +69,7 @@ func TestSearchConceptsMissingTID(t *testing.T) {
 	for i, e := range hook.AllEntries() {
 		if i == 0 {
 			assert.Equal(t, log.InfoLevel, e.Level)
-			assert.Equal(t, "No Transaction ID provided for concept request, generating a new transaction id", e.Message)
+			assert.Equal(t, "No Transaction ID provided for concept request, so a new one has been generated.", e.Message)
 			tid = e.Data[tidUtils.TransactionIDKey].(string)
 			assert.NotEmpty(t, tid)
 		} else {
