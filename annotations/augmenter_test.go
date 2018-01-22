@@ -30,6 +30,10 @@ var testCanonicalizedAnnotations = []Annotation{
 		Predicate: "http://www.ft.com/ontology/annotation/mentions",
 		ConceptId: "http://www.ft.com/thing/1fb3faf1-bf00-3a15-8efb-1038a59653f7",
 	},
+	{
+		Predicate: "http://www.ft.com/ontology/annotation/mentions",
+		ConceptId: "http://www.ft.com/thing/7b7dafa0-d54e-4c1d-8e22-3d452792acd2",
+	},
 }
 
 var testConceptIDs = []string{
@@ -37,21 +41,29 @@ var testConceptIDs = []string{
 	"1a2a1a0a-7199-38b8-8a73-e651e2172471",
 	"5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
 	"1fb3faf1-bf00-3a15-8efb-1038a59653f7",
+	"7b7dafa0-d54e-4c1d-8e22-3d452792acd2",
 }
 
 var testConcepts = map[string]concept.Concept{
-	"http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619": {
-		Id:        "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
+	"b224ad07-c818-3ad6-94af-a4d351dbb619": {
+		ID:        "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
 		ApiUrl:    "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
 		Type:      "http://www.ft.com/ontology/Subject",
 		PrefLabel: "Economic Indicators",
 	},
-	"http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b": {
-		Id:         "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+	"5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b": {
+		ID:         "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
 		ApiUrl:     "http://api.ft.com/things/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
 		Type:       "http://www.ft.com/ontology/person/Person",
 		PrefLabel:  "Lisa Barrett",
 		IsFTAuthor: true,
+	},
+	"7b7dafa0-d54e-4c1d-8e22-3d452792acd2": {
+		ID:         "http://www.ft.com/thing/28f8d585-37ea-4879-ae1c-f6c0580a43b8",
+		ApiUrl:     "http://api.ft.com/things/28f8d585-37ea-4879-ae1c-f6c0580a43b8",
+		Type:       "http://www.ft.com/ontology/person/Person",
+		PrefLabel:  "Frederick Stapleton",
+		IsFTAuthor: false,
 	},
 }
 
@@ -72,6 +84,14 @@ var expectedAugmentedAnnotations = []Annotation{
 		PrefLabel:  "Lisa Barrett",
 		IsFTAuthor: true,
 	},
+	{
+		Predicate:  "http://www.ft.com/ontology/annotation/mentions",
+		ConceptId:  "http://www.ft.com/thing/28f8d585-37ea-4879-ae1c-f6c0580a43b8",
+		ApiUrl:     "http://api.ft.com/things/28f8d585-37ea-4879-ae1c-f6c0580a43b8",
+		Type:       "http://www.ft.com/ontology/person/Person",
+		PrefLabel:  "Frederick Stapleton",
+		IsFTAuthor: false,
+	},
 }
 
 func TestAugmentAnnotations(t *testing.T) {
@@ -86,8 +106,26 @@ func TestAugmentAnnotations(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, len(expectedAugmentedAnnotations), len(annotations))
-	assert.Equal(t, expectedAugmentedAnnotations, annotations)
+	for _, expected := range expectedAugmentedAnnotations {
+		assert.Contains(t, annotations, expected)
+	}
 
+	conceptsSearchAPI.AssertExpectations(t)
+}
+
+func TestAugmentAnnotationsArrayShouldNotBeNull(t *testing.T) {
+	conceptsSearchAPI := new(ConceptSearchAPIMock)
+	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
+	conceptsSearchAPI.
+		On("SearchConcepts", ctx, testConceptIDs).
+		Return(make(map[string]concept.Concept), nil)
+	a := NewAugmenter(conceptsSearchAPI)
+
+	annotations, err := a.AugmentAnnotations(ctx, testCanonicalizedAnnotations)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, annotations)
+	assert.Len(t, annotations, 0)
 	conceptsSearchAPI.AssertExpectations(t)
 }
 
@@ -144,7 +182,9 @@ func TestAugmentAnnotationsWithInvalidConceptID(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, len(expectedAugmentedAnnotations), len(annotations))
-	assert.Equal(t, expectedAugmentedAnnotations, annotations)
+	for _, expected := range expectedAugmentedAnnotations {
+		assert.Contains(t, annotations, expected)
+	}
 
 	conceptsSearchAPI.AssertExpectations(t)
 }
