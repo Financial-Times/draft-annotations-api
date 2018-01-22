@@ -42,7 +42,7 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, canonicalA
 		return nil, err
 	}
 
-	var augmentedAnnotations []Annotation
+	augmentedAnnotations := make([]Annotation, 0)
 	for uuid, ann := range mappedAnnotations {
 		concept, found := concepts[uuid]
 		if found {

@@ -113,6 +113,22 @@ func TestAugmentAnnotations(t *testing.T) {
 	conceptsSearchAPI.AssertExpectations(t)
 }
 
+func TestAugmentAnnotationsArrayShouldNotBeNull(t *testing.T) {
+	conceptsSearchAPI := new(ConceptSearchAPIMock)
+	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
+	conceptsSearchAPI.
+		On("SearchConcepts", ctx, testConceptIDs).
+		Return(make(map[string]concept.Concept), nil)
+	a := NewAugmenter(conceptsSearchAPI)
+
+	annotations, err := a.AugmentAnnotations(ctx, testCanonicalizedAnnotations)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, annotations)
+	assert.Len(t, annotations, 0)
+	conceptsSearchAPI.AssertExpectations(t)
+}
+
 func TestAugmentAnnotationsMissingTransactionID(t *testing.T) {
 	hook := logTest.NewGlobal()
 	conceptsSearchAPI := new(ConceptSearchAPIMock)
