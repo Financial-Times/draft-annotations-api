@@ -31,11 +31,11 @@ spec:
             configMapKeyRef:
               name: global-config
               key: annotations-endpoint
-        - name: CONCEPT_SEARCH_ENDPOINT
+        - name: INTERNAL_CONCORDANCES_ENDPOINT
           valueFrom:
             configMapKeyRef:
               name: global-config
-              key: concept-search-endpoint
+              key: internal-concordances-endpoint
         - name: UPP_APIKEY
           valueFrom:
             secretKeyRef:
