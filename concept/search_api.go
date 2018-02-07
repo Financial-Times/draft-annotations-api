@@ -78,6 +78,7 @@ func (search *internalConcordancesAPI) searchConceptBatch(ctx context.Context, c
 	}
 	req.Header.Set(apiKeyHeader, search.apiKey)
 	req.Header.Set(tidUtils.TransactionIDHeader, tid)
+	req.Header.Set("User-Agent", "PAC draft-annotations-api")
 
 	q := req.URL.Query()
 	for _, id := range conceptIDs {
