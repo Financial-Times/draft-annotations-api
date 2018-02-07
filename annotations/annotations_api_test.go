@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
+	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/twinj/uuid"
 )
 
 const testAPIKey = "testAPIKey"
