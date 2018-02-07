@@ -113,12 +113,14 @@ func TestResponseFailsAnnotationsAPI(t *testing.T) {
 func newAnnotationsAPIServerMock(t *testing.T, tid string, uuid string, status int, body string) *httptest.Server {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/content/"+uuid+annotationsEndpoint, r.URL.Path)
+
 		if apiKey := r.Header.Get(apiKeyHeader); apiKey != testAPIKey {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("unauthorized"))
 			return
 		}
 
+		assert.Equal(t, testAPIKey, r.Header.Get(apiKeyHeader))
 		assert.Equal(t, tid, r.Header.Get(tidUtils.TransactionIDHeader))
 		assert.Equal(t, "PAC draft-annotations-api", r.Header.Get("User-Agent"))
 
@@ -137,6 +139,7 @@ func newAnnotationsAPIGTGServerMock(t *testing.T, status int, body string) *http
 			return
 		}
 
+		assert.Equal(t, testAPIKey, r.Header.Get(apiKeyHeader))
 		assert.Equal(t, "PAC draft-annotations-api", r.Header.Get("User-Agent"))
 
 		w.WriteHeader(status)
