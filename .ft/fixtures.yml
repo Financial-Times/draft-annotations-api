@@ -1,34 +1,36 @@
-/internalconcordances:
-  get:
-    status: 200
-    headers:
-      content-type: application/json
-    body:
-      concepts:
-        ababe00a-d732-4690-b283-585e7f264d2f:
-          id: http://www.ft.com/thing/6b43a14b-a5e0-3b63-a428-aa55def05fcb
-          apiUrl: http://api.ft.com/things/6b43a14b-a5e0-3b63-a428-aa55def05fcb
-          prefLabel: FT Confidential Research
-          type: http://www.ft.com/ontology/Section
-          concordances: [{"authority":"http://api.ft.com/system/UPP","identifierValue":"e67785b2-8b74-3500-962a-747cee5cbea4"},{"authority":"http://api.ft.com/system/UPP","identifierValue":"f0c5efd3-a0f4-3ac2-92af-e26e9ccfebbe"},{"authority":"http://api.ft.com/system/SMARTLOGIC","identifierValue":"5ede5a4b-e3bd-4578-89d2-78b97012eb6a"},{"authority":"http://api.ft.com/system/FT-TME","identifierValue":"ZGYwZjY5MTQtNmU5YS00MGI5LWE3NTctNzE1NDM2M2I2ODdk-VG9waWNz"}]
-/drafts/content/8df16ae8-0dfd-4859-a5ff-eeb9644bed35/annotations:
-  get:
-    status: 200
-    headers:
-      content-type: application/json
-    body:
-      annotations:
-        - id: http://www.ft.com/thing/ababe00a-d732-4690-b283-585e7f264d2f
-          predicate: http://www.ft.com/ontology/annotation/mentions
-/drafts/content/f368bbac-4bd9-11e7-919a-1e14ce4af89b/annotations:
-  put:
-    status: 200
-/content/4f2f97ea-b8ec-11e4-b8e6-00144feab7de/annotations:
-  get:
-    status: 200
-/__gtg:
-  get:
-    status: 200
-    headers:
-      content-type: text/plain; charset=US-ASCII
-    body: OK
+version: 1
+fixtures:
+  /internalconcordances:
+    get:
+      status: 200
+      headers:
+        content-type: application/json
+      body:
+        concepts:
+          ababe00a-d732-4690-b283-585e7f264d2f:
+            id: http://www.ft.com/thing/6b43a14b-a5e0-3b63-a428-aa55def05fcb
+            apiUrl: http://api.ft.com/things/6b43a14b-a5e0-3b63-a428-aa55def05fcb
+            prefLabel: FT Confidential Research
+            type: http://www.ft.com/ontology/Section
+            concordances: [{"authority":"http://api.ft.com/system/UPP","identifierValue":"e67785b2-8b74-3500-962a-747cee5cbea4"},{"authority":"http://api.ft.com/system/UPP","identifierValue":"f0c5efd3-a0f4-3ac2-92af-e26e9ccfebbe"},{"authority":"http://api.ft.com/system/SMARTLOGIC","identifierValue":"5ede5a4b-e3bd-4578-89d2-78b97012eb6a"},{"authority":"http://api.ft.com/system/FT-TME","identifierValue":"ZGYwZjY5MTQtNmU5YS00MGI5LWE3NTctNzE1NDM2M2I2ODdk-VG9waWNz"}]
+  /drafts/content/8df16ae8-0dfd-4859-a5ff-eeb9644bed35/annotations:
+    get:
+      status: 200
+      headers:
+        content-type: application/json
+      body:
+        annotations:
+          - id: http://www.ft.com/thing/ababe00a-d732-4690-b283-585e7f264d2f
+            predicate: http://www.ft.com/ontology/annotation/mentions
+  /drafts/content/f368bbac-4bd9-11e7-919a-1e14ce4af89b/annotations:
+    put:
+      status: 200
+  /content/4f2f97ea-b8ec-11e4-b8e6-00144feab7de/annotations:
+    get:
+      status: 200
+  /__gtg:
+    get:
+      status: 200
+      headers:
+        content-type: text/plain; charset=US-ASCII
+      body: OK
