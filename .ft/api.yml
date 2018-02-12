@@ -31,13 +31,17 @@ paths:
           description: The UUID of the content
           required: true
           type: string
-          x-example: f368bbac-4bd9-11e7-919a-1e14ce4af89b
+          x-example: 8df16ae8-0dfd-4859-a5ff-eeb9644bed35
       responses:
         200:
           description: Returns an array of PAC format annotations for the given content uuid.
           examples:
             application/json:
-              - id: http://api.ft.com/things/5507ab98-b747-3ebc-b816-11603b9009f4
+              annotations:
+                - id: http://www.ft.com/thing/6b43a14b-a5e0-3b63-a428-aa55def05fcb
+                  apiUrl: http://api.ft.com/things/6b43a14b-a5e0-3b63-a428-aa55def05fcb
+                  prefLabel: FT
+                  type: http://www.ft.com/ontology/Topic
         400:
           description: Invalid uuid supplied
         404:
@@ -47,6 +51,8 @@ paths:
       description: Returns the draft annotations for the content with the given uuid.
       tags:
         - Public API
+      consumes:
+        - application/json
       produces:
         - application/json
       parameters:
@@ -59,13 +65,55 @@ paths:
         - name: body
           in: body
           required: true
-          description: An array of PAC format annotations for the given content uuid
+          description: An object containing an array of PAC format annotations for the given content uuid.
+          schema:
+            type: object
+            properties:
+              annotations:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: The canonical ID of the concept
+                      x-example: http://www.ft.com/thing/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
+                    predicate:
+                      type: string
+                      description: The relationship between the concept and this piece of FT content. The list below is non-exhaustive and subject to change.
+                      enum:
+                        - http://www.ft.com/ontology/annotation/about
+                        - http://www.ft.com/ontology/implicitlyAbout
+                        - http://www.ft.com/ontology/annotation/mentions
+                        - http://www.ft.com/ontology/classification/isClassifiedBy
+                        - http://www.ft.com/ontology/implicitlyClassifiedBy
+                    type:
+                      type: string
+                      description: The type of concept, i.e. Person, Organisation, Topic
+                    apiUrl:
+                      type: string
+                      description: The FT API url of the concept
+                      x-example: http://api.ft.com/things/5507ab98-b747-3ebc-b816-11603b9009f4
+                    prefLabel:
+                      type: string
+                      description: The preferred display label for the concept.
+                  required:
+                    - id
+                    - predicate
+            required:
+              - annotations
+            example:
+              annotations:
+                - id: http://www.ft.com/thing/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
+                  predicate: http://www.ft.com/ontology/annotation/about
       responses:
         200:
           description: Returns the canonicalized input array of annotations that have been successufully written in PAC.
           examples:
             application/json:
-              - id: http://api.ft.com/things/5507ab98-b747-3ebc-b816-11603b9009f4
+              annotations:
+                - id: http://api.ft.com/things/5507ab98-b747-3ebc-b816-11603b9009f4
+                  predicate: http://www.ft.com/ontology/annotation/about
         400:
           description: Invalid uuid or annotations body supplied
         500:
