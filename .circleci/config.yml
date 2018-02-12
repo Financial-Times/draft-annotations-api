@@ -51,7 +51,7 @@ jobs:
   dredd:
     working_directory: /go/src/github.com/Financial-Times/draft-annotations-api
     docker:
-      - image: bankrs/golang-dredd:go1.8.5-dredd4.4.0
+      - image: bankrs/golang-dredd:go1.8.3-dredd4.4.0
         environment:
           GOPATH: /go
           ANNOTATIONS_RW_ENDPOINT: http://localhost:9000
