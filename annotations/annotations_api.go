@@ -48,6 +48,7 @@ func (api *annotationsAPI) Get(ctx context.Context, contentUUID string) (*http.R
 		return nil, err
 	}
 
+	userAgent(apiReq)
 	apiReq.Header.Set(apiKeyHeader, api.apiKey)
 	if tid != "" {
 		apiReq.Header.Set(tidUtils.TransactionIDHeader, tid)
@@ -64,6 +65,7 @@ func (api *annotationsAPI) GTG() error {
 		return fmt.Errorf("gtg request error: %v", err.Error())
 	}
 
+	userAgent(apiReq)
 	apiReq.Header.Set(apiKeyHeader, api.apiKey)
 
 	apiResp, err := api.httpClient.Do(apiReq)

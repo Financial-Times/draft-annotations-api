@@ -212,6 +212,8 @@ func (h *mockedSearchServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 	assert.Len(h.t, values, 1)
 	assert.True(h.t, len(values["ids"]) <= h.batchSize)
 
+	assert.Equal(h.t, "PAC draft-annotations-api", r.Header.Get("User-Agent"))
+
 	actualApiKey := r.Header.Get(apiKeyHeader)
 	assert.Equal(h.t, h.apiKey, actualApiKey)
 

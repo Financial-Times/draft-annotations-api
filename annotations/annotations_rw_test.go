@@ -30,7 +30,7 @@ const testRWBody = `{
 }`
 
 var expectedCanonicalizedAnnotations = Annotations{
-	Annotations:[]Annotation{
+	Annotations: []Annotation{
 		{
 			Predicate: "http://www.ft.com/ontology/annotation/mentions",
 			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
@@ -216,6 +216,8 @@ func newAnnotationsRWServerMock(t *testing.T, method string, status int, body st
 		} else {
 			assert.Equal(t, tid, r.Header.Get(tidUtils.TransactionIDHeader))
 		}
+
+		assert.Equal(t, "PAC draft-annotations-api", r.Header.Get("User-Agent"))
 
 		w.Header().Set(DocumentHashHeader, hashOut)
 		w.WriteHeader(status)
