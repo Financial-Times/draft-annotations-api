@@ -72,7 +72,7 @@ jobs:
           command: go build -v
       - run:
           name: Start Mocks
-          command: ersatz ./.ft/fixtures.yml
+          command: ersatz --port=9000 ./.ft/fixtures.yml
           background: true
       - run:
           name: Dredd API Testing
