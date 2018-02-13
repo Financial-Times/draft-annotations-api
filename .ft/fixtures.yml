@@ -1,4 +1,4 @@
-version: 1
+version: 1.0.0
 fixtures:
   /internalconcordances:
     get:
@@ -6,8 +6,14 @@ fixtures:
       headers:
         content-type: application/json
       expectations:
-        headers:
-          user-agent: PAC draft-annotations-api
+        - headers:
+            user-agent: PAC draft-annotations-api
+          queryParams:
+            ids: ababe00a-d732-4690-b283-585e7f264d2f
+        - headers:
+            user-agent: PAC draft-annotations-api
+          queryParams:
+            ids: dbb0bdae-1f0c-11e4-b0cb-b2227cce2b54
       body:
         concepts:
           ababe00a-d732-4690-b283-585e7f264d2f:
