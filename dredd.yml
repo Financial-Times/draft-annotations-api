@@ -1,5 +1,5 @@
 dry-run: null
-hookfiles: null
+hookfiles: ./_ft/dredd-hooks.js
 language: go
 sandbox: false
 server: ./draft-annotations-api
