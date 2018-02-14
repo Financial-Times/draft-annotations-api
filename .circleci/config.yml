@@ -64,7 +64,6 @@ jobs:
           name: External Dependencies
           command: |
             go get -u github.com/kardianos/govendor
-            go get -u github.com/peteclark-ft/ersatz
       - run:
           name: Govendor Sync
           command: govendor sync -v
