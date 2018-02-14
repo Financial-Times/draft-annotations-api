@@ -57,6 +57,12 @@
 			"versionExact": "v0.2.0"
 		},
 		{
+			"checksumSHA1": "8tLSbloQ6bpVBB/CcPbP9sLW45Y=",
+			"path": "github.com/Pallinder/go-randomdata",
+			"revision": "8c3362a5e6781e0d1046f1267b3c1f19b2cde334",
+			"revisionTime": "2017-04-10T16:13:40Z"
+		},
+		{
 			"checksumSHA1": "mrz/kicZiUaHxkyfvC/DyQcr8Do=",
 			"path": "github.com/davecgh/go-spew/spew",
 			"revision": "adab96458c51a58dc1783b3335dcce5461522e75",
@@ -95,8 +101,24 @@
 			"revisionTime": "2016-11-28T21:05:44Z"
 		},
 		{
+			"checksumSHA1": "1myjT8gKwUI3WNE5a/85jNPL8Fo=",
+			"path": "github.com/satori/go.uuid",
+			"revision": "879c5887cd475cd7864858769793b2ceb0d44feb",
+			"revisionTime": "2016-06-07T14:43:47Z",
+			"version": "v1.1.0",
+			"versionExact": "v1.1.0"
+		},
+		{
 			"checksumSHA1": "IVurU/0OPiDHP+JrmQ1JyAx7jng=",
 			"path": "github.com/sirupsen/logrus",
+			"revision": "a3f95b5c423586578a4e099b11a46c2479628cac",
+			"revisionTime": "2017-07-13T11:42:50Z",
+			"version": "1.0.2",
+			"versionExact": "1.0.2"
+		},
+		{
+			"checksumSHA1": "Kt+BhrXMyYvOc9TGiBVOSNn6wcc=",
+			"path": "github.com/sirupsen/logrus/hooks/test",
 			"revision": "a3f95b5c423586578a4e099b11a46c2479628cac",
 			"revisionTime": "2017-07-13T11:42:50Z",
 			"version": "1.0.2",

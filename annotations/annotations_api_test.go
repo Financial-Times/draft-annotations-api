@@ -8,11 +8,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const testAPIKey = "testAPIKey"
+
 func TestHappyAnnotationsAPIGTG(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIGTGServerMock(t, http.StatusOK, "I am happy!")
 	defer annotationsServerMock.Close()
 
-	annotationsAPI := NewAnnotationsAPI(annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := NewUPPAnnotationsAPI(annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
 	err := annotationsAPI.GTG()
 	assert.NoError(t, err)
 }
@@ -21,7 +23,7 @@ func TestUnhappyAnnotationsAPIGTG(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIGTGServerMock(t, http.StatusServiceUnavailable, "I am not happy!")
 	defer annotationsServerMock.Close()
 
-	annotationsAPI := NewAnnotationsAPI(annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := NewUPPAnnotationsAPI(annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
 	err := annotationsAPI.GTG()
 	assert.EqualError(t, err, "gtg returned a non-200 HTTP status [503]: I am not happy!")
 }
@@ -30,13 +32,13 @@ func TestAnnotationsAPIGTGWrongAPIKey(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIGTGServerMock(t, http.StatusServiceUnavailable, "I not am happy!")
 	defer annotationsServerMock.Close()
 
-	annotationsAPI := NewAnnotationsAPI(annotationsServerMock.URL+"/content/%v/annotations", "a-non-existing-key")
+	annotationsAPI := NewUPPAnnotationsAPI(annotationsServerMock.URL+"/content/%v/annotations", "a-non-existing-key")
 	err := annotationsAPI.GTG()
 	assert.EqualError(t, err, "gtg returned a non-200 HTTP status [401]: unauthorized")
 }
 
 func TestAnnotationsAPIGTGInvalidURL(t *testing.T) {
-	annotationsAPI := NewAnnotationsAPI(":#", testAPIKey)
+	annotationsAPI := NewUPPAnnotationsAPI(":#", testAPIKey)
 	err := annotationsAPI.GTG()
 	assert.EqualError(t, err, "gtg request error: parse :: missing protocol scheme")
 }
@@ -45,7 +47,7 @@ func TestAnnotationsAPIGTGConnectionError(t *testing.T) {
 	annotationsServerMock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	annotationsServerMock.Close()
 
-	annotationsAPI := NewAnnotationsAPI(annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := NewUPPAnnotationsAPI(annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
 	err := annotationsAPI.GTG()
 	assert.Error(t, err)
 }

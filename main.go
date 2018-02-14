@@ -4,8 +4,10 @@ import (
 	"net/http"
 	"os"
 
-	api "github.com/Financial-Times/api-endpoint"
+	"github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/draft-annotations-api/annotations"
+	"github.com/Financial-Times/draft-annotations-api/concept"
+	"github.com/Financial-Times/draft-annotations-api/handler"
 	"github.com/Financial-Times/draft-annotations-api/health"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
@@ -41,11 +43,32 @@ func main() {
 		EnvVar: "APP_PORT",
 	})
 
-	annotationsEndpoint := app.String(cli.StringOpt{
-		Name:   "annotations-endpoint",
+	annotationsRWEndpoint := app.String(cli.StringOpt{
+		Name:   "annotations-rw-endpoint",
+		Value:  "http://localhost:8888",
+		Desc:   "Endpoint to get concepts from UPP",
+		EnvVar: "ANNOTATIONS_RW_ENDPOINT",
+	})
+
+	annotationsAPIEndpoint := app.String(cli.StringOpt{
+		Name:   "upp-annotations-endpoint",
 		Value:  "http://test.api.ft.com/content/%v/annotations",
 		Desc:   "Endpoint to get annotations from UPP",
 		EnvVar: "ANNOTATIONS_ENDPOINT",
+	})
+
+	internalConcordancesEndpoint := app.String(cli.StringOpt{
+		Name:   "internal-concordances-endpoint",
+		Value:  "http://test.api.ft.com/internalconcordances",
+		Desc:   "Endpoint to get concepts from UPP",
+		EnvVar: "INTERNAL_CONCORDANCES_ENDPOINT",
+	})
+
+	internalConcordancesBatchSize := app.Int(cli.IntOpt{
+		Name:   "internal-concordances-batch-size",
+		Value:  30,
+		Desc:   "Concept IDs maximum batch size to use when querying the UPP Internal Concordances API",
+		EnvVar: "INTERNAL_CONCORDANCES_BATCH_SIZE",
 	})
 
 	uppAPIKey := app.String(cli.StringOpt{
@@ -62,15 +85,20 @@ func main() {
 		EnvVar: "API_YML",
 	})
 
+	log.SetFormatter(&log.JSONFormatter{})
 	log.SetLevel(log.InfoLevel)
 	log.Infof("[Startup] %v is starting", *appSystemCode)
 
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
-		annotationsAPI := annotations.NewAnnotationsAPI(*annotationsEndpoint, *uppAPIKey)
-		annotationsHandler := annotations.NewHandler(annotationsAPI)
-		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, annotationsAPI)
+		rw := annotations.NewRW(*annotationsRWEndpoint)
+		annotationsAPI := annotations.NewUPPAnnotationsAPI(*annotationsAPIEndpoint, *uppAPIKey)
+		c14n := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
+		conceptSearchAPI := concept.NewSearchAPI(*internalConcordancesEndpoint, *uppAPIKey, *internalConcordancesBatchSize)
+		augmenter := annotations.NewAugmenter(conceptSearchAPI)
+		annotationsHandler := handler.New(rw, annotationsAPI, c14n, augmenter)
+		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, rw, annotationsAPI, conceptSearchAPI)
 
 		serveEndpoints(*port, apiYml, annotationsHandler, healthService)
 	}
@@ -82,10 +110,11 @@ func main() {
 	}
 }
 
-func serveEndpoints(port string, apiYml *string, handler *annotations.Handler, healthService *health.HealthService) {
-
+func serveEndpoints(port string, apiYml *string, handler *handler.Handler, healthService *health.HealthService) {
 	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", handler.ServeHTTP)
+
+	r.Get("/drafts/content/:uuid/annotations", handler.ReadAnnotations)
+	r.Put("/drafts/content/:uuid/annotations", handler.WriteAnnotations)
 	var monitoringRouter http.Handler = r
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
 	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)

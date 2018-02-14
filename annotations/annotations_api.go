@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	tidutils "github.com/Financial-Times/transactionid-utils-go"
+	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -15,10 +15,10 @@ const annotationsEndpoint = "/annotations"
 
 const syntheticContentUUID = "4f2f97ea-b8ec-11e4-b8e6-00144feab7de"
 
-type AnnotationsAPI interface {
+type UPPAnnotationsAPI interface {
 	Get(ctx context.Context, contentUUID string) (*http.Response, error)
-	GTG() error
 	Endpoint() string
+	GTG() error
 }
 
 type annotationsAPI struct {
@@ -27,7 +27,7 @@ type annotationsAPI struct {
 	httpClient       *http.Client
 }
 
-func NewAnnotationsAPI(endpoint string, apiKey string) AnnotationsAPI {
+func NewUPPAnnotationsAPI(endpoint string, apiKey string) UPPAnnotationsAPI {
 	return &annotationsAPI{endpointTemplate: endpoint, apiKey: apiKey, httpClient: &http.Client{}}
 }
 
@@ -35,12 +35,12 @@ func (api *annotationsAPI) Get(ctx context.Context, contentUUID string) (*http.R
 	apiReqURI := fmt.Sprintf(api.endpointTemplate, contentUUID)
 	getAnnotationsLog := log.WithField("url", apiReqURI).WithField("uuid", contentUUID)
 
-	tid, err := tidutils.GetTransactionIDFromContext(ctx)
+	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 	if err != nil {
 		tid = "not_found"
 	}
 
-	getAnnotationsLog = getAnnotationsLog.WithField(tidutils.TransactionIDKey, tid)
+	getAnnotationsLog = getAnnotationsLog.WithField(tidUtils.TransactionIDKey, tid)
 
 	apiReq, err := http.NewRequest("GET", apiReqURI, nil)
 	if err != nil {
@@ -50,7 +50,7 @@ func (api *annotationsAPI) Get(ctx context.Context, contentUUID string) (*http.R
 
 	apiReq.Header.Set(apiKeyHeader, api.apiKey)
 	if tid != "" {
-		apiReq.Header.Set(tidutils.TransactionIDHeader, tid)
+		apiReq.Header.Set(tidUtils.TransactionIDHeader, tid)
 	}
 
 	getAnnotationsLog.Info("Calling UPP Public Annotations API")
