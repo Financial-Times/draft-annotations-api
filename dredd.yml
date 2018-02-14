@@ -1,6 +1,5 @@
 dry-run: null
 hookfiles: ./_ft/dredd-hooks.js
-language: go
 sandbox: false
 server: ./draft-annotations-api
 server-wait: 3
