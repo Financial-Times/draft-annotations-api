@@ -3,6 +3,7 @@ package health
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/service-status-go/gtg"
@@ -14,7 +15,7 @@ type externalService interface {
 }
 
 type HealthService struct {
-	fthealth.HealthCheck
+	fthealth.TimedHealthCheck
 	rw               externalService
 	annotationsAPI   externalService
 	conceptSearchAPI externalService
@@ -29,6 +30,7 @@ func NewHealthService(appSystemCode string, appName string, appDescription strin
 	hcService.SystemCode = appSystemCode
 	hcService.Name = appName
 	hcService.Description = appDescription
+	hcService.Timeout = 10 * time.Second
 	hcService.Checks = []fthealth.Check{
 		hcService.rwCheck(),
 		hcService.annotationsAPICheck(),

@@ -8,3 +8,8 @@ replicaCount: 2
 image:
   repository: coco/draft-annotations-api
   pullPolicy: Always
+resources:
+  requests:
+    memory: 10Mi
+  limits:
+    memory: 128Mi
