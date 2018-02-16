@@ -96,7 +96,7 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 		writeMessage(w, fmt.Sprintf("Annotations augmenter error: %v", err), http.StatusInternalServerError)
 		return
 	}
-	response = annotations.Annotations{augmentedAnnotations}
+	response = annotations.Annotations{Annotations: augmentedAnnotations}
 
 	json.NewEncoder(w).Encode(&response)
 }

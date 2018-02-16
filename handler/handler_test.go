@@ -13,6 +13,7 @@ import (
 	"errors"
 
 	"github.com/Financial-Times/draft-annotations-api/annotations"
+	"github.com/Financial-Times/go-ft-http-transport/transport"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/Pallinder/go-randomdata"
 	"github.com/husobee/vestigo"
@@ -24,6 +25,8 @@ const testAPIKey = "testAPIKey"
 const testTID = "test_tid"
 
 const apiKeyHeader = "X-Api-Key"
+
+var testClient = &http.Client{Transport: transport.NewTransport()}
 
 func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 	hash := randomdata.RandStringRunes(56)
@@ -126,7 +129,7 @@ func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, annotationsAPIBody)
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
 	assert.Equal(t, annotationsAPIServerMock.URL+"/content/%v/annotations", annotationsAPI.Endpoint())
 
 	h := New(rw, annotationsAPI, nil, aug)
@@ -160,7 +163,7 @@ func TestFetchFromAnnotationsAPI404(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusNotFound, "not found")
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
 	h := New(rw, annotationsAPI, nil, aug)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -189,7 +192,7 @@ func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, bannedAnnotationsAPIBody)
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
 	h := New(rw, annotationsAPI, nil, aug)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -217,7 +220,7 @@ func TestFetchFromAnnotationsAPI500(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusInternalServerError, "fire!")
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
 	h := New(rw, annotationsAPI, nil, aug)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -242,7 +245,7 @@ func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 	aug := new(AugmenterMock)
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(":#", testAPIKey)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, ":#", testAPIKey)
 	h := New(rw, annotationsAPI, nil, aug)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -270,7 +273,7 @@ func TestFetchFromAnnotationsAPIWithConnectionError(t *testing.T) {
 	annotationsAPIServerMock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(annotationsAPIServerMock.URL, testAPIKey)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL, testAPIKey)
 	h := New(rw, annotationsAPI, nil, aug)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -359,8 +362,9 @@ const expectedAnnotationsBody = `[
       "prefLabel": "David J Lynch"
    }
 ]`
+
 var expectedAnnotations = annotations.Annotations{
-	[]annotations.Annotation{
+	Annotations: []annotations.Annotation{
 		{
 			Predicate: "http://www.ft.com/ontology/annotation/mentions",
 			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
@@ -379,7 +383,7 @@ var expectedAnnotations = annotations.Annotations{
 }
 
 var expectedCanonicalisedAnnotationsBody = annotations.Annotations{
-	[]annotations.Annotation{
+	Annotations: []annotations.Annotation{
 		{
 			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
 			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
