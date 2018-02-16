@@ -182,20 +182,8 @@ paths:
         200:
           description: The application is healthy enough to perform all its functions correctly - i.e. good to go.
           examples:
-               text/plain; charset=US-ASCII: OK
+            text/plain; charset=US-ASCII: OK
         503:
           description: >
             One or more of the applications healthchecks have failed,
             so please do not use the app. See the /__health endpoint for more detailed information.
-  /__api:
-    get:
-      summary: API Documentation
-      description: >
-        Returns OpenAPI documentation for the application.
-      produces:
-        - text/plain;charset=utf-8
-      tags:
-        - Info
-      responses:
-        200:
-          description: Returns OpenAPI information as a YAML document.
