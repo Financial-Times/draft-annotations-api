@@ -54,6 +54,7 @@ jobs:
       - image: bankrs/golang-dredd:go1.8.3-dredd4.4.0
         environment:
           GOPATH: /go
+          API_YML: /go/src/github.com/Financial-Times/draft-annotations-api/_ft/api.yml
           ANNOTATIONS_RW_ENDPOINT: http://localhost:9000
           ANNOTATIONS_ENDPOINT: http://localhost:9000/content/%v/annotations
           INTERNAL_CONCORDANCES_ENDPOINT: http://localhost:9000/internalconcordances
