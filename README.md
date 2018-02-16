@@ -66,7 +66,7 @@ Options:
 
 ## Service endpoints
 
-For a full description of API endpoints for the service, please see the [Open API specification](./.ft/api.yml).
+For a full description of API endpoints for the service, please see the [Open API specification](./_ft/api.yml).
 
 ### GET - Reading draft annotations from PAC
 
