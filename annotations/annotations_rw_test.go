@@ -48,7 +48,7 @@ func TestHappyRead(t *testing.T) {
 	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusOK, testRWBody, "", expectedHash, tid)
 	defer s.Close()
 
-	rw := NewRW(s.URL)
+	rw := NewRW(testClient, s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	actualAnnotations, actualHash, found, err := rw.Read(ctx, testContentUUID)
 	assert.NoError(t, err)
@@ -62,7 +62,7 @@ func TestReadAnnotationsNotFound(t *testing.T) {
 	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusNotFound, "", "", "", tid)
 	defer s.Close()
 
-	rw := NewRW(s.URL)
+	rw := NewRW(testClient, s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, _, found, err := rw.Read(ctx, testContentUUID)
 	assert.NoError(t, err)
@@ -74,7 +74,7 @@ func TestRead500Error(t *testing.T) {
 	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusInternalServerError, "", "", "", tid)
 	defer s.Close()
 
-	rw := NewRW(s.URL)
+	rw := NewRW(testClient, s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, _, found, err := rw.Read(ctx, testContentUUID)
 	assert.EqualError(t, err, "annotations RW returned an unexpected HTTP status code in read operation: 500")
@@ -84,7 +84,7 @@ func TestRead500Error(t *testing.T) {
 func TestReadHTTPRequestError(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
 
-	rw := NewRW(":#")
+	rw := NewRW(testClient, ":#")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, _, found, err := rw.Read(ctx, testContentUUID)
 	assert.EqualError(t, err, "parse :: missing protocol scheme")
@@ -94,7 +94,7 @@ func TestReadHTTPRequestError(t *testing.T) {
 func TestReadHTTPCallError(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
 
-	rw := NewRW("")
+	rw := NewRW(testClient, "")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, _, found, err := rw.Read(ctx, testContentUUID)
 	assert.EqualError(t, err, "Get /drafts/content/db4daee0-2b84-465a-addb-fc8938a608db/annotations: unsupported protocol scheme \"\"")
@@ -106,7 +106,7 @@ func TestReadInvalidBodyError(t *testing.T) {
 	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusOK, "{invalid-body}", "", "", tid)
 	defer s.Close()
 
-	rw := NewRW(s.URL)
+	rw := NewRW(testClient, s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, _, found, err := rw.Read(ctx, testContentUUID)
 	assert.EqualError(t, err, "invalid character 'i' looking for beginning of object key string")
@@ -116,7 +116,7 @@ func TestReadInvalidBodyError(t *testing.T) {
 func TestReadMissingTID(t *testing.T) {
 	hook := logTest.NewGlobal()
 
-	rw := NewRW("")
+	rw := NewRW(testClient, "")
 	rw.Read(context.Background(), testContentUUID)
 	var tid string
 	for i, e := range hook.AllEntries() {
@@ -138,7 +138,7 @@ func TestHappyWriteStatusCreate(t *testing.T) {
 	s := newAnnotationsRWServerMock(t, http.MethodPut, http.StatusCreated, testRWBody, oldHash, newHash, tid)
 	defer s.Close()
 
-	rw := NewRW(s.URL)
+	rw := NewRW(testClient, s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	actualNewHash, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
 	assert.NoError(t, err)
@@ -152,7 +152,7 @@ func TestHappyWriteStatusOK(t *testing.T) {
 	s := newAnnotationsRWServerMock(t, http.MethodPut, http.StatusOK, testRWBody, oldHash, newHash, tid)
 	defer s.Close()
 
-	rw := NewRW(s.URL)
+	rw := NewRW(testClient, s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	actualNewHash, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
 	assert.NoError(t, err)
@@ -165,7 +165,7 @@ func TestUnhappyWriteStatus500(t *testing.T) {
 	s := newAnnotationsRWServerMock(t, http.MethodPut, http.StatusInternalServerError, testRWBody, oldHash, "", tid)
 	defer s.Close()
 
-	rw := NewRW(s.URL)
+	rw := NewRW(testClient, s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
 	assert.EqualError(t, err, "annotations RW returned an unexpected HTTP status code in write operation: 500")
@@ -174,7 +174,7 @@ func TestUnhappyWriteStatus500(t *testing.T) {
 func TestWriteHTTPRequestError(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
 	oldHash := randomdata.RandStringRunes(56)
-	rw := NewRW(":#")
+	rw := NewRW(testClient, ":#")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
 	assert.EqualError(t, err, "parse :: missing protocol scheme")
@@ -183,7 +183,7 @@ func TestWriteHTTPRequestError(t *testing.T) {
 func TestWriteHTTPCallError(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
 	oldHash := randomdata.RandStringRunes(56)
-	rw := NewRW("")
+	rw := NewRW(testClient, "")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
 	assert.EqualError(t, err, "Put /drafts/content/db4daee0-2b84-465a-addb-fc8938a608db/annotations: unsupported protocol scheme \"\"")
@@ -192,7 +192,7 @@ func TestWriteHTTPCallError(t *testing.T) {
 func TestWriteMissingTID(t *testing.T) {
 	hook := logTest.NewGlobal()
 	oldHash := randomdata.RandStringRunes(56)
-	rw := NewRW("")
+	rw := NewRW(testClient, "")
 	rw.Write(context.Background(), testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
 	var tid string
 	for i, e := range hook.AllEntries() {
@@ -217,7 +217,7 @@ func newAnnotationsRWServerMock(t *testing.T, method string, status int, body st
 			assert.Equal(t, tid, r.Header.Get(tidUtils.TransactionIDHeader))
 		}
 
-		assert.Equal(t, "PAC draft-annotations-api", r.Header.Get("User-Agent"))
+		assert.Equal(t, "PAC-draft-annotations-api/Version--is-not-a-semantic-version", r.Header.Get("User-Agent"))
 
 		w.Header().Set(DocumentHashHeader, hashOut)
 		w.WriteHeader(status)
@@ -237,19 +237,19 @@ func newAnnotationsRWServerMock(t *testing.T, method string, status int, body st
 func TestRWHappyGTG(t *testing.T) {
 	s := newAnnotationsRWGTGServerMock(t, http.StatusOK, "")
 	defer s.Close()
-	rw := NewRW(s.URL)
+	rw := NewRW(testClient, s.URL)
 	err := rw.GTG()
 	assert.NoError(t, err)
 }
 
 func TestRWHTTPRequestErrorGTG(t *testing.T) {
-	rw := NewRW(":#")
+	rw := NewRW(testClient, ":#")
 	err := rw.GTG()
 	assert.EqualError(t, err, "gtg HTTP request error: parse :: missing protocol scheme")
 }
 
 func TestRWHTTPCallErrorGTG(t *testing.T) {
-	rw := NewRW("")
+	rw := NewRW(testClient, "")
 	err := rw.GTG()
 	assert.EqualError(t, err, "gtg HTTP call error: Get /__gtg: unsupported protocol scheme \"\"")
 }
@@ -257,7 +257,7 @@ func TestRWHTTPCallErrorGTG(t *testing.T) {
 func TestRW503GTG(t *testing.T) {
 	s := newAnnotationsRWGTGServerMock(t, http.StatusServiceUnavailable, "service unavailable")
 	defer s.Close()
-	rw := NewRW(s.URL)
+	rw := NewRW(testClient, s.URL)
 	err := rw.GTG()
 	assert.EqualError(t, err, "gtg returned unexpected status 503: service unavailable")
 }
@@ -274,6 +274,6 @@ func newAnnotationsRWGTGServerMock(t *testing.T, status int, body string) *httpt
 
 func TestRWEndpoint(t *testing.T) {
 	testEndpoint := "http://an-endpoint.com:8080"
-	rw := NewRW(testEndpoint)
+	rw := NewRW(testClient, testEndpoint)
 	assert.Equal(t, testEndpoint, rw.Endpoint())
 }

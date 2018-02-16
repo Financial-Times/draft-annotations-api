@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Financial-Times/go-ft-http-transport/transport"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/Pallinder/go-randomdata"
 	"github.com/satori/go.uuid"
@@ -15,6 +16,8 @@ import (
 	logTest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 )
+
+var testClient = &http.Client{Transport: transport.NewTransport().WithStandardUserAgent("PAC", "draft-annotations-api")}
 
 func TestSearchConceptsSingleBatch(t *testing.T) {
 	batchSize := 20
@@ -25,7 +28,7 @@ func TestSearchConceptsSingleBatch(t *testing.T) {
 	s := newMockedHappySearchService(t, apiKey, batchSize, tid, expectedConcepts)
 	defer s.Close()
 
-	csAPI := NewSearchAPI(s.URL, apiKey, batchSize)
+	csAPI := NewSearchAPI(testClient, s.URL, apiKey, batchSize)
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	actualConcepts, err := csAPI.SearchConcepts(ctx, extractIDs(expectedConcepts))
@@ -42,7 +45,7 @@ func TestSearchConceptsMultipleBatches(t *testing.T) {
 	s := newMockedHappySearchService(t, apiKey, batchSize, tid, expectedConcepts)
 	defer s.Close()
 
-	csAPI := NewSearchAPI(s.URL, apiKey, batchSize)
+	csAPI := NewSearchAPI(testClient, s.URL, apiKey, batchSize)
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	actualConcepts, err := csAPI.SearchConcepts(ctx, extractIDs(expectedConcepts))
@@ -59,7 +62,7 @@ func TestSearchConceptsMissingTID(t *testing.T) {
 	s := newMockedHappySearchService(t, apiKey, batchSize, "", expectedConcepts)
 	defer s.Close()
 
-	csAPI := NewSearchAPI(s.URL, apiKey, batchSize)
+	csAPI := NewSearchAPI(testClient, s.URL, apiKey, batchSize)
 
 	actualConcepts, err := csAPI.SearchConcepts(context.Background(), extractIDs(expectedConcepts))
 	assert.NoError(t, err)
@@ -83,7 +86,7 @@ func TestSearchConceptsBuildingHTTPRequestError(t *testing.T) {
 
 	apiKey := randomdata.RandStringRunes(10)
 
-	csAPI := NewSearchAPI(":#invalid endpoint", apiKey, batchSize)
+	csAPI := NewSearchAPI(testClient, ":#invalid endpoint", apiKey, batchSize)
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.SearchConcepts(ctx, []string{"an-id"})
@@ -95,7 +98,7 @@ func TestSearchConceptsHTTPCallError(t *testing.T) {
 
 	apiKey := randomdata.RandStringRunes(10)
 
-	csAPI := NewSearchAPI("", apiKey, batchSize)
+	csAPI := NewSearchAPI(testClient, "", apiKey, batchSize)
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.SearchConcepts(ctx, []string{"an-id"})
@@ -109,7 +112,7 @@ func TestSearchConceptsNon200HTTPStatus(t *testing.T) {
 	s := newMockedUnhappySearchService(http.StatusServiceUnavailable, "I am not happy")
 	defer s.Close()
 
-	csAPI := NewSearchAPI(s.URL, apiKey, batchSize)
+	csAPI := NewSearchAPI(testClient, s.URL, apiKey, batchSize)
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.SearchConcepts(ctx, []string{"an-id"})
@@ -123,7 +126,7 @@ func TestSearchConceptsUnmarshallingPayloadError(t *testing.T) {
 	s := newMockedUnhappySearchService(http.StatusOK, "}-a-wrong-json-payload-{")
 	defer s.Close()
 
-	csAPI := NewSearchAPI(s.URL, apiKey, batchSize)
+	csAPI := NewSearchAPI(testClient, s.URL, apiKey, batchSize)
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.SearchConcepts(ctx, []string{"an-id"})
@@ -138,7 +141,7 @@ func TestHappyGTG(t *testing.T) {
 	s := newMockedHappySearchService(t, apiKey, batchSize, "", expectedConcepts)
 	defer s.Close()
 
-	csAPI := NewSearchAPI(s.URL, apiKey, batchSize)
+	csAPI := NewSearchAPI(testClient, s.URL, apiKey, batchSize)
 
 	err := csAPI.GTG()
 	assert.NoError(t, err)
@@ -151,7 +154,7 @@ func TestUnhappyGTG(t *testing.T) {
 	s := newMockedUnhappySearchService(http.StatusServiceUnavailable, "I am not happy")
 	defer s.Close()
 
-	csAPI := NewSearchAPI(s.URL, apiKey, batchSize)
+	csAPI := NewSearchAPI(testClient, s.URL, apiKey, batchSize)
 
 	err := csAPI.GTG()
 	assert.EqualError(t, err, "concept search API returned a non-200 HTTP status code: 503")
@@ -212,7 +215,7 @@ func (h *mockedSearchServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 	assert.Len(h.t, values, 1)
 	assert.True(h.t, len(values["ids"]) <= h.batchSize)
 
-	assert.Equal(h.t, "PAC draft-annotations-api", r.Header.Get("User-Agent"))
+	assert.Equal(h.t, "PAC-draft-annotations-api/Version--is-not-a-semantic-version", r.Header.Get("User-Agent"))
 
 	actualApiKey := r.Header.Get(apiKeyHeader)
 	assert.Equal(h.t, h.apiKey, actualApiKey)

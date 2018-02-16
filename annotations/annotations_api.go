@@ -27,8 +27,8 @@ type annotationsAPI struct {
 	httpClient       *http.Client
 }
 
-func NewUPPAnnotationsAPI(endpoint string, apiKey string) UPPAnnotationsAPI {
-	return &annotationsAPI{endpointTemplate: endpoint, apiKey: apiKey, httpClient: &http.Client{}}
+func NewUPPAnnotationsAPI(client *http.Client, endpoint string, apiKey string) UPPAnnotationsAPI {
+	return &annotationsAPI{endpointTemplate: endpoint, apiKey: apiKey, httpClient: client}
 }
 
 func (api *annotationsAPI) Get(ctx context.Context, contentUUID string) (*http.Response, error) {
@@ -43,19 +43,16 @@ func (api *annotationsAPI) Get(ctx context.Context, contentUUID string) (*http.R
 	getAnnotationsLog = getAnnotationsLog.WithField(tidUtils.TransactionIDKey, tid)
 
 	apiReq, err := http.NewRequest("GET", apiReqURI, nil)
+
 	if err != nil {
 		getAnnotationsLog.WithError(err).Error("Error in creating the http request")
 		return nil, err
 	}
 
-	userAgent(apiReq)
 	apiReq.Header.Set(apiKeyHeader, api.apiKey)
-	if tid != "" {
-		apiReq.Header.Set(tidUtils.TransactionIDHeader, tid)
-	}
-
 	getAnnotationsLog.Info("Calling UPP Public Annotations API")
-	return api.httpClient.Do(apiReq)
+
+	return api.httpClient.Do(apiReq.WithContext(ctx))
 }
 
 func (api *annotationsAPI) GTG() error {
@@ -65,7 +62,6 @@ func (api *annotationsAPI) GTG() error {
 		return fmt.Errorf("gtg request error: %v", err.Error())
 	}
 
-	userAgent(apiReq)
 	apiReq.Header.Set(apiKeyHeader, api.apiKey)
 
 	apiResp, err := api.httpClient.Do(apiReq)

@@ -6,13 +6,9 @@ fixtures:
       headers:
         content-type: application/json
       expectations:
-        - headers:
-            user-agent: PAC draft-annotations-api
-          queryParams:
+        - queryParams:
             ids: ababe00a-d732-4690-b283-585e7f264d2f
-        - headers:
-            user-agent: PAC draft-annotations-api
-          queryParams:
+        - queryParams:
             ids: dbb0bdae-1f0c-11e4-b0cb-b2227cce2b54
       body:
         concepts:
@@ -27,9 +23,6 @@ fixtures:
       status: 200
       headers:
         content-type: application/json
-      expectations:
-        headers:
-          user-agent: PAC draft-annotations-api
       body:
         annotations:
           - id: http://www.ft.com/thing/ababe00a-d732-4690-b283-585e7f264d2f
@@ -37,21 +30,12 @@ fixtures:
   /drafts/content/f368bbac-4bd9-11e7-919a-1e14ce4af89b/annotations:
     put:
       status: 200
-      expectations:
-        headers:
-          user-agent: PAC draft-annotations-api
   /content/4f2f97ea-b8ec-11e4-b8e6-00144feab7de/annotations:
     get:
       status: 200
-      expectations:
-        headers:
-          user-agent: PAC draft-annotations-api
   /__gtg:
     get:
       status: 200
       headers:
         content-type: text/plain; charset=US-ASCII
-      expectations:
-        headers:
-          user-agent: PAC draft-annotations-api
       body: OK
