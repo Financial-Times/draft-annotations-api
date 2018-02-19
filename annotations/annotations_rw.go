@@ -28,8 +28,8 @@ type annotationsRW struct {
 	httpClient *http.Client
 }
 
-func NewRW(endpoint string) RW {
-	return &annotationsRW{endpoint, &http.Client{}}
+func NewRW(client *http.Client, endpoint string) RW {
+	return &annotationsRW{endpoint, client}
 }
 
 func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) (*Annotations, string, bool, error) {
@@ -51,9 +51,8 @@ func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) (*Annotat
 		readLog.WithError(err).Error("Error in creating the HTTP read request to annotations RW")
 		return nil, "", false, err
 	}
-	req.Header.Set(tidUtils.TransactionIDHeader, tid)
 
-	resp, err := rw.httpClient.Do(req)
+	resp, err := rw.httpClient.Do(req.WithContext(ctx))
 	if err != nil {
 		readLog.WithError(err).Error("Error making the HTTP read request to annotations RW")
 		return nil, "", false, err
@@ -102,10 +101,10 @@ func (rw *annotationsRW) Write(ctx context.Context, contentUUID string, annotati
 		writeLog.WithError(err).Error("Error in creating the HTTP write request to annotations RW")
 		return "", err
 	}
-	req.Header.Set(tidUtils.TransactionIDHeader, tid)
+
 	req.Header.Set(PreviousDocumentHashHeader, hash)
 
-	resp, err := rw.httpClient.Do(req)
+	resp, err := rw.httpClient.Do(req.WithContext(ctx))
 	if err != nil {
 		writeLog.WithError(err).Error("Error making the HTTP request to annotations RW")
 		return "", err

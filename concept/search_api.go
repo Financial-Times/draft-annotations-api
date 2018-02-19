@@ -23,11 +23,11 @@ type internalConcordancesAPI struct {
 	batchSize  int
 }
 
-func NewSearchAPI(endpoint string, apiKey string, batchSize int) SearchAPI {
+func NewSearchAPI(client *http.Client, endpoint string, apiKey string, batchSize int) SearchAPI {
 	return &internalConcordancesAPI{
 		endpoint:   endpoint,
 		apiKey:     apiKey,
-		httpClient: &http.Client{},
+		httpClient: client,
 		batchSize:  batchSize,
 	}
 }
@@ -77,7 +77,6 @@ func (search *internalConcordancesAPI) searchConceptBatch(ctx context.Context, c
 		return nil, err
 	}
 	req.Header.Set(apiKeyHeader, search.apiKey)
-	req.Header.Set(tidUtils.TransactionIDHeader, tid)
 
 	q := req.URL.Query()
 	for _, id := range conceptIDs {
@@ -85,7 +84,7 @@ func (search *internalConcordancesAPI) searchConceptBatch(ctx context.Context, c
 	}
 	req.URL.RawQuery = q.Encode()
 
-	resp, err := search.httpClient.Do(req)
+	resp, err := search.httpClient.Do(req.WithContext(ctx))
 	if err != nil {
 		batchConceptsLog.WithError(err).Error("Error making the HTTP request to concept search API")
 		return nil, err

@@ -9,6 +9,7 @@ import (
 	"github.com/Financial-Times/draft-annotations-api/concept"
 	"github.com/Financial-Times/draft-annotations-api/handler"
 	"github.com/Financial-Times/draft-annotations-api/health"
+	"github.com/Financial-Times/go-ft-http-transport/transport"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
 	"github.com/husobee/vestigo"
@@ -92,10 +93,12 @@ func main() {
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
 
-		rw := annotations.NewRW(*annotationsRWEndpoint)
-		annotationsAPI := annotations.NewUPPAnnotationsAPI(*annotationsAPIEndpoint, *uppAPIKey)
+		client := &http.Client{Transport: transport.NewTransport().WithStandardUserAgent("PAC", *appSystemCode)}
+
+		rw := annotations.NewRW(client, *annotationsRWEndpoint)
+		annotationsAPI := annotations.NewUPPAnnotationsAPI(client, *annotationsAPIEndpoint, *uppAPIKey)
 		c14n := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
-		conceptSearchAPI := concept.NewSearchAPI(*internalConcordancesEndpoint, *uppAPIKey, *internalConcordancesBatchSize)
+		conceptSearchAPI := concept.NewSearchAPI(client, *internalConcordancesEndpoint, *uppAPIKey, *internalConcordancesBatchSize)
 		augmenter := annotations.NewAugmenter(conceptSearchAPI)
 		annotationsHandler := handler.New(rw, annotationsAPI, c14n, augmenter)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, rw, annotationsAPI, conceptSearchAPI)

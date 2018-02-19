@@ -66,7 +66,7 @@ Options:
 
 ## Service endpoints
 
-For a full description of API endpoints for the service, please see the [Open API specification](./api/api.yml).
+For a full description of API endpoints for the service, please see the [Open API specification](./_ft/api.yml).
 
 ### GET - Reading draft annotations from PAC
 
@@ -76,14 +76,14 @@ Using curl:
 curl http://localhost:8080/draft/content/{content-uuid}/annotations | jq
 ```
 
-A GET request on this endpoint fetches the draft annotations for a specific piece of content by calling 
+A GET request on this endpoint fetches the draft annotations for a specific piece of content by calling
 [Generic RW Aurora](https://github.com/Financial-Times/generic-rw-aurora).
-In case the success, annotations are enriched with concept information by calling 
+In case the success, annotations are enriched with concept information by calling
 [UPP Concept Search API](https://github.com/Financial-Times/concept-search-api).
-In case annotations are not available in PAC, 
-Draft Annotations API fetches published annotations by calling 
+In case annotations are not available in PAC,
+Draft Annotations API fetches published annotations by calling
 [UPP Public Annotations API](https://github.com/Financial-Times/public-annotations-api).
-Fetching published annotations is part of the strategy for dynamic importing legacy annotations in PAC. 
+Fetching published annotations is part of the strategy for dynamic importing legacy annotations in PAC.
 
 This is an example of response body:
 ```
@@ -149,9 +149,9 @@ curl -X PUT \
       }'
 ```
 
-A PUT request on this endpoint writes the draft annotations in PAC. 
+A PUT request on this endpoint writes the draft annotations in PAC.
 The input body is an array of annotation JSON objects in which only `predicate` and `id` are the required fields.
-If the write operation is successful, the application returns the canonicalized input body with 
+If the write operation is successful, the application returns the canonicalized input body with
 a HTTP 200 response code.
 The listings below shows an example of canonicalized response.
 
