@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -16,6 +17,12 @@ import (
 	"github.com/husobee/vestigo"
 	"github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
+)
+
+var (
+	errNoAnnotations         = errors.New(`No annotations can be found`)
+	errUPPBadRequest         = errors.New(`UPP responded with a client error`)
+	errUPPServiceUnavailable = errors.New(`UPP responded with an unexpected error`)
 )
 
 type Handler struct {
@@ -47,64 +54,100 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Content-Type", "application/json")
 
-	readLog.Info("Reading from annotations RW...")
-	rwAnnotations, hash, found, err := h.annotationsRW.Read(ctx, contentUUID)
+	readLog.Info("Reading Annotations from Annotations R/W")
+	rawAnnotations, err := h.readAnnotations(ctx, w, contentUUID)
 	if err != nil {
-		writeMessage(w, fmt.Sprintf("Annotations RW error: %v", err), http.StatusInternalServerError)
+		handleErrors(err, readLog, w)
 		return
 	}
 
-	var rawAnnotations []annotations.Annotation
-	var response annotations.Annotations
-	if found {
-		rawAnnotations = rwAnnotations.Annotations
-		w.Header().Set(annotations.DocumentHashHeader, hash)
-	} else {
-		readLog.Info("Annotations not found: Retrieving annotations from UPP")
-		uppResponse, err := h.annotationsAPI.Get(ctx, contentUUID)
-		if err != nil {
-			readLog.WithError(err).Error("Error in calling UPP Public Annotations API")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		defer uppResponse.Body.Close()
-
-		if uppResponse.StatusCode != http.StatusOK {
-			if uppResponse.StatusCode == http.StatusNotFound || uppResponse.StatusCode == http.StatusBadRequest {
-				w.WriteHeader(uppResponse.StatusCode)
-				io.Copy(w, uppResponse.Body)
-			} else {
-				writeMessage(w, "Service unavailable", http.StatusServiceUnavailable)
-			}
-			return
-		}
-
-		respBody, _ := ioutil.ReadAll(uppResponse.Body)
-		convertedBody, err := mapper.ConvertPredicates(respBody)
-		if err != nil {
-			readLog.WithError(err).Error("Error converting predicates from UPP Public Annotations API response")
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		} else if err == nil && convertedBody == nil {
-			writeMessage(w, "No annotations can be found", http.StatusNotFound)
-			return
-		}
-
-		rawAnnotations = []annotations.Annotation{}
-		json.Unmarshal(convertedBody, &rawAnnotations)
-
-		w.WriteHeader(uppResponse.StatusCode)
-	}
-
-	readLog.Info("Augmenting annotations...")
+	readLog.Info("Augmenting annotations with recent UPP data")
 	augmentedAnnotations, err := h.annotationsAugmenter.AugmentAnnotations(ctx, rawAnnotations)
 	if err != nil {
-		writeMessage(w, fmt.Sprintf("Annotations augmenter error: %v", err), http.StatusInternalServerError)
+		readLog.WithError(err).Error("Failed to augment annotations")
+		writeMessage(w, "Failed to augment annotations", http.StatusInternalServerError)
 		return
 	}
-	response = annotations.Annotations{Annotations: augmentedAnnotations}
 
+	response := annotations.Annotations{Annotations: augmentedAnnotations}
 	json.NewEncoder(w).Encode(&response)
+}
+
+func handleErrors(err error, readLog *log.Entry, w http.ResponseWriter) {
+	if isTimeoutErr(err) {
+		readLog.WithError(err).Error("Timeout while reading annotations.")
+		writeMessage(w, "Timeout while reading annotations", http.StatusGatewayTimeout)
+		return
+	}
+
+	switch err {
+	case errUPPBadRequest:
+		readLog.Info("UPP responded with a client error, forwarding UPP response back to client.")
+	case errNoAnnotations:
+		writeMessage(w, "No annotations found", http.StatusNotFound)
+	case errUPPServiceUnavailable:
+		writeMessage(w, "Service unavailable", http.StatusServiceUnavailable)
+	default:
+		writeMessage(w, fmt.Sprintf("Failed to read annotations: %v", err), http.StatusInternalServerError)
+	}
+}
+
+func (h *Handler) readAnnotations(ctx context.Context, w http.ResponseWriter, contentUUID string) ([]annotations.Annotation, error) {
+	rwAnnotations, hash, found, err := h.annotationsRW.Read(ctx, contentUUID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !found {
+		return h.readAnnotationsFromUPP(ctx, w, contentUUID)
+	}
+
+	w.Header().Set(annotations.DocumentHashHeader, hash)
+	return rwAnnotations.Annotations, nil
+}
+
+func readLogEntry(ctx context.Context, contentUUID string) *log.Entry {
+	tid, _ := tidutils.GetTransactionIDFromContext(ctx)
+	return log.WithField(tidutils.TransactionIDKey, tid).WithField("uuid", contentUUID)
+}
+
+func (h *Handler) readAnnotationsFromUPP(ctx context.Context, w http.ResponseWriter, contentUUID string) ([]annotations.Annotation, error) {
+	readLog := readLogEntry(ctx, contentUUID)
+	readLog.Info("Annotations not found, retrieving annotations from UPP")
+
+	uppResponse, err := h.annotationsAPI.Get(ctx, contentUUID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer uppResponse.Body.Close()
+
+	if uppResponse.StatusCode != http.StatusOK {
+		if uppResponse.StatusCode == http.StatusNotFound || uppResponse.StatusCode == http.StatusBadRequest {
+			w.WriteHeader(uppResponse.StatusCode)
+			io.Copy(w, uppResponse.Body)
+			return nil, errUPPBadRequest
+		}
+
+		return nil, errUPPServiceUnavailable
+	}
+
+	respBody, _ := ioutil.ReadAll(uppResponse.Body)
+	convertedBody, err := mapper.ConvertPredicates(respBody)
+	if err != nil {
+		return nil, errors.New("Failed to map predicates from UPP response")
+	}
+
+	if err == nil && convertedBody == nil {
+		return nil, errNoAnnotations
+	}
+
+	rawAnnotations := []annotations.Annotation{}
+	json.Unmarshal(convertedBody, &rawAnnotations)
+
+	return rawAnnotations, nil
 }
 
 func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {

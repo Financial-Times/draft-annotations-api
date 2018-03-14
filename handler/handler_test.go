@@ -83,7 +83,7 @@ func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 	assert.NoError(t, err)
-	assert.Equal(t, `{"message":"Annotations RW error: computer says no"}`, string(body))
+	assert.Equal(t, `{"message":"Failed to read annotations: computer says no"}`, string(body))
 	assert.Empty(t, resp.Header.Get(annotations.DocumentHashHeader))
 
 	rw.AssertExpectations(t)
@@ -112,7 +112,7 @@ func TestUnHappyAugmenter(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 	assert.NoError(t, err)
-	assert.Equal(t, `{"message":"Annotations augmenter error: computer says no"}`, string(body))
+	assert.Equal(t, `{"message":"Failed to augment annotations"}`, string(body))
 	assert.Empty(t, resp.Header.Get(annotations.DocumentHashHeader))
 
 	rw.AssertExpectations(t)
@@ -209,7 +209,7 @@ func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	assert.NoError(t, err)
-	assert.Equal(t, "{\"message\":\"No annotations can be found\"}", string(body))
+	assert.Equal(t, "{\"message\":\"No annotations found\"}", string(body))
 
 	rw.AssertExpectations(t)
 	aug.AssertExpectations(t)
@@ -262,7 +262,7 @@ func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 	assert.NoError(t, err)
-	assert.Equal(t, "parse :: missing protocol scheme\n", string(body))
+	assert.JSONEq(t, "{\"message\":\"Failed to read annotations: parse :: missing protocol scheme\"}", string(body))
 
 	rw.AssertExpectations(t)
 	aug.AssertExpectations(t)
@@ -536,6 +536,57 @@ func TestSaveAnnotationsErrorFromRW(t *testing.T) {
 	annotationsAPI.AssertExpectations(t)
 }
 
+func TestAnnotationsReadTimeoutGenericRW(t *testing.T) {
+	rw := new(RWMock)
+	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, &url.Error{Err: context.DeadlineExceeded})
+
+	aug := new(AugmenterMock)
+	annAPI := new(AnnotationsAPIMock)
+
+	h := New(rw, annAPI, nil, aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
+
+	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+	assert.Equal(t, http.StatusGatewayTimeout, resp.StatusCode)
+	assert.JSONEq(t, `{"message":"Timeout while reading annotations"}`, w.Body.String())
+
+	rw.AssertExpectations(t)
+	aug.AssertExpectations(t)
+	annAPI.AssertExpectations(t)
+}
+
+func TestAnnotationsReadTimeoutUPP(t *testing.T) {
+	rw := new(RWMock)
+	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
+
+	aug := new(AugmenterMock)
+	annAPI := new(AnnotationsAPIMock)
+	annAPI.On("Get", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(&http.Response{}, &url.Error{Err: context.DeadlineExceeded})
+
+	h := New(rw, annAPI, nil, aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
+
+	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+	assert.Equal(t, http.StatusGatewayTimeout, resp.StatusCode)
+	assert.JSONEq(t, `{"message":"Timeout while reading annotations"}`, w.Body.String())
+
+	rw.AssertExpectations(t)
+	aug.AssertExpectations(t)
+	annAPI.AssertExpectations(t)
+}
+
 func TestIsTimeoutErr(t *testing.T) {
 	r := vestigo.NewRouter()
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
@@ -552,7 +603,7 @@ func TestIsTimeoutErr(t *testing.T) {
 	assert.True(t, isTimeoutErr(err))
 }
 
-func TestAnnotationsTimeout(t *testing.T) {
+func TestAnnotationsWriteTimeout(t *testing.T) {
 	oldHash := randomdata.RandStringRunes(56)
 	rw := new(RWMock)
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsBody, oldHash).Return("", &url.Error{Err: context.DeadlineExceeded})
