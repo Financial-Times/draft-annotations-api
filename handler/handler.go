@@ -7,6 +7,8 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"time"
 
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/Financial-Times/draft-annotations-api/mapper"
@@ -21,21 +23,25 @@ type Handler struct {
 	annotationsAPI       annotations.UPPAnnotationsAPI
 	c14n                 *annotations.Canonicalizer
 	annotationsAugmenter annotations.Augmenter
+	timeout              time.Duration
 }
 
-func New(rw annotations.RW, annotationsAPI annotations.UPPAnnotationsAPI, c14n *annotations.Canonicalizer, augmenter annotations.Augmenter) *Handler {
+func New(rw annotations.RW, annotationsAPI annotations.UPPAnnotationsAPI, c14n *annotations.Canonicalizer, augmenter annotations.Augmenter, httpTimeout time.Duration) *Handler {
 	return &Handler{
 		rw,
 		annotationsAPI,
 		c14n,
 		augmenter,
+		httpTimeout,
 	}
 }
 
 func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 	contentUUID := vestigo.Param(r, "uuid")
 	tID := tidutils.GetTransactionIDFromRequest(r)
-	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
+
+	ctx, cancel := context.WithTimeout(tidutils.TransactionAwareContext(context.Background(), tID), h.timeout)
+	defer cancel()
 
 	readLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
 
@@ -131,6 +137,13 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 
 	writeLog.Info("Writing to annotations RW...")
 	newHash, err := h.annotationsRW.Write(ctx, contentUUID, &draftAnnotations, oldHash)
+
+	if isTimeoutErr(err) {
+		writeLog.WithError(err).Error("Timeout while waiting to write draft annotations.")
+		writeMessage(w, "Timeout while waiting to write draft annotations", http.StatusGatewayTimeout)
+		return
+	}
+
 	if err != nil {
 		writeLog.WithError(err).Error("Error in writing draft annotations")
 		writeMessage(w, fmt.Sprintf("Error in writing draft annotations: %v", err.Error()), http.StatusInternalServerError)
@@ -140,6 +153,11 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(annotations.DocumentHashHeader, newHash)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(draftAnnotations)
+}
+
+func isTimeoutErr(err error) bool {
+	urlErr, ok := err.(*url.Error)
+	return ok && urlErr.Err == context.DeadlineExceeded
 }
 
 func validateUUID(u string) error {

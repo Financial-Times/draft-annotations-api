@@ -4,12 +4,16 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
+	"time"
 
 	"github.com/Financial-Times/go-ft-http-transport/transport"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
+	"github.com/husobee/vestigo"
 	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const testAPIKey = "testAPIKey"
@@ -111,6 +115,23 @@ func TestResponseFailsAnnotationsAPI(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
+}
+
+func TestAnnotationsAPITimeout(t *testing.T) {
+	r := vestigo.NewRouter()
+	r.Get("/content/:uuid/annotations", func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(500 * time.Millisecond)
+	})
+
+	s := httptest.NewServer(r)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, s.URL+"/content/%v/annotations", testAPIKey)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
+	defer cancel()
+
+	_, err := annotationsAPI.Get(ctx, testContentUUID)
+	require.Error(t, err)
+	assert.Equal(t, (err.(*url.Error)).Err, context.DeadlineExceeded)
 }
 
 func newAnnotationsAPIServerMock(t *testing.T, tid string, uuid string, status int, body string) *httptest.Server {

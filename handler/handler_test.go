@@ -5,8 +5,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"context"
 	"encoding/json"
@@ -37,7 +39,7 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations.Annotations).Return(expectedAnnotations.Annotations, nil)
 	annAPI := new(AnnotationsAPIMock)
 
-	h := New(rw, annAPI, nil, aug)
+	h := New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -67,7 +69,7 @@ func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
 	aug := new(AugmenterMock)
 	annAPI := new(AnnotationsAPIMock)
 
-	h := New(rw, annAPI, nil, aug)
+	h := New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -96,7 +98,7 @@ func TestUnHappyAugmenter(t *testing.T) {
 	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations.Annotations).Return([]annotations.Annotation{}, errors.New("computer says no"))
 	annAPI := new(AnnotationsAPIMock)
 
-	h := New(rw, annAPI, nil, aug)
+	h := New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -132,7 +134,7 @@ func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
 	assert.Equal(t, annotationsAPIServerMock.URL+"/content/%v/annotations", annotationsAPI.Endpoint())
 
-	h := New(rw, annotationsAPI, nil, aug)
+	h := New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -164,7 +166,7 @@ func TestFetchFromAnnotationsAPI404(t *testing.T) {
 	defer annotationsAPIServerMock.Close()
 
 	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
-	h := New(rw, annotationsAPI, nil, aug)
+	h := New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -193,7 +195,7 @@ func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 	defer annotationsAPIServerMock.Close()
 
 	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
-	h := New(rw, annotationsAPI, nil, aug)
+	h := New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -221,7 +223,7 @@ func TestFetchFromAnnotationsAPI500(t *testing.T) {
 	defer annotationsAPIServerMock.Close()
 
 	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
-	h := New(rw, annotationsAPI, nil, aug)
+	h := New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -246,7 +248,7 @@ func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 	aug := new(AugmenterMock)
 	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, ":#", testAPIKey)
-	h := New(rw, annotationsAPI, nil, aug)
+	h := New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -274,7 +276,7 @@ func TestFetchFromAnnotationsAPIWithConnectionError(t *testing.T) {
 	annotationsAPIServerMock.Close()
 
 	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL, testAPIKey)
-	h := New(rw, annotationsAPI, nil, aug)
+	h := New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -404,7 +406,7 @@ func TestSaveAnnotations(t *testing.T) {
 	aug := new(AugmenterMock)
 	annotationsAPI := new(AnnotationsAPIMock)
 
-	h := New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug)
+	h := New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 
@@ -442,7 +444,7 @@ func TestSaveAnnotationsInvalidContentUUID(t *testing.T) {
 	aug := new(AugmenterMock)
 	annotationsAPI := new(AnnotationsAPIMock)
 
-	h := New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug)
+	h := New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 
@@ -473,7 +475,7 @@ func TestSaveAnnotationsInvalidAnnotationsBody(t *testing.T) {
 	aug := new(AugmenterMock)
 	annotationsAPI := new(AnnotationsAPIMock)
 
-	h := New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug)
+	h := New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 
@@ -506,7 +508,7 @@ func TestSaveAnnotationsErrorFromRW(t *testing.T) {
 	aug := new(AugmenterMock)
 	annotationsAPI := new(AnnotationsAPIMock)
 
-	h := New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug)
+	h := New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 
@@ -528,6 +530,60 @@ func TestSaveAnnotationsErrorFromRW(t *testing.T) {
 	body, err := ioutil.ReadAll(resp.Body)
 	assert.NoError(t, err)
 	assert.JSONEq(t, `{"message":"Error in writing draft annotations: computer says no"}`, string(body))
+
+	rw.AssertExpectations(t)
+	aug.AssertExpectations(t)
+	annotationsAPI.AssertExpectations(t)
+}
+
+func TestIsTimeoutErr(t *testing.T) {
+	r := vestigo.NewRouter()
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(500 * time.Millisecond)
+	})
+
+	s := httptest.NewServer(r)
+
+	req, _ := http.NewRequest("GET", s.URL+"/", nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	_, err := http.DefaultClient.Do(req.WithContext(ctx))
+	assert.True(t, isTimeoutErr(err))
+}
+
+func TestAnnotationsTimeout(t *testing.T) {
+	oldHash := randomdata.RandStringRunes(56)
+	rw := new(RWMock)
+	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsBody, oldHash).Return("", &url.Error{Err: context.DeadlineExceeded})
+
+	aug := new(AugmenterMock)
+	annotationsAPI := new(AnnotationsAPIMock)
+
+	h := New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
+
+	entity := bytes.Buffer{}
+	json.NewEncoder(&entity).Encode(&expectedAnnotations)
+
+	req := httptest.NewRequest(
+		"PUT",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		&entity)
+
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	resp := w.Result()
+	assert.Equal(t, http.StatusGatewayTimeout, resp.StatusCode)
+
+	body, err := ioutil.ReadAll(resp.Body)
+	assert.NoError(t, err)
+	assert.JSONEq(t, `{"message":"Timeout while waiting to write draft annotations"}`, string(body))
 
 	rw.AssertExpectations(t)
 	aug.AssertExpectations(t)

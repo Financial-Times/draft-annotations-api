@@ -51,7 +51,7 @@ func (search *internalConcordancesAPI) SearchConcepts(ctx context.Context, conce
 		if ((i+1)%search.batchSize == 0) && (i != 0) || (i+1 == n) {
 			conceptsBatch, err := search.searchConceptBatch(ctx, conceptIDsBatch)
 			if err != nil {
-				log.WithField(tidUtils.TransactionIDKey, tid).Info("Concepts information fetched successfully")
+				log.WithError(err).WithField(tidUtils.TransactionIDKey, tid).Info("Failed to fetch concepts batch")
 				return nil, err
 			}
 

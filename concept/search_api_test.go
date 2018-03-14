@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
+	"time"
 
 	"github.com/Financial-Times/go-ft-http-transport/transport"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/Pallinder/go-randomdata"
+	"github.com/husobee/vestigo"
 	"github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 	logTest "github.com/sirupsen/logrus/hooks/test"
@@ -145,6 +148,23 @@ func TestHappyGTG(t *testing.T) {
 
 	err := csAPI.GTG()
 	assert.NoError(t, err)
+}
+
+func TestConceptSearchTimeout(t *testing.T) {
+	r := vestigo.NewRouter()
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(500 * time.Millisecond)
+	})
+
+	s := httptest.NewServer(r)
+	csAPI := NewSearchAPI(testClient, s.URL, "", 1)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
+	defer cancel()
+
+	_, err := csAPI.SearchConcepts(ctx, []string{"1234"})
+	assert.Error(t, err)
+	assert.Equal(t, (err.(*url.Error)).Err, context.DeadlineExceeded)
 }
 
 func TestUnhappyGTG(t *testing.T) {
