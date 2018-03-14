@@ -2,9 +2,9 @@ package annotations
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
 	"time"
 
@@ -130,7 +130,7 @@ func TestAnnotationsAPITimeout(t *testing.T) {
 
 	_, err := annotationsAPI.Get(ctx, testContentUUID)
 	assert.Error(t, err)
-	assert.Equal(t, (err.(*url.Error)).Err, context.DeadlineExceeded)
+	assert.True(t, (err.(net.Error)).Timeout())
 }
 
 func newAnnotationsAPIServerMock(t *testing.T, tid string, uuid string, status int, body string) *httptest.Server {

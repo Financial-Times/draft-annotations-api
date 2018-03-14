@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
 	"time"
 
@@ -164,7 +164,7 @@ func TestConceptSearchTimeout(t *testing.T) {
 
 	_, err := csAPI.SearchConcepts(ctx, []string{"1234"})
 	assert.Error(t, err)
-	assert.Equal(t, (err.(*url.Error)).Err, context.DeadlineExceeded)
+	assert.True(t, (err.(net.Error)).Timeout())
 }
 
 func TestUnhappyGTG(t *testing.T) {

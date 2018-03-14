@@ -3,9 +3,9 @@ package annotations
 import (
 	"context"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
 	"time"
 
@@ -223,7 +223,7 @@ func TestRWTimeout(t *testing.T) {
 
 	_, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, "")
 	assert.Error(t, err)
-	assert.Equal(t, (err.(*url.Error)).Err, context.DeadlineExceeded)
+	assert.True(t, (err.(net.Error)).Timeout())
 }
 
 func newAnnotationsRWServerMock(t *testing.T, method string, status int, body string, hashIn string, hashOut string, tid string) *httptest.Server {

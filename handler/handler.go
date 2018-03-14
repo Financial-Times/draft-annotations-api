@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/Financial-Times/draft-annotations-api/annotations"
@@ -156,8 +156,8 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 }
 
 func isTimeoutErr(err error) bool {
-	urlErr, ok := err.(*url.Error)
-	return ok && urlErr.Err == context.DeadlineExceeded
+	netErr, ok := err.(net.Error)
+	return ok && netErr.Timeout()
 }
 
 func validateUUID(u string) error {
