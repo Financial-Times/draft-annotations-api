@@ -13,7 +13,6 @@ import (
 	"github.com/husobee/vestigo"
 	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const testAPIKey = "testAPIKey"
@@ -130,7 +129,7 @@ func TestAnnotationsAPITimeout(t *testing.T) {
 	defer cancel()
 
 	_, err := annotationsAPI.Get(ctx, testContentUUID)
-	require.Error(t, err)
+	assert.Error(t, err)
 	assert.Equal(t, (err.(*url.Error)).Err, context.DeadlineExceeded)
 }
 
