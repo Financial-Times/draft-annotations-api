@@ -87,14 +87,12 @@ func main() {
 		EnvVar: "API_YML",
 	})
 
-	httpTimeoutInt := app.Int(cli.IntOpt{
+	httpTimeoutDuration := app.String(cli.StringOpt{
 		Name:   "http-timeout",
-		Value:  8000,
-		Desc:   "Time to wait in milliseconds before timing out a request",
+		Value:  "8s",
+		Desc:   "Duration to wait before timing out a request",
 		EnvVar: "HTTP_TIMEOUT",
 	})
-
-	httpTimeout := time.Duration(*httpTimeoutInt)
 
 	log.SetFormatter(&log.JSONFormatter{})
 	log.SetLevel(log.InfoLevel)
@@ -102,6 +100,10 @@ func main() {
 
 	app.Action = func() {
 		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
+		httpTimeout, err := time.ParseDuration(*httpTimeoutDuration)
+		if err != nil {
+			log.WithError(err).Fatal("Please provide a valid timeout duration")
+		}
 
 		client := fthttp.NewClientWithDefaultTimeout("PAC", *appSystemCode)
 
