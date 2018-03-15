@@ -50,7 +50,7 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(tidutils.TransactionAwareContext(context.Background(), tID), h.timeout)
 	defer cancel()
 
-	readLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
+	readLog := readLogEntry(ctx, contentUUID)
 
 	w.Header().Add("Content-Type", "application/json")
 

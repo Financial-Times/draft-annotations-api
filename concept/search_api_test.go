@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Financial-Times/go-ft-http-transport/transport"
+	"github.com/Financial-Times/go-ft-http/fthttp"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/Pallinder/go-randomdata"
 	"github.com/husobee/vestigo"
@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var testClient = &http.Client{Transport: transport.NewTransport().WithStandardUserAgent("PAC", "draft-annotations-api")}
+var testClient = fthttp.NewClientWithDefaultTimeout("PAC", "draft-annotations-api")
 
 func TestSearchConceptsSingleBatch(t *testing.T) {
 	batchSize := 20

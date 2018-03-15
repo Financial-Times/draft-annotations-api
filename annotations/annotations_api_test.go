@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Financial-Times/go-ft-http-transport/transport"
+	"github.com/Financial-Times/go-ft-http/fthttp"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
 	"github.com/satori/go.uuid"
@@ -17,7 +17,7 @@ import (
 
 const testAPIKey = "testAPIKey"
 
-var testClient = &http.Client{Transport: transport.NewTransport().WithStandardUserAgent("PAC", "draft-annotations-api")}
+var testClient = fthttp.NewClientWithDefaultTimeout("PAC", "draft-annotations-api")
 
 func TestHappyAnnotationsAPIGTG(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIGTGServerMock(t, http.StatusOK, "I am happy!")
