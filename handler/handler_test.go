@@ -15,7 +15,7 @@ import (
 	"errors"
 
 	"github.com/Financial-Times/draft-annotations-api/annotations"
-	"github.com/Financial-Times/go-ft-http-transport/transport"
+	"github.com/Financial-Times/go-ft-http/fthttp"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/Pallinder/go-randomdata"
 	"github.com/husobee/vestigo"
@@ -28,7 +28,7 @@ const testTID = "test_tid"
 
 const apiKeyHeader = "X-Api-Key"
 
-var testClient = &http.Client{Transport: transport.NewTransport()}
+var testClient = fthttp.NewClientWithDefaultTimeout("PAC", "draft-annotations-api")
 
 func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 	hash := randomdata.RandStringRunes(56)
