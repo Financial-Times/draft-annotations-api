@@ -3,12 +3,15 @@ package annotations
 import (
 	"context"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/Pallinder/go-randomdata"
+	"github.com/husobee/vestigo"
 	log "github.com/sirupsen/logrus"
 	logTest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -205,6 +208,22 @@ func TestWriteMissingTID(t *testing.T) {
 			assert.Equal(t, tid, e.Data[tidUtils.TransactionIDKey])
 		}
 	}
+}
+
+func TestRWTimeout(t *testing.T) {
+	r := vestigo.NewRouter()
+	r.Put("/drafts/content/:uuid/annotations", func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(500 * time.Millisecond)
+	})
+
+	s := httptest.NewServer(r)
+	rw := NewRW(testClient, s.URL)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
+	defer cancel()
+
+	_, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, "")
+	assert.Error(t, err)
+	assert.True(t, (err.(net.Error)).Timeout())
 }
 
 func newAnnotationsRWServerMock(t *testing.T, method string, status int, body string, hashIn string, hashOut string, tid string) *httptest.Server {

@@ -2,19 +2,22 @@ package annotations
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
-	"github.com/Financial-Times/go-ft-http-transport/transport"
+	"github.com/Financial-Times/go-ft-http/fthttp"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
+	"github.com/husobee/vestigo"
 	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 )
 
 const testAPIKey = "testAPIKey"
 
-var testClient = &http.Client{Transport: transport.NewTransport().WithStandardUserAgent("PAC", "draft-annotations-api")}
+var testClient = fthttp.NewClientWithDefaultTimeout("PAC", "draft-annotations-api")
 
 func TestHappyAnnotationsAPIGTG(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIGTGServerMock(t, http.StatusOK, "I am happy!")
@@ -111,6 +114,23 @@ func TestResponseFailsAnnotationsAPI(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
+}
+
+func TestAnnotationsAPITimeout(t *testing.T) {
+	r := vestigo.NewRouter()
+	r.Get("/content/:uuid/annotations", func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(500 * time.Millisecond)
+	})
+
+	s := httptest.NewServer(r)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, s.URL+"/content/%v/annotations", testAPIKey)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
+	defer cancel()
+
+	_, err := annotationsAPI.Get(ctx, testContentUUID)
+	assert.Error(t, err)
+	assert.True(t, (err.(net.Error)).Timeout())
 }
 
 func newAnnotationsAPIServerMock(t *testing.T, tid string, uuid string, status int, body string) *httptest.Server {

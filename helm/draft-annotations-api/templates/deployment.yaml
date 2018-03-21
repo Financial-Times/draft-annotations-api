@@ -40,6 +40,11 @@ spec:
             configMapKeyRef:
               name: global-config
               key: annotations-endpoint
+        - name: HTTP_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: timeout-config
+              key: draft-annotations-api-timeout
         - name: INTERNAL_CONCORDANCES_ENDPOINT
           valueFrom:
             configMapKeyRef:

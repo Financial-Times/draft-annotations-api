@@ -4,20 +4,23 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
-	"github.com/Financial-Times/go-ft-http-transport/transport"
+	"github.com/Financial-Times/go-ft-http/fthttp"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/Pallinder/go-randomdata"
+	"github.com/husobee/vestigo"
 	"github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 	logTest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 )
 
-var testClient = &http.Client{Transport: transport.NewTransport().WithStandardUserAgent("PAC", "draft-annotations-api")}
+var testClient = fthttp.NewClientWithDefaultTimeout("PAC", "draft-annotations-api")
 
 func TestSearchConceptsSingleBatch(t *testing.T) {
 	batchSize := 20
@@ -145,6 +148,23 @@ func TestHappyGTG(t *testing.T) {
 
 	err := csAPI.GTG()
 	assert.NoError(t, err)
+}
+
+func TestConceptSearchTimeout(t *testing.T) {
+	r := vestigo.NewRouter()
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(500 * time.Millisecond)
+	})
+
+	s := httptest.NewServer(r)
+	csAPI := NewSearchAPI(testClient, s.URL, "", 1)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
+	defer cancel()
+
+	_, err := csAPI.SearchConcepts(ctx, []string{"1234"})
+	assert.Error(t, err)
+	assert.True(t, (err.(net.Error)).Timeout())
 }
 
 func TestUnhappyGTG(t *testing.T) {
