@@ -112,7 +112,7 @@ func TestUnHappyAugmenter(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 	assert.NoError(t, err)
-	assert.Equal(t, `{"message":"Failed to augment annotations"}`, string(body))
+	assert.Equal(t, `{"message":"Failed to read annotations: computer says no"}`, string(body))
 	assert.Empty(t, resp.Header.Get(annotations.DocumentHashHeader))
 
 	rw.AssertExpectations(t)

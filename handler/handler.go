@@ -65,7 +65,7 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 	augmentedAnnotations, err := h.annotationsAugmenter.AugmentAnnotations(ctx, rawAnnotations)
 	if err != nil {
 		readLog.WithError(err).Error("Failed to augment annotations")
-		writeMessage(w, "Failed to augment annotations", http.StatusInternalServerError)
+		handleErrors(err, readLog, w)
 		return
 	}
 
