@@ -101,10 +101,17 @@ func (service *HealthService) conceptSearchAPIChecker() (string, error) {
 }
 
 func (service *HealthService) GTG() gtg.Status {
-	for _, check := range service.Checks {
-		if _, err := check.Checker(); err != nil {
-			return gtg.Status{GoodToGo: false, Message: err.Error()}
-		}
+	var checks []gtg.StatusChecker
+
+	for idx := range service.Checks {
+		check := service.Checks[idx]
+
+		checks = append(checks, func() gtg.Status {
+			if _, err := check.Checker(); err != nil {
+				return gtg.Status{GoodToGo: false, Message: err.Error()}
+			}
+			return gtg.Status{GoodToGo: true}
+		})
 	}
-	return gtg.Status{GoodToGo: true}
+	return gtg.FailFastParallelCheck(checks)()
 }
