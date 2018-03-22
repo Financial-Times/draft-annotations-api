@@ -246,9 +246,11 @@ func TestUnhappyGTGDueRW(t *testing.T) {
 	rw.On("Endpoint").Return("http://generic-rw:8080/")
 
 	annotationsAPI := new(ServiceMock)
+	annotationsAPI.On("GTG").Return(nil)
 	annotationsAPI.On("Endpoint").Return("http://cool.api.ft.com/content")
 
 	conceptSearchAPI := new(ServiceMock)
+	conceptSearchAPI.On("GTG").Return(nil)
 	conceptSearchAPI.On("Endpoint").Return("http://cool.api.ft.com/concepts")
 
 	h := NewHealthService("", "", "", rw, annotationsAPI, conceptSearchAPI)
@@ -265,8 +267,6 @@ func TestUnhappyGTGDueRW(t *testing.T) {
 	assert.Equal(t, "I am not good at all", string(body))
 
 	rw.AssertExpectations(t)
-	annotationsAPI.AssertExpectations(t)
-	conceptSearchAPI.AssertExpectations(t)
 }
 
 func TestUnhappyGTGDueConceptSearchAPI(t *testing.T) {
@@ -295,8 +295,6 @@ func TestUnhappyGTGDueConceptSearchAPI(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "I am not good at all", string(body))
 
-	rw.AssertExpectations(t)
-	annotationsAPI.AssertExpectations(t)
 	conceptSearchAPI.AssertExpectations(t)
 }
 
@@ -310,6 +308,7 @@ func TestUnhappyGTGDueAnnotationsAPI(t *testing.T) {
 	annotationsAPI.On("Endpoint").Return("http://cool.api.ft.com/content")
 
 	conceptSearchAPI := new(ServiceMock)
+	conceptSearchAPI.On("GTG").Return(nil)
 	conceptSearchAPI.On("Endpoint").Return("http://cool.api.ft.com/concepts")
 
 	h := NewHealthService("", "", "", rw, annotationsAPI, conceptSearchAPI)
