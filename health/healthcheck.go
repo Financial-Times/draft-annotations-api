@@ -83,12 +83,12 @@ func (service *HealthService) annotationsAPIChecker() (string, error) {
 
 func (service *HealthService) conceptSearchAPICheck() fthealth.Check {
 	return fthealth.Check{
-		ID:               "check-concept-search-api-health",
+		ID:               "check-internal-concordances-api-health",
 		BusinessImpact:   "Impossible to serve annotations with enriched concept data to clients",
-		Name:             "Check UPP Concept Search API Health",
+		Name:             "Check UPP Internal Concordances API Health",
 		PanicGuide:       "https://dewey.ft.com/draft-annotations-api.html",
 		Severity:         1,
-		TechnicalSummary: fmt.Sprintf("UPP Concept Search API is not available at %v", service.conceptSearchAPI.Endpoint()),
+		TechnicalSummary: fmt.Sprintf("UPP Internal Concordances API is not available at %v", service.conceptSearchAPI.Endpoint()),
 		Checker:          service.conceptSearchAPIChecker,
 	}
 }
@@ -97,7 +97,7 @@ func (service *HealthService) conceptSearchAPIChecker() (string, error) {
 	if err := service.conceptSearchAPI.GTG(); err != nil {
 		return "", err
 	}
-	return "UPP Concept Search API is healthy", nil
+	return "UPP Internal Concordances API is healthy", nil
 }
 
 func (service *HealthService) GTG() gtg.Status {
