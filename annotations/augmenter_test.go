@@ -94,11 +94,63 @@ var expectedAugmentedAnnotations = []Annotation{
 	},
 }
 
+
+var testMultiCanonicalizedAnnotations = []Annotation{
+
+	{
+		Predicate: "http://www.ft.com/ontology/annotation/about",
+		ConceptId: "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
+	},
+	{
+		Predicate: "http://www.ft.com/ontology/hasDisplayTag",
+		ConceptId: "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
+	},
+
+}
+
+var expectedMulitPredicateAugmentedAnnotations = []Annotation{
+	{
+		Predicate:  "http://www.ft.com/ontology/hasDisplayTag",
+		ConceptId:  "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
+		ApiUrl:     "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
+		Type:       "http://www.ft.com/ontology/Subject",
+		PrefLabel:  "Economic Indicators",
+		IsFTAuthor: false,
+	},
+
+	{
+		Predicate:  "http://www.ft.com/ontology/annotation/about",
+		ConceptId:  "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
+		ApiUrl:     "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
+		Type:       "http://www.ft.com/ontology/Subject",
+		PrefLabel:  "Economic Indicators",
+		IsFTAuthor: false,
+	},
+
+}
+
+var testMultiPredicateConceptIDs = []string{
+	"b224ad07-c818-3ad6-94af-a4d351dbb619",
+}
+
+var testMultiPredicteConcept= map[string]concept.Concept{
+	"b224ad07-c818-3ad6-94af-a4d351dbb619": {
+		ID:        "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
+		ApiUrl:    "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
+		Type:      "http://www.ft.com/ontology/Subject",
+		PrefLabel: "Economic Indicators",
+	},
+}
+
 func TestAugmentAnnotations(t *testing.T) {
+	matcher := mock.MatchedBy(func(l1 []string) bool {
+		return assert.ElementsMatch(t, l1,testConceptIDs)
+	})
+
 	conceptsSearchAPI := new(ConceptSearchAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	conceptsSearchAPI.
-		On("SearchConcepts", ctx, testConceptIDs).
+		On("SearchConcepts", ctx, matcher).
 		Return(testConcepts, nil)
 	a := NewAugmenter(conceptsSearchAPI)
 
@@ -113,11 +165,38 @@ func TestAugmentAnnotations(t *testing.T) {
 	conceptsSearchAPI.AssertExpectations(t)
 }
 
-func TestAugmentAnnotationsArrayShouldNotBeNull(t *testing.T) {
+
+func TestAugmentAnnotationsMultiPredicatePerConcept(t *testing.T) {
+	matcher := mock.MatchedBy(func(l1 []string) bool {
+		return assert.ElementsMatch(t, l1,testMultiPredicateConceptIDs)
+	})
+
 	conceptsSearchAPI := new(ConceptSearchAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	conceptsSearchAPI.
-		On("SearchConcepts", ctx, testConceptIDs).
+		On("SearchConcepts", ctx, matcher).
+		Return(testMultiPredicteConcept, nil)
+	a := NewAugmenter(conceptsSearchAPI)
+
+	annotations, err := a.AugmentAnnotations(ctx, testMultiCanonicalizedAnnotations)
+
+	assert.NoError(t, err)
+	assert.Equal(t, len(expectedMulitPredicateAugmentedAnnotations), len(annotations))
+	for _, expected := range expectedMulitPredicateAugmentedAnnotations {
+		assert.Contains(t, annotations, expected)
+	}
+
+	conceptsSearchAPI.AssertExpectations(t)
+}
+
+func TestAugmentAnnotationsArrayShouldNotBeNull(t *testing.T) {
+	matcher := mock.MatchedBy(func(l1 []string) bool {
+		return assert.ElementsMatch(t, l1,testConceptIDs)
+	})
+	conceptsSearchAPI := new(ConceptSearchAPIMock)
+	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
+	conceptsSearchAPI.
+		On("SearchConcepts", ctx, matcher).
 		Return(make(map[string]concept.Concept), nil)
 	a := NewAugmenter(conceptsSearchAPI)
 
@@ -130,10 +209,13 @@ func TestAugmentAnnotationsArrayShouldNotBeNull(t *testing.T) {
 }
 
 func TestAugmentAnnotationsMissingTransactionID(t *testing.T) {
+	matcher := mock.MatchedBy(func(l1 []string) bool {
+		return assert.ElementsMatch(t, l1,testConceptIDs)
+	})
 	hook := logTest.NewGlobal()
 	conceptsSearchAPI := new(ConceptSearchAPIMock)
 	conceptsSearchAPI.
-		On("SearchConcepts", mock.Anything, testConceptIDs).
+		On("SearchConcepts", mock.Anything, matcher).
 		Return(testConcepts, nil)
 	a := NewAugmenter(conceptsSearchAPI)
 
@@ -155,10 +237,13 @@ func TestAugmentAnnotationsMissingTransactionID(t *testing.T) {
 }
 
 func TestAugmentAnnotationsConceptSearchError(t *testing.T) {
+	matcher := mock.MatchedBy(func(l1 []string) bool {
+		return assert.ElementsMatch(t, l1,testConceptIDs)
+	})
 	conceptsSearchAPI := new(ConceptSearchAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	conceptsSearchAPI.
-		On("SearchConcepts", ctx, testConceptIDs).
+		On("SearchConcepts", ctx, matcher).
 		Return(map[string]concept.Concept{}, errors.New("one minute to midnight"))
 	a := NewAugmenter(conceptsSearchAPI)
 
@@ -170,10 +255,13 @@ func TestAugmentAnnotationsConceptSearchError(t *testing.T) {
 }
 
 func TestAugmentAnnotationsWithInvalidConceptID(t *testing.T) {
+	matcher := mock.MatchedBy(func(l1 []string) bool {
+		return assert.ElementsMatch(t, l1,testConceptIDs)
+	})
 	conceptsSearchAPI := new(ConceptSearchAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	conceptsSearchAPI.
-		On("SearchConcepts", ctx, testConceptIDs).
+		On("SearchConcepts", ctx, matcher).
 		Return(testConcepts, nil)
 	a := NewAugmenter(conceptsSearchAPI)
 

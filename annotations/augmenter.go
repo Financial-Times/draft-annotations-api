@@ -32,7 +32,7 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, canonicalA
 		ctx = tidUtils.TransactionAwareContext(ctx, tid)
 	}
 
-	uuids, mappedAnnotations := toMap(canonicalAnnotations)
+	uuids:= getConceptUUIDs(canonicalAnnotations)
 
 	concepts, err := a.conceptSearchApi.SearchConcepts(ctx, uuids)
 
@@ -43,7 +43,8 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, canonicalA
 	}
 
 	augmentedAnnotations := make([]Annotation, 0)
-	for uuid, ann := range mappedAnnotations {
+	for _, ann := range canonicalAnnotations {
+		uuid := extractUUID(ann.ConceptId)
 		concept, found := concepts[uuid]
 		if found {
 			ann.ConceptId = concept.ID
@@ -63,17 +64,23 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, canonicalA
 	return augmentedAnnotations, nil
 }
 
-func toMap(canonicalAnnotations []Annotation) ([]string, map[string]Annotation) {
-	mappedConcepts := make(map[string]Annotation)
+func getConceptUUIDs(canonicalAnnotations []Annotation) ([]string) {
+	conceptUUIDs := make(map[string]struct{})
+	var empty struct{}
 	var keys []string
 	for _, ann := range canonicalAnnotations {
 		conceptUUID := extractUUID(ann.ConceptId)
 		if conceptUUID != "" {
-			keys = append(keys, conceptUUID)
-			mappedConcepts[conceptUUID] = ann
+			conceptUUIDs[conceptUUID] = empty
 		}
 	}
-	return keys, mappedConcepts
+	for k,_:= range conceptUUIDs{
+		keys=append(keys, k)
+
+	}
+
+
+	return keys
 }
 
 func extractUUID(conceptID string) string {
