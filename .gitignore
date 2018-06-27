@@ -1,7 +1,6 @@
 /draft-annotations-api
 
-/vendor/*
-!/vendor/vendor.json
++vendor/*
 *.exe
 
 .idea/
