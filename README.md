@@ -11,11 +11,11 @@ Draft Annotations API is a microservice that provides access to draft annotation
 Download the source code, dependencies and test dependencies:
 
 ```
-go get -u github.com/kardianos/govendor
+curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 mkdir $GOPATH/src/github.com/Financial-Times/draft-annotations-api
 cd $GOPATH/src/github.com/Financial-Times
 git clone https://github.com/Financial-Times/draft-annotations-api.git
-cd draft-annotations-api && govendor sync
+cd draft-annotations-api && dep ensure -vendor-only
 go build .
 ```
 
@@ -24,8 +24,7 @@ go build .
 1. Run the tests and install the binary:
 
 ```
-govendor sync
-govendor test -v -race +local
+go test ./...
 go install
 ```
 
