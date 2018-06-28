@@ -1,6 +1,6 @@
 /draft-annotations-api
 
-+vendor/*
+vendor/*
 *.exe
 
 .idea/
