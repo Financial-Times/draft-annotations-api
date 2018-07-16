@@ -2,10 +2,11 @@ package annotations
 
 import (
 	"context"
+	"strings"
+
 	"github.com/Financial-Times/draft-annotations-api/concept"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	log "github.com/sirupsen/logrus"
-	"strings"
 )
 
 type Augmenter interface {
@@ -65,11 +66,11 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, canonicalA
 	return augmentedAnnotations, nil
 }
 
-func dedupeCanonicalAnnotations(annotaions []Annotation) []Annotation {
+func dedupeCanonicalAnnotations(annotations []Annotation) []Annotation {
 	var empty struct{}
 	var deduped []Annotation
 	dedupedMap := make(map[Annotation]struct{})
-	for _, ann := range annotaions {
+	for _, ann := range annotations {
 		dedupedMap[ann] = empty
 	}
 	for k := range dedupedMap {
