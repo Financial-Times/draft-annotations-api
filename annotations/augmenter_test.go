@@ -126,16 +126,40 @@ var expectedMultiPredicateAugmentedAnnotations = []Annotation{
 	},
 }
 
-var testMultiPredicateConceptIDs = []string{
+var testReturnSingleConceptID = []string{
 	"b224ad07-c818-3ad6-94af-a4d351dbb619",
 }
 
-var testMultiPredicateConcept = map[string]concept.Concept{
+var testReturnSingleConcept = map[string]concept.Concept{
 	"b224ad07-c818-3ad6-94af-a4d351dbb619": {
 		ID:        "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
 		ApiUrl:    "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
 		Type:      "http://www.ft.com/ontology/Subject",
 		PrefLabel: "Economic Indicators",
+	},
+}
+
+var testduplicateCanonicalizedAnnotations = []Annotation{
+
+	{
+		Predicate: "http://www.ft.com/ontology/annotation/about",
+		ConceptId: "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
+	},
+	{
+		Predicate: "http://www.ft.com/ontology/annotation/about",
+		ConceptId: "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
+	},
+}
+
+var expectedDedupedAugmentedAnnotations = []Annotation{
+
+	{
+		Predicate:  "http://www.ft.com/ontology/annotation/about",
+		ConceptId:  "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
+		ApiUrl:     "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
+		Type:       "http://www.ft.com/ontology/Subject",
+		PrefLabel:  "Economic Indicators",
+		IsFTAuthor: false,
 	},
 }
 
@@ -161,14 +185,14 @@ func TestAugmentAnnotations(t *testing.T) {
 
 func TestAugmentAnnotationsMultiPredicatePerConcept(t *testing.T) {
 	matcher := mock.MatchedBy(func(l1 []string) bool {
-		return assert.ElementsMatch(t, l1, testMultiPredicateConceptIDs)
+		return assert.ElementsMatch(t, l1, testReturnSingleConceptID)
 	})
 
 	conceptsSearchAPI := new(ConceptSearchAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	conceptsSearchAPI.
 		On("SearchConcepts", ctx, matcher).
-		Return(testMultiPredicateConcept, nil)
+		Return(testReturnSingleConcept, nil)
 	a := NewAugmenter(conceptsSearchAPI)
 
 	annotations, err := a.AugmentAnnotations(ctx, testMultiCanonicalizedAnnotations)
@@ -176,6 +200,26 @@ func TestAugmentAnnotationsMultiPredicatePerConcept(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, len(expectedMultiPredicateAugmentedAnnotations), len(annotations))
 	assert.ElementsMatch(t, annotations, expectedMultiPredicateAugmentedAnnotations)
+	conceptsSearchAPI.AssertExpectations(t)
+}
+
+func TestAugmentAnnotationsShouldFilterDuplicatedAnnotations(t *testing.T) {
+	matcher := mock.MatchedBy(func(l1 []string) bool {
+		return assert.ElementsMatch(t, l1, testReturnSingleConceptID)
+	})
+
+	conceptsSearchAPI := new(ConceptSearchAPIMock)
+	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
+	conceptsSearchAPI.
+		On("SearchConcepts", ctx, matcher).
+		Return(testReturnSingleConcept, nil)
+	a := NewAugmenter(conceptsSearchAPI)
+
+	annotations, err := a.AugmentAnnotations(ctx, testduplicateCanonicalizedAnnotations)
+
+	assert.NoError(t, err)
+	assert.Equal(t, len(expectedDedupedAugmentedAnnotations), len(annotations))
+	assert.Equal(t, annotations[0], expectedDedupedAugmentedAnnotations[0])
 	conceptsSearchAPI.AssertExpectations(t)
 }
 

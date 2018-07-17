@@ -32,7 +32,9 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, canonicalA
 		ctx = tidUtils.TransactionAwareContext(ctx, tid)
 	}
 
-	uuids := getConceptUUIDs(canonicalAnnotations)
+	dedupedCanonical := dedupeCanonicalAnnotations(canonicalAnnotations)
+
+	uuids := getConceptUUIDs(dedupedCanonical)
 
 	concepts, err := a.conceptSearchApi.SearchConcepts(ctx, uuids)
 
@@ -43,7 +45,7 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, canonicalA
 	}
 
 	augmentedAnnotations := make([]Annotation, 0)
-	for _, ann := range canonicalAnnotations {
+	for _, ann := range dedupedCanonical {
 		uuid := extractUUID(ann.ConceptId)
 		concept, found := concepts[uuid]
 		if found {
@@ -62,6 +64,20 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, canonicalA
 
 	log.WithField(tidUtils.TransactionIDKey, tid).Info("Annotations augmented with concept data")
 	return augmentedAnnotations, nil
+}
+
+func dedupeCanonicalAnnotations(annotations []Annotation) []Annotation {
+	var empty struct{}
+	var deduped []Annotation
+	dedupedMap := make(map[Annotation]struct{})
+	for _, ann := range annotations {
+		dedupedMap[ann] = empty
+	}
+	for k := range dedupedMap {
+		deduped = append(deduped, k)
+
+	}
+	return deduped
 }
 
 func getConceptUUIDs(canonicalAnnotations []Annotation) []string {
