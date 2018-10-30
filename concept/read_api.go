@@ -10,8 +10,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type SearchAPI interface {
-	SearchConcepts(ctx context.Context, ids []string) (map[string]Concept, error)
+type ReadAPI interface {
+	GetConceptsByIDs(ctx context.Context, ids []string) (map[string]Concept, error)
 	Endpoint() string
 	GTG() error
 }
@@ -23,7 +23,7 @@ type internalConcordancesAPI struct {
 	batchSize  int
 }
 
-func NewSearchAPI(client *http.Client, endpoint string, apiKey string, batchSize int) SearchAPI {
+func NewReadAPI(client *http.Client, endpoint string, apiKey string, batchSize int) ReadAPI {
 	return &internalConcordancesAPI{
 		endpoint:   endpoint,
 		apiKey:     apiKey,
@@ -32,7 +32,7 @@ func NewSearchAPI(client *http.Client, endpoint string, apiKey string, batchSize
 	}
 }
 
-func (search *internalConcordancesAPI) SearchConcepts(ctx context.Context, conceptIDs []string) (map[string]Concept, error) {
+func (search *internalConcordancesAPI) GetConceptsByIDs(ctx context.Context, conceptIDs []string) (map[string]Concept, error) {
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 	if err != nil {
 		tid = tidUtils.NewTransactionID()

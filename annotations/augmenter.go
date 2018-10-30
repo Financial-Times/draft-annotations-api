@@ -14,10 +14,10 @@ type Augmenter interface {
 }
 
 type annotationAugmenter struct {
-	conceptSearchApi concept.SearchAPI
+	conceptRead concept.ReadAPI
 }
 
-func NewAugmenter(api concept.SearchAPI) *annotationAugmenter {
+func NewAugmenter(api concept.ReadAPI) *annotationAugmenter {
 	return &annotationAugmenter{api}
 }
 
@@ -36,7 +36,7 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, canonicalA
 
 	uuids := getConceptUUIDs(dedupedCanonical)
 
-	concepts, err := a.conceptSearchApi.SearchConcepts(ctx, uuids)
+	concepts, err := a.conceptRead.GetConceptsByIDs(ctx, uuids)
 
 	if err != nil {
 		log.WithField(tidUtils.TransactionIDKey, tid).

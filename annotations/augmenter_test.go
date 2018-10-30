@@ -168,19 +168,19 @@ func TestAugmentAnnotations(t *testing.T) {
 		return assert.ElementsMatch(t, l1, testConceptIDs)
 	})
 
-	conceptsSearchAPI := new(ConceptSearchAPIMock)
+	conceptRead := new(ConceptReadAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
-	conceptsSearchAPI.
-		On("SearchConcepts", ctx, matcher).
+	conceptRead.
+		On("GetConceptsByIDs", ctx, matcher).
 		Return(testConcepts, nil)
-	a := NewAugmenter(conceptsSearchAPI)
+	a := NewAugmenter(conceptRead)
 
 	annotations, err := a.AugmentAnnotations(ctx, testCanonicalizedAnnotations)
 
 	assert.NoError(t, err)
 	assert.Equal(t, len(expectedAugmentedAnnotations), len(annotations))
 	assert.ElementsMatch(t, annotations, expectedAugmentedAnnotations)
-	conceptsSearchAPI.AssertExpectations(t)
+	conceptRead.AssertExpectations(t)
 }
 
 func TestAugmentAnnotationsMultiPredicatePerConcept(t *testing.T) {
@@ -188,19 +188,19 @@ func TestAugmentAnnotationsMultiPredicatePerConcept(t *testing.T) {
 		return assert.ElementsMatch(t, l1, testReturnSingleConceptID)
 	})
 
-	conceptsSearchAPI := new(ConceptSearchAPIMock)
+	conceptRead := new(ConceptReadAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
-	conceptsSearchAPI.
-		On("SearchConcepts", ctx, matcher).
+	conceptRead.
+		On("GetConceptsByIDs", ctx, matcher).
 		Return(testReturnSingleConcept, nil)
-	a := NewAugmenter(conceptsSearchAPI)
+	a := NewAugmenter(conceptRead)
 
 	annotations, err := a.AugmentAnnotations(ctx, testMultiCanonicalizedAnnotations)
 
 	assert.NoError(t, err)
 	assert.Equal(t, len(expectedMultiPredicateAugmentedAnnotations), len(annotations))
 	assert.ElementsMatch(t, annotations, expectedMultiPredicateAugmentedAnnotations)
-	conceptsSearchAPI.AssertExpectations(t)
+	conceptRead.AssertExpectations(t)
 }
 
 func TestAugmentAnnotationsShouldFilterDuplicatedAnnotations(t *testing.T) {
@@ -208,38 +208,38 @@ func TestAugmentAnnotationsShouldFilterDuplicatedAnnotations(t *testing.T) {
 		return assert.ElementsMatch(t, l1, testReturnSingleConceptID)
 	})
 
-	conceptsSearchAPI := new(ConceptSearchAPIMock)
+	conceptRead := new(ConceptReadAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
-	conceptsSearchAPI.
-		On("SearchConcepts", ctx, matcher).
+	conceptRead.
+		On("GetConceptsByIDs", ctx, matcher).
 		Return(testReturnSingleConcept, nil)
-	a := NewAugmenter(conceptsSearchAPI)
+	a := NewAugmenter(conceptRead)
 
 	annotations, err := a.AugmentAnnotations(ctx, testduplicateCanonicalizedAnnotations)
 
 	assert.NoError(t, err)
 	assert.Equal(t, len(expectedDedupedAugmentedAnnotations), len(annotations))
 	assert.Equal(t, annotations[0], expectedDedupedAugmentedAnnotations[0])
-	conceptsSearchAPI.AssertExpectations(t)
+	conceptRead.AssertExpectations(t)
 }
 
 func TestAugmentAnnotationsArrayShouldNotBeNull(t *testing.T) {
 	matcher := mock.MatchedBy(func(l1 []string) bool {
 		return assert.ElementsMatch(t, l1, testConceptIDs)
 	})
-	conceptsSearchAPI := new(ConceptSearchAPIMock)
+	conceptRead := new(ConceptReadAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
-	conceptsSearchAPI.
-		On("SearchConcepts", ctx, matcher).
+	conceptRead.
+		On("GetConceptsByIDs", ctx, matcher).
 		Return(make(map[string]concept.Concept), nil)
-	a := NewAugmenter(conceptsSearchAPI)
+	a := NewAugmenter(conceptRead)
 
 	annotations, err := a.AugmentAnnotations(ctx, testCanonicalizedAnnotations)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, annotations)
 	assert.Len(t, annotations, 0)
-	conceptsSearchAPI.AssertExpectations(t)
+	conceptRead.AssertExpectations(t)
 }
 
 func TestAugmentAnnotationsMissingTransactionID(t *testing.T) {
@@ -247,11 +247,11 @@ func TestAugmentAnnotationsMissingTransactionID(t *testing.T) {
 		return assert.ElementsMatch(t, l1, testConceptIDs)
 	})
 	hook := logTest.NewGlobal()
-	conceptsSearchAPI := new(ConceptSearchAPIMock)
-	conceptsSearchAPI.
-		On("SearchConcepts", mock.Anything, matcher).
+	conceptRead := new(ConceptReadAPIMock)
+	conceptRead.
+		On("GetConceptsByIDs", mock.Anything, matcher).
 		Return(testConcepts, nil)
-	a := NewAugmenter(conceptsSearchAPI)
+	a := NewAugmenter(conceptRead)
 
 	a.AugmentAnnotations(context.Background(), testCanonicalizedAnnotations)
 
@@ -267,37 +267,37 @@ func TestAugmentAnnotationsMissingTransactionID(t *testing.T) {
 		}
 	}
 
-	conceptsSearchAPI.AssertExpectations(t)
+	conceptRead.AssertExpectations(t)
 }
 
 func TestAugmentAnnotationsConceptSearchError(t *testing.T) {
 	matcher := mock.MatchedBy(func(l1 []string) bool {
 		return assert.ElementsMatch(t, l1, testConceptIDs)
 	})
-	conceptsSearchAPI := new(ConceptSearchAPIMock)
+	conceptRead := new(ConceptReadAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
-	conceptsSearchAPI.
-		On("SearchConcepts", ctx, matcher).
+	conceptRead.
+		On("GetConceptsByIDs", ctx, matcher).
 		Return(map[string]concept.Concept{}, errors.New("one minute to midnight"))
-	a := NewAugmenter(conceptsSearchAPI)
+	a := NewAugmenter(conceptRead)
 
 	_, err := a.AugmentAnnotations(ctx, testCanonicalizedAnnotations)
 
 	assert.Error(t, err)
 
-	conceptsSearchAPI.AssertExpectations(t)
+	conceptRead.AssertExpectations(t)
 }
 
 func TestAugmentAnnotationsWithInvalidConceptID(t *testing.T) {
 	matcher := mock.MatchedBy(func(l1 []string) bool {
 		return assert.ElementsMatch(t, l1, testConceptIDs)
 	})
-	conceptsSearchAPI := new(ConceptSearchAPIMock)
+	conceptRead := new(ConceptReadAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
-	conceptsSearchAPI.
-		On("SearchConcepts", ctx, matcher).
+	conceptRead.
+		On("GetConceptsByIDs", ctx, matcher).
 		Return(testConcepts, nil)
-	a := NewAugmenter(conceptsSearchAPI)
+	a := NewAugmenter(conceptRead)
 
 	testCanonicalizedAnnotations = append(testCanonicalizedAnnotations, Annotation{ConceptId: "xyz"})
 	annotations, err := a.AugmentAnnotations(ctx, testCanonicalizedAnnotations)
@@ -308,24 +308,24 @@ func TestAugmentAnnotationsWithInvalidConceptID(t *testing.T) {
 		assert.Contains(t, annotations, expected)
 	}
 
-	conceptsSearchAPI.AssertExpectations(t)
+	conceptRead.AssertExpectations(t)
 }
 
-type ConceptSearchAPIMock struct {
+type ConceptReadAPIMock struct {
 	mock.Mock
 }
 
-func (m *ConceptSearchAPIMock) SearchConcepts(ctx context.Context, ids []string) (map[string]concept.Concept, error) {
+func (m *ConceptReadAPIMock) GetConceptsByIDs(ctx context.Context, ids []string) (map[string]concept.Concept, error) {
 	args := m.Called(ctx, ids)
 	return args.Get(0).(map[string]concept.Concept), args.Error(1)
 }
 
-func (m *ConceptSearchAPIMock) GTG() error {
+func (m *ConceptReadAPIMock) GTG() error {
 	args := m.Called()
 	return args.Error(0)
 }
 
-func (m *ConceptSearchAPIMock) Endpoint() string {
+func (m *ConceptReadAPIMock) Endpoint() string {
 	args := m.Called()
 	return args.String(0)
 }
