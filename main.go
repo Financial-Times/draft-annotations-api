@@ -110,10 +110,10 @@ func main() {
 		rw := annotations.NewRW(client, *annotationsRWEndpoint)
 		annotationsAPI := annotations.NewUPPAnnotationsAPI(client, *annotationsAPIEndpoint, *uppAPIKey)
 		c14n := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
-		conceptSearchAPI := concept.NewSearchAPI(client, *internalConcordancesEndpoint, *uppAPIKey, *internalConcordancesBatchSize)
-		augmenter := annotations.NewAugmenter(conceptSearchAPI)
+		conceptRead := concept.NewReadAPI(client, *internalConcordancesEndpoint, *uppAPIKey, *internalConcordancesBatchSize)
+		augmenter := annotations.NewAugmenter(conceptRead)
 		annotationsHandler := handler.New(rw, annotationsAPI, c14n, augmenter, time.Millisecond*httpTimeout)
-		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, rw, annotationsAPI, conceptSearchAPI)
+		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, rw, annotationsAPI, conceptRead)
 
 		serveEndpoints(*port, apiYml, annotationsHandler, healthService)
 	}
