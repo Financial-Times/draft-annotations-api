@@ -54,14 +54,14 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Content-Type", "application/json")
 
-	readLog.Info("Reading Annotations from Annotations R/W")
+	readLog.Debug("Reading Annotations from Annotations R/W")
 	rawAnnotations, err := h.readAnnotations(ctx, w, contentUUID)
 	if err != nil {
 		handleErrors(err, readLog, w)
 		return
 	}
 
-	readLog.Info("Augmenting annotations with recent UPP data")
+	readLog.Debug("Augmenting annotations with recent UPP data")
 	augmentedAnnotations, err := h.annotationsAugmenter.AugmentAnnotations(ctx, rawAnnotations)
 	if err != nil {
 		readLog.WithError(err).Error("Failed to augment annotations")
@@ -118,7 +118,7 @@ func readLogEntry(ctx context.Context, contentUUID string) *log.Entry {
 
 func (h *Handler) readAnnotationsFromUPP(ctx context.Context, w http.ResponseWriter, contentUUID string) ([]annotations.Annotation, error) {
 	readLog := readLogEntry(ctx, contentUUID)
-	readLog.Info("Annotations not found, retrieving annotations from UPP")
+	readLog.Debug("Annotations not found, retrieving annotations from UPP")
 
 	uppResponse, err := h.annotationsAPI.Get(ctx, contentUUID)
 
@@ -186,10 +186,10 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeLog.Info("Canonicalizing annotations...")
+	writeLog.Debug("Canonicalizing annotations...")
 	draftAnnotations.Annotations = h.c14n.Canonicalize(draftAnnotations.Annotations)
 
-	writeLog.Info("Writing to annotations RW...")
+	writeLog.Debug("Writing to annotations RW...")
 	newHash, err := h.annotationsRW.Write(ctx, contentUUID, &draftAnnotations, oldHash)
 
 	if isTimeoutErr(err) {
