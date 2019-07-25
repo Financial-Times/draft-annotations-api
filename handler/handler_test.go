@@ -411,7 +411,10 @@ func TestSaveAnnotations(t *testing.T) {
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 
 	entity := bytes.Buffer{}
-	json.NewEncoder(&entity).Encode(&expectedAnnotations)
+	err := json.NewEncoder(&entity).Encode(&expectedAnnotations)
+	if err != nil{
+		t.Fatalf("failed to encode annotations: %v", err)
+	}
 
 	req := httptest.NewRequest(
 		"PUT",
@@ -427,7 +430,7 @@ func TestSaveAnnotations(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	actual := annotations.Annotations{}
-	err := json.NewDecoder(resp.Body).Decode(&actual)
+	err = json.NewDecoder(resp.Body).Decode(&actual)
 	assert.NoError(t, err)
 
 	assert.Equal(t, expectedCanonicalisedAnnotationsBody, actual)
@@ -513,7 +516,10 @@ func TestSaveAnnotationsErrorFromRW(t *testing.T) {
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 
 	entity := bytes.Buffer{}
-	json.NewEncoder(&entity).Encode(&expectedAnnotations)
+	err := json.NewEncoder(&entity).Encode(&expectedAnnotations)
+	if err != nil{
+		t.Fatalf("failed to encode annotations: %v", err)
+	}
 
 	req := httptest.NewRequest(
 		"PUT",

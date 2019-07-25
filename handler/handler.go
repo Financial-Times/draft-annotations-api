@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,6 +14,7 @@ import (
 	"github.com/Financial-Times/draft-annotations-api/mapper"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
+	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 )
@@ -70,7 +70,11 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := annotations.Annotations{Annotations: augmentedAnnotations}
-	json.NewEncoder(w).Encode(&response)
+	err = json.NewEncoder(w).Encode(&response)
+	if err != nil {
+		readLog.WithError(err).Error("Failed to encode response")
+		handleErrors(err, readLog, w)
+	}
 }
 
 func handleErrors(err error, readLog *log.Entry, w http.ResponseWriter) {
@@ -127,7 +131,11 @@ func (h *Handler) readAnnotationsFromUPP(ctx context.Context, w http.ResponseWri
 	if uppResponse.StatusCode != http.StatusOK {
 		if uppResponse.StatusCode == http.StatusNotFound || uppResponse.StatusCode == http.StatusBadRequest {
 			w.WriteHeader(uppResponse.StatusCode)
-			io.Copy(w, uppResponse.Body)
+			_, err = io.Copy(w, uppResponse.Body)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to copy UPP response")
+			}
+			w.WriteHeader(uppResponse.StatusCode)
 			return nil, errUPPBadRequest
 		}
 
@@ -140,12 +148,15 @@ func (h *Handler) readAnnotationsFromUPP(ctx context.Context, w http.ResponseWri
 		return nil, errors.New("Failed to map predicates from UPP response")
 	}
 
-	if err == nil && convertedBody == nil {
+	if convertedBody == nil {
 		return nil, errNoAnnotations
 	}
 
 	rawAnnotations := []annotations.Annotation{}
-	json.Unmarshal(convertedBody, &rawAnnotations)
+	err = json.Unmarshal(convertedBody, &rawAnnotations)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal UPP annotations")
+	}
 
 	return rawAnnotations, nil
 }
@@ -194,8 +205,13 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set(annotations.DocumentHashHeader, newHash)
+	err = json.NewEncoder(w).Encode(draftAnnotations)
+	if err != nil {
+		writeLog.WithError(err).Error("Error in encoding draft annotations response")
+		writeMessage(w, fmt.Sprintf("Error in encoding draft annotations response: %v", err.Error()), http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(draftAnnotations)
 }
 
 func isTimeoutErr(err error) bool {
@@ -220,5 +236,8 @@ func writeMessage(w http.ResponseWriter, msg string, status int) {
 		return
 	}
 
-	w.Write(j)
+	_, err = w.Write(j)
+	if err != nil {
+		log.WithError(err).Error("Failed to parse response message.")
+	}
 }
