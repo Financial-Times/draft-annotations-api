@@ -69,8 +69,8 @@ func TestHappyAnnotationsAPI(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIServerMock(t, tid, uuid, http.StatusOK, "I am happy!")
 	defer annotationsServerMock.Close()
 
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
-	resp, err := annotationsAPI.Get(ctx, uuid)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey).(*annotationsAPI)
+	resp, err := annotationsAPI.get(ctx, uuid)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
@@ -83,8 +83,8 @@ func TestUnhappyAnnotationsAPI(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIServerMock(t, tid, uuid, http.StatusServiceUnavailable, "I am definitely not happy!")
 	defer annotationsServerMock.Close()
 
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
-	resp, err := annotationsAPI.Get(ctx, uuid)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey).(*annotationsAPI)
+	resp, err := annotationsAPI.get(ctx, uuid)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 }
@@ -94,23 +94,23 @@ func TestNoTIDAnnotationsAPI(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIServerMock(t, "", uuid, http.StatusServiceUnavailable, "I am definitely not happy!")
 	defer annotationsServerMock.Close()
 
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
-	resp, err := annotationsAPI.Get(context.TODO(), uuid)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey).(*annotationsAPI)
+	resp, err := annotationsAPI.get(context.TODO(), uuid)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 }
 
 func TestRequestFailsAnnotationsAPI(t *testing.T) {
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, ":#", testAPIKey)
-	resp, err := annotationsAPI.Get(context.TODO(), "")
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, ":#", testAPIKey).(*annotationsAPI)
+	resp, err := annotationsAPI.get(context.TODO(), "")
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
 }
 
 func TestResponseFailsAnnotationsAPI(t *testing.T) {
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, "#:", testAPIKey)
-	resp, err := annotationsAPI.Get(context.TODO(), "")
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, "#:", testAPIKey).(*annotationsAPI)
+	resp, err := annotationsAPI.get(context.TODO(), "")
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
@@ -123,12 +123,12 @@ func TestAnnotationsAPITimeout(t *testing.T) {
 	})
 
 	s := httptest.NewServer(r)
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, s.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, s.URL+"/content/%v/annotations", testAPIKey).(*annotationsAPI)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel()
 
-	_, err := annotationsAPI.Get(ctx, testContentUUID)
+	_, err := annotationsAPI.get(ctx, testContentUUID)
 	assert.Error(t, err)
 	assert.True(t, (err.(net.Error)).Timeout())
 }
@@ -139,7 +139,10 @@ func newAnnotationsAPIServerMock(t *testing.T, tid string, uuid string, status i
 
 		if apiKey := r.Header.Get(apiKeyHeader); apiKey != testAPIKey {
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte("unauthorized"))
+			_, err := w.Write([]byte("unauthorized"))
+			if err != nil {
+				t.Fatalf("write error: %v", err)
+			}
 			return
 		}
 
@@ -148,7 +151,10 @@ func newAnnotationsAPIServerMock(t *testing.T, tid string, uuid string, status i
 		assert.Equal(t, "PAC-draft-annotations-api/Version--is-not-a-semantic-version", r.Header.Get("User-Agent"))
 
 		w.WriteHeader(status)
-		w.Write([]byte(body))
+		_, err := w.Write([]byte(body))
+		if err != nil {
+			t.Fatalf("write error: %v", err)
+		}
 	}))
 	return ts
 }
@@ -158,7 +164,10 @@ func newAnnotationsAPIGTGServerMock(t *testing.T, status int, body string) *http
 		assert.Equal(t, "/content/"+syntheticContentUUID+annotationsEndpoint, r.URL.Path)
 		if apiKey := r.Header.Get(apiKeyHeader); apiKey != testAPIKey {
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte("unauthorized"))
+			_, err := w.Write([]byte("unauthorized"))
+			if err != nil {
+				t.Fatalf("write error: %v", err)
+			}
 			return
 		}
 
@@ -166,7 +175,10 @@ func newAnnotationsAPIGTGServerMock(t *testing.T, status int, body string) *http
 		assert.Equal(t, "PAC-draft-annotations-api/Version--is-not-a-semantic-version", r.Header.Get("User-Agent"))
 
 		w.WriteHeader(status)
-		w.Write([]byte(body))
+		_, err := w.Write([]byte(body))
+		if err != nil {
+			t.Fatalf("write error: %v", err)
+		}
 	}))
 	return ts
 }
