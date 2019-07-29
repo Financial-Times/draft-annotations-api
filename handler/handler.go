@@ -15,17 +15,23 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// AnnotationsAPI interface encapsulates logic for getting published annotations from API
+type AnnotationsAPI interface {
+	GetAll(context.Context, string) ([]annotations.Annotation, error)
+	GetAllButV2(context.Context, string) ([]annotations.Annotation, error)
+}
+
 // Handler provides endpoints for reading annotations - draft or published, and writing draft annotations.
 type Handler struct {
 	annotationsRW        annotations.RW
-	annotationsAPI       annotations.UPPAnnotationsAPI
+	annotationsAPI       AnnotationsAPI
 	c14n                 *annotations.Canonicalizer
 	annotationsAugmenter annotations.Augmenter
 	timeout              time.Duration
 }
 
 // New initializes Handler.
-func New(rw annotations.RW, annotationsAPI annotations.UPPAnnotationsAPI, c14n *annotations.Canonicalizer, augmenter annotations.Augmenter, httpTimeout time.Duration) *Handler {
+func New(rw annotations.RW, annotationsAPI AnnotationsAPI, c14n *annotations.Canonicalizer, augmenter annotations.Augmenter, httpTimeout time.Duration) *Handler {
 	return &Handler{
 		rw,
 		annotationsAPI,

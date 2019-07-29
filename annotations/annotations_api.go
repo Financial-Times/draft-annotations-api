@@ -21,9 +21,14 @@ const (
 
 	syntheticContentUUID = "4f2f97ea-b8ec-11e4-b8e6-00144feab7de"
 
-	NoAnnotationsMsg         = "No annotations found"
-	UPPBadRequestMsg         = "UPP responded with a client error"
-	UPPNotFoundMsg           = "UPP responded with not found"
+	// NoAnnotationsMsg is error message used when there are no processed annotations.
+	NoAnnotationsMsg = "No annotations found"
+	// UPPBadRequestMsg is error message used when UPP annotations endpoint returns bad request.
+	UPPBadRequestMsg = "UPP responded with a client error"
+	// UPPNotFoundMsg is error message used when UPP annotations endpoint returns not found.
+	UPPNotFoundMsg = "UPP responded with not found"
+	// UPPServiceUnavailableMsg is error message used when UPP annotations endpoint returns http error code
+	// different from bad request and not found
 	UPPServiceUnavailableMsg = "Service unavailable"
 
 	pacAnnotationLifecycle       = "pac"
@@ -31,50 +36,53 @@ const (
 	nextVideoAnnotationLifecycle = "next-video"
 )
 
+// UPPError encapsulate error information for errors originating from calls to UPP annotations endpoint.
 type UPPError struct {
 	msg     string
 	status  int
 	uppBody []byte
 }
 
+// Error returns the error message.
 func (ue UPPError) Error() string {
 	return ue.msg
 }
 
+// Status returns the http status code returned by the call to the UPP annotations endpoint.
 func (ue UPPError) Status() int {
 	return ue.status
 }
 
+// UPPBody returns the http response body returned by the call to the UPP annotations endpoint.
 func (ue UPPError) UPPBody() []byte {
 	return ue.uppBody
 }
 
-type UPPAnnotationsAPI interface {
-	GetAll(context.Context, string) ([]Annotation, error)
-	GetAllButV2(context.Context, string) ([]Annotation, error)
-	Endpoint() string
-	GTG() error
-}
-
-type annotationsAPI struct {
+// UPPAnnotationsAPI retrieves published annotations from UPP.
+type UPPAnnotationsAPI struct {
 	endpointTemplate string
 	apiKey           string
 	httpClient       *http.Client
 }
 
-func NewUPPAnnotationsAPI(client *http.Client, endpoint string, apiKey string) UPPAnnotationsAPI {
-	return &annotationsAPI{endpointTemplate: endpoint, apiKey: apiKey, httpClient: client}
+// NewUPPAnnotationsAPI initializes UPPAnnotationsAPI by given http client,
+// the url of the UPP public endpoint for getting published annotations and UPP API key.
+func NewUPPAnnotationsAPI(client *http.Client, endpoint string, apiKey string) *UPPAnnotationsAPI {
+	return &UPPAnnotationsAPI{endpointTemplate: endpoint, apiKey: apiKey, httpClient: client}
 }
 
-func (api *annotationsAPI) GetAll(ctx context.Context, contentUUID string) ([]Annotation, error) {
+// GetAll retrieves the list of published annotations for given contentUUID.
+// The returned list contains the annotations returned by UPP without filtering.
+func (api *UPPAnnotationsAPI) GetAll(ctx context.Context, contentUUID string) ([]Annotation, error) {
 	return api.getAnnotations(ctx, contentUUID)
 }
 
-func (api *annotationsAPI) GetAllButV2(ctx context.Context, contentUUID string) ([]Annotation, error) {
+// GetAllButV2 retrieves the list of published annotations for given contentUUID but filtering v2 annotations.
+func (api *UPPAnnotationsAPI) GetAllButV2(ctx context.Context, contentUUID string) ([]Annotation, error) {
 	return api.getAnnotations(ctx, contentUUID, pacAnnotationLifecycle, v1AnnotationLifecycle, nextVideoAnnotationLifecycle)
 }
 
-func (api *annotationsAPI) getAnnotations(ctx context.Context, contentUUID string, lifecycles ...string) ([]Annotation, error) {
+func (api *UPPAnnotationsAPI) getAnnotations(ctx context.Context, contentUUID string, lifecycles ...string) ([]Annotation, error) {
 	uppResponse, err := api.getUPPAnnotationsResponse(ctx, contentUUID, lifecycles...)
 	if err != nil {
 		return nil, err
@@ -115,11 +123,11 @@ func (api *annotationsAPI) getAnnotations(ctx context.Context, contentUUID strin
 	return rawAnnotations, nil
 }
 
-func (api *annotationsAPI) getUPPAnnotationsResponse(ctx context.Context, contentUUID string, lifecycles ...string) (*http.Response, error) {
+func (api *UPPAnnotationsAPI) getUPPAnnotationsResponse(ctx context.Context, contentUUID string, lifecycles ...string) (*http.Response, error) {
 	apiReqURI := fmt.Sprintf(api.endpointTemplate, contentUUID)
 
 	if len(lifecycles) != 0 {
-		baseUrl, err := url.Parse(apiReqURI)
+		baseURL, err := url.Parse(apiReqURI)
 		if err != nil {
 			return nil, err
 		}
@@ -129,8 +137,8 @@ func (api *annotationsAPI) getUPPAnnotationsResponse(ctx context.Context, conten
 			params.Add("lifecycle", lc)
 		}
 
-		baseUrl.RawQuery = params.Encode()
-		apiReqURI = baseUrl.String()
+		baseURL.RawQuery = params.Encode()
+		apiReqURI = baseURL.String()
 	}
 
 	getAnnotationsLog := log.WithField("url", apiReqURI).WithField("uuid", contentUUID)
@@ -154,7 +162,8 @@ func (api *annotationsAPI) getUPPAnnotationsResponse(ctx context.Context, conten
 	return api.httpClient.Do(apiReq.WithContext(ctx))
 }
 
-func (api *annotationsAPI) GTG() error {
+// GTG is making call the UPP annotations endpoint for predefined synthetic content UUID and check that response is returned
+func (api *UPPAnnotationsAPI) GTG() error {
 	apiReqURI := fmt.Sprintf(api.endpointTemplate, syntheticContentUUID)
 	apiReq, err := http.NewRequest("GET", apiReqURI, nil)
 	if err != nil {
@@ -179,6 +188,7 @@ func (api *annotationsAPI) GTG() error {
 	return nil
 }
 
-func (api *annotationsAPI) Endpoint() string {
+// Endpoint retrieves the template for UPP annotations endpoint
+func (api *UPPAnnotationsAPI) Endpoint() string {
 	return api.endpointTemplate
 }

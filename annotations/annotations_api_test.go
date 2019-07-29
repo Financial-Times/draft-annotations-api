@@ -69,7 +69,7 @@ func TestHappyAnnotationsAPI(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIServerMock(t, tid, uuid, "", http.StatusOK, "I am happy!")
 	defer annotationsServerMock.Close()
 
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey).(*annotationsAPI)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
 	resp, err := annotationsAPI.getUPPAnnotationsResponse(ctx, uuid)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -83,7 +83,7 @@ func TestHappyAnnotationsAPIWithLifecycles(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIServerMock(t, tid, uuid, "lifecycle=pac&lifecycle=v1&lifecycle=next-video", http.StatusOK, "I am happy!")
 	defer annotationsServerMock.Close()
 
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey).(*annotationsAPI)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
 	resp, err := annotationsAPI.getUPPAnnotationsResponse(ctx, uuid, pacAnnotationLifecycle, v1AnnotationLifecycle, nextVideoAnnotationLifecycle)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -97,7 +97,7 @@ func TestUnhappyAnnotationsAPI(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIServerMock(t, tid, uuid, "", http.StatusServiceUnavailable, "I am definitely not happy!")
 	defer annotationsServerMock.Close()
 
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey).(*annotationsAPI)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
 	resp, err := annotationsAPI.getUPPAnnotationsResponse(ctx, uuid)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
@@ -108,14 +108,14 @@ func TestNoTIDAnnotationsAPI(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIServerMock(t, "", uuid, "", http.StatusServiceUnavailable, "I am definitely not happy!")
 	defer annotationsServerMock.Close()
 
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey).(*annotationsAPI)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
 	resp, err := annotationsAPI.getUPPAnnotationsResponse(context.TODO(), uuid)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 }
 
 func TestRequestFailsAnnotationsAPI(t *testing.T) {
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, ":#", testAPIKey).(*annotationsAPI)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, ":#", testAPIKey)
 	resp, err := annotationsAPI.getUPPAnnotationsResponse(context.TODO(), "")
 
 	assert.Error(t, err)
@@ -123,7 +123,7 @@ func TestRequestFailsAnnotationsAPI(t *testing.T) {
 }
 
 func TestResponseFailsAnnotationsAPI(t *testing.T) {
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, "#:", testAPIKey).(*annotationsAPI)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, "#:", testAPIKey)
 	resp, err := annotationsAPI.getUPPAnnotationsResponse(context.TODO(), "")
 
 	assert.Error(t, err)
@@ -137,7 +137,7 @@ func TestAnnotationsAPITimeout(t *testing.T) {
 	})
 
 	s := httptest.NewServer(r)
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, s.URL+"/content/%v/annotations", testAPIKey).(*annotationsAPI)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, s.URL+"/content/%v/annotations", testAPIKey)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel()
@@ -245,7 +245,7 @@ func TestGetAnnotationsHappy(t *testing.T) {
 			annotationsServerMock := newAnnotationsAPIServerMock(t, tid, uuid, "", test.annotationsStatus, test.annotationsBody)
 			defer annotationsServerMock.Close()
 
-			annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey).(*annotationsAPI)
+			annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
 			annotations, err := annotationsAPI.getAnnotations(ctx, uuid)
 
 			assert.ElementsMatch(t, annotations, test.expectedAnnotations)
