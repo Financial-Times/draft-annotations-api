@@ -698,6 +698,11 @@ func (m *AnnotationsAPIMock) GetAll(ctx context.Context, contentUUID string) ([]
 	return args.Get(0).([]annotations.Annotation), args.Error(1)
 }
 
+func (m *AnnotationsAPIMock) GetAllButV2(ctx context.Context, contentUUID string) ([]annotations.Annotation, error) {
+	args := m.Called(ctx, contentUUID)
+	return args.Get(0).([]annotations.Annotation), args.Error(1)
+}
+
 func (m *AnnotationsAPIMock) Endpoint() string {
 	args := m.Called()
 	return args.String(0)
