@@ -133,6 +133,7 @@ func main() {
 func serveEndpoints(port string, apiYml *string, handler *handler.Handler, healthService *health.HealthService) {
 	r := vestigo.NewRouter()
 
+	r.Delete("/drafts/content/:uuid/annotations/:cuuid", handler.DeleteAnnotation)
 	r.Get("/drafts/content/:uuid/annotations", handler.ReadAnnotations)
 	r.Put("/drafts/content/:uuid/annotations", handler.WriteAnnotations)
 	var monitoringRouter http.Handler = r
