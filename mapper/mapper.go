@@ -41,7 +41,7 @@ func ConvertPredicates(body []byte) ([]byte, error) {
 			continue
 		}
 
-		annoMap["id"] = transformConceptID(annoMap["id"].(string))
+		annoMap["id"] = TransformConceptID(annoMap["id"].(string))
 
 		stringTypes, _ := toStringArray(someTypes)
 		conceptType := getLeafType(stringTypes)
@@ -98,7 +98,7 @@ func getLeafType(listOfTypes []string) string {
 	return listOfTypes[len(listOfTypes)-1]
 }
 
-func transformConceptID(id string) string {
+func TransformConceptID(id string) string {
 	i := strings.LastIndex(id, "/")
 	if i == -1 || i == len(id)-1 {
 		return ""

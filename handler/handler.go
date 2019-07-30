@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Financial-Times/draft-annotations-api/annotations"
+	"github.com/Financial-Times/draft-annotations-api/mapper"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
 	uuid "github.com/satori/go.uuid"
@@ -38,6 +39,64 @@ func New(rw annotations.RW, annotationsAPI AnnotationsAPI, c14n *annotations.Can
 		c14n,
 		augmenter,
 		httpTimeout,
+	}
+}
+
+// DeleteAnnotation deletes a given annotation for a given content uuid.
+// It gets the annotations only from UPP skipping V2 annotations because they are not editorially curated.
+func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+
+	contentUUID := vestigo.Param(r, "uuid")
+	conceptUUID := vestigo.Param(r, "cuuid")
+	tID := tidutils.GetTransactionIDFromRequest(r)
+	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
+
+	oldHash := r.Header.Get(annotations.PreviousDocumentHashHeader)
+
+	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
+
+	if err := validateUUID(contentUUID); err != nil {
+		handleWriteErrors("Invalid content UUID", err, writeLog, w, http.StatusInternalServerError)
+		return
+	}
+	if err := validateUUID(conceptUUID); err != nil {
+		handleWriteErrors("Invalid concept UUID", err, writeLog, w, http.StatusInternalServerError)
+		return
+	}
+	conceptUUID = mapper.TransformConceptID("/" + conceptUUID)
+
+	writeLog.Debug("Reading annotations from UPP...")
+	uppList, err := h.annotationsAPI.GetAllButV2(ctx, contentUUID)
+	if err != nil {
+		handleErrors(err, writeLog, w)
+		return
+	}
+
+	writeLog.Debug("Canonicalizing annotations...")
+	uppList = h.c14n.Canonicalize(uppList)
+
+	for i, item := range uppList {
+		if item.ConceptId == conceptUUID {
+			uppList[i] = uppList[len(uppList)-1]
+			uppList = uppList[:len(uppList)-1]
+			break
+		}
+	}
+
+	writeLog.Debug("Writing to annotations RW...")
+	newAnnotations := annotations.Annotations{Annotations: uppList}
+	newHash, err := h.annotationsRW.Write(ctx, contentUUID, &newAnnotations, oldHash)
+	if err != nil {
+		handleWriteErrors("Error in writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set(annotations.DocumentHashHeader, newHash)
+	err = json.NewEncoder(w).Encode(newAnnotations)
+	if err != nil {
+		handleWriteErrors("Error in encoding draft annotations response", err, writeLog, w, http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -97,6 +156,17 @@ func handleErrors(err error, readLog *log.Entry, w http.ResponseWriter) {
 	writeMessage(w, fmt.Sprintf("Failed to read annotations: %v", err), http.StatusInternalServerError)
 }
 
+func handleWriteErrors(msg string, err error, writeLog *log.Entry, w http.ResponseWriter, httpStatus int) {
+	msg = fmt.Sprintf(msg+": %v", err.Error())
+	if isTimeoutErr(err) {
+		msg = "Timeout while waiting to write draft annotations."
+		httpStatus = http.StatusGatewayTimeout
+	}
+
+	writeLog.WithError(err).Error(msg)
+	writeMessage(w, msg, httpStatus)
+}
+
 func (h *Handler) readAnnotations(ctx context.Context, w http.ResponseWriter, contentUUID string, readLog *log.Entry) ([]annotations.Annotation, error) {
 	rwAnnotations, hash, found, err := h.annotationsRW.Read(ctx, contentUUID)
 
@@ -132,16 +202,14 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
 
 	if err := validateUUID(contentUUID); err != nil {
-		writeLog.WithError(err).Error("Invalid content UUID")
-		writeMessage(w, fmt.Sprintf("Invalid content UUID: %v", contentUUID), http.StatusBadRequest)
+		handleWriteErrors("Invalid content UUID", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
 	var draftAnnotations annotations.Annotations
 	err := json.NewDecoder(r.Body).Decode(&draftAnnotations)
 	if err != nil {
-		writeLog.WithError(err).Error("Unable to unmarshal annotations body")
-		writeMessage(w, fmt.Sprintf("Unable to unmarshal annotations body: %v", err.Error()), http.StatusBadRequest)
+		handleWriteErrors("Unable to unmarshal annotations body", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
@@ -150,27 +218,17 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 
 	writeLog.Debug("Writing to annotations RW...")
 	newHash, err := h.annotationsRW.Write(ctx, contentUUID, &draftAnnotations, oldHash)
-
-	if isTimeoutErr(err) {
-		writeLog.WithError(err).Error("Timeout while waiting to write draft annotations.")
-		writeMessage(w, "Timeout while waiting to write draft annotations", http.StatusGatewayTimeout)
-		return
-	}
-
 	if err != nil {
-		writeLog.WithError(err).Error("Error in writing draft annotations")
-		writeMessage(w, fmt.Sprintf("Error in writing draft annotations: %v", err.Error()), http.StatusInternalServerError)
+		handleWriteErrors("Error in writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set(annotations.DocumentHashHeader, newHash)
 	err = json.NewEncoder(w).Encode(draftAnnotations)
 	if err != nil {
-		writeLog.WithError(err).Error("Error in encoding draft annotations response")
-		writeMessage(w, fmt.Sprintf("Error in encoding draft annotations response: %v", err.Error()), http.StatusInternalServerError)
+		handleWriteErrors("Error in encoding draft annotations response", err, writeLog, w, http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
 }
 
 func isTimeoutErr(err error) bool {
@@ -189,7 +247,6 @@ func writeMessage(w http.ResponseWriter, msg string, status int) {
 	message := make(map[string]interface{})
 	message["message"] = msg
 	j, err := json.Marshal(&message)
-
 	if err != nil {
 		log.WithError(err).Error("Failed to parse provided message to json, this is a bug.")
 		return
