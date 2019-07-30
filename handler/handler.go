@@ -3,37 +3,35 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"time"
 
 	"github.com/Financial-Times/draft-annotations-api/annotations"
-	"github.com/Financial-Times/draft-annotations-api/mapper"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 )
 
-var (
-	errNoAnnotations         = errors.New(`No annotations can be found`)
-	errUPPBadRequest         = errors.New(`UPP responded with a client error`)
-	errUPPServiceUnavailable = errors.New(`UPP responded with an unexpected error`)
-)
+// AnnotationsAPI interface encapsulates logic for getting published annotations from API
+type AnnotationsAPI interface {
+	GetAll(context.Context, string) ([]annotations.Annotation, error)
+	GetAllButV2(context.Context, string) ([]annotations.Annotation, error)
+}
 
+// Handler provides endpoints for reading annotations - draft or published, and writing draft annotations.
 type Handler struct {
 	annotationsRW        annotations.RW
-	annotationsAPI       annotations.UPPAnnotationsAPI
+	annotationsAPI       AnnotationsAPI
 	c14n                 *annotations.Canonicalizer
 	annotationsAugmenter annotations.Augmenter
 	timeout              time.Duration
 }
 
-func New(rw annotations.RW, annotationsAPI annotations.UPPAnnotationsAPI, c14n *annotations.Canonicalizer, augmenter annotations.Augmenter, httpTimeout time.Duration) *Handler {
+// New initializes Handler.
+func New(rw annotations.RW, annotationsAPI AnnotationsAPI, c14n *annotations.Canonicalizer, augmenter annotations.Augmenter, httpTimeout time.Duration) *Handler {
 	return &Handler{
 		rw,
 		annotationsAPI,
@@ -43,6 +41,8 @@ func New(rw annotations.RW, annotationsAPI annotations.UPPAnnotationsAPI, c14n *
 	}
 }
 
+// ReadAnnotations gets the annotations for a given content uuid.
+// If there are draft annotations, they are returned, otherwise the published annotations are returned.
 func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 	contentUUID := vestigo.Param(r, "uuid")
 	tID := tidutils.GetTransactionIDFromRequest(r)
@@ -54,14 +54,14 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Content-Type", "application/json")
 
-	readLog.Info("Reading Annotations from Annotations R/W")
-	rawAnnotations, err := h.readAnnotations(ctx, w, contentUUID)
+	readLog.Debug("Reading Annotations from Annotations R/W")
+	rawAnnotations, err := h.readAnnotations(ctx, w, contentUUID, readLog)
 	if err != nil {
 		handleErrors(err, readLog, w)
 		return
 	}
 
-	readLog.Info("Augmenting annotations with recent UPP data")
+	readLog.Debug("Augmenting annotations with recent UPP data")
 	augmentedAnnotations, err := h.annotationsAugmenter.AugmentAnnotations(ctx, rawAnnotations)
 	if err != nil {
 		readLog.WithError(err).Error("Failed to augment annotations")
@@ -70,7 +70,11 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := annotations.Annotations{Annotations: augmentedAnnotations}
-	json.NewEncoder(w).Encode(&response)
+	err = json.NewEncoder(w).Encode(&response)
+	if err != nil {
+		readLog.WithError(err).Error("Failed to encode response")
+		handleErrors(err, readLog, w)
+	}
 }
 
 func handleErrors(err error, readLog *log.Entry, w http.ResponseWriter) {
@@ -80,19 +84,20 @@ func handleErrors(err error, readLog *log.Entry, w http.ResponseWriter) {
 		return
 	}
 
-	switch err {
-	case errUPPBadRequest:
-		readLog.Info("UPP responded with a client error, forwarding UPP response back to client.")
-	case errNoAnnotations:
-		writeMessage(w, "No annotations found", http.StatusNotFound)
-	case errUPPServiceUnavailable:
-		writeMessage(w, "Service unavailable", http.StatusServiceUnavailable)
-	default:
-		writeMessage(w, fmt.Sprintf("Failed to read annotations: %v", err), http.StatusInternalServerError)
+	if uppErr, ok := err.(annotations.UPPError); ok {
+		if uppErr.UPPBody() != nil {
+			readLog.Info("UPP responded with a client error, forwarding UPP response back to client.")
+			w.WriteHeader(uppErr.Status())
+			w.Write(uppErr.UPPBody())
+			return
+		}
+		writeMessage(w, uppErr.Error(), uppErr.Status())
+		return
 	}
+	writeMessage(w, fmt.Sprintf("Failed to read annotations: %v", err), http.StatusInternalServerError)
 }
 
-func (h *Handler) readAnnotations(ctx context.Context, w http.ResponseWriter, contentUUID string) ([]annotations.Annotation, error) {
+func (h *Handler) readAnnotations(ctx context.Context, w http.ResponseWriter, contentUUID string, readLog *log.Entry) ([]annotations.Annotation, error) {
 	rwAnnotations, hash, found, err := h.annotationsRW.Read(ctx, contentUUID)
 
 	if err != nil {
@@ -100,7 +105,9 @@ func (h *Handler) readAnnotations(ctx context.Context, w http.ResponseWriter, co
 	}
 
 	if !found {
-		return h.readAnnotationsFromUPP(ctx, w, contentUUID)
+		readLog.Debug("Annotations not found, retrieving annotations from UPP")
+		anns, err := h.annotationsAPI.GetAll(ctx, contentUUID)
+		return anns, err
 	}
 
 	w.Header().Set(annotations.DocumentHashHeader, hash)
@@ -112,44 +119,7 @@ func readLogEntry(ctx context.Context, contentUUID string) *log.Entry {
 	return log.WithField(tidutils.TransactionIDKey, tid).WithField("uuid", contentUUID)
 }
 
-func (h *Handler) readAnnotationsFromUPP(ctx context.Context, w http.ResponseWriter, contentUUID string) ([]annotations.Annotation, error) {
-	readLog := readLogEntry(ctx, contentUUID)
-	readLog.Info("Annotations not found, retrieving annotations from UPP")
-
-	uppResponse, err := h.annotationsAPI.Get(ctx, contentUUID)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer uppResponse.Body.Close()
-
-	if uppResponse.StatusCode != http.StatusOK {
-		if uppResponse.StatusCode == http.StatusNotFound || uppResponse.StatusCode == http.StatusBadRequest {
-			w.WriteHeader(uppResponse.StatusCode)
-			io.Copy(w, uppResponse.Body)
-			return nil, errUPPBadRequest
-		}
-
-		return nil, errUPPServiceUnavailable
-	}
-
-	respBody, _ := ioutil.ReadAll(uppResponse.Body)
-	convertedBody, err := mapper.ConvertPredicates(respBody)
-	if err != nil {
-		return nil, errors.New("Failed to map predicates from UPP response")
-	}
-
-	if err == nil && convertedBody == nil {
-		return nil, errNoAnnotations
-	}
-
-	rawAnnotations := []annotations.Annotation{}
-	json.Unmarshal(convertedBody, &rawAnnotations)
-
-	return rawAnnotations, nil
-}
-
+// WriteAnnotations writes draft annotations for given content.
 func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 
@@ -175,10 +145,10 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeLog.Info("Canonicalizing annotations...")
+	writeLog.Debug("Canonicalizing annotations...")
 	draftAnnotations.Annotations = h.c14n.Canonicalize(draftAnnotations.Annotations)
 
-	writeLog.Info("Writing to annotations RW...")
+	writeLog.Debug("Writing to annotations RW...")
 	newHash, err := h.annotationsRW.Write(ctx, contentUUID, &draftAnnotations, oldHash)
 
 	if isTimeoutErr(err) {
@@ -194,8 +164,13 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set(annotations.DocumentHashHeader, newHash)
+	err = json.NewEncoder(w).Encode(draftAnnotations)
+	if err != nil {
+		writeLog.WithError(err).Error("Error in encoding draft annotations response")
+		writeMessage(w, fmt.Sprintf("Error in encoding draft annotations response: %v", err.Error()), http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(draftAnnotations)
 }
 
 func isTimeoutErr(err error) bool {
@@ -220,5 +195,8 @@ func writeMessage(w http.ResponseWriter, msg string, status int) {
 		return
 	}
 
-	w.Write(j)
+	_, err = w.Write(j)
+	if err != nil {
+		log.WithError(err).Error("Failed to parse response message.")
+	}
 }

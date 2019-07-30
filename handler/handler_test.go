@@ -411,7 +411,10 @@ func TestSaveAnnotations(t *testing.T) {
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 
 	entity := bytes.Buffer{}
-	json.NewEncoder(&entity).Encode(&expectedAnnotations)
+	err := json.NewEncoder(&entity).Encode(&expectedAnnotations)
+	if err != nil {
+		t.Fatalf("failed to encode annotations: %v", err)
+	}
 
 	req := httptest.NewRequest(
 		"PUT",
@@ -427,7 +430,7 @@ func TestSaveAnnotations(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	actual := annotations.Annotations{}
-	err := json.NewDecoder(resp.Body).Decode(&actual)
+	err = json.NewDecoder(resp.Body).Decode(&actual)
 	assert.NoError(t, err)
 
 	assert.Equal(t, expectedCanonicalisedAnnotationsBody, actual)
@@ -513,7 +516,10 @@ func TestSaveAnnotationsErrorFromRW(t *testing.T) {
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 
 	entity := bytes.Buffer{}
-	json.NewEncoder(&entity).Encode(&expectedAnnotations)
+	err := json.NewEncoder(&entity).Encode(&expectedAnnotations)
+	if err != nil {
+		t.Fatalf("failed to encode annotations: %v", err)
+	}
 
 	req := httptest.NewRequest(
 		"PUT",
@@ -567,7 +573,7 @@ func TestAnnotationsReadTimeoutUPP(t *testing.T) {
 
 	aug := new(AugmenterMock)
 	annAPI := new(AnnotationsAPIMock)
-	annAPI.On("Get", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(&http.Response{}, &url.Error{Err: context.DeadlineExceeded})
+	annAPI.On("GetAll", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return([]annotations.Annotation{}, &url.Error{Err: context.DeadlineExceeded})
 
 	h := New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
@@ -616,7 +622,10 @@ func TestAnnotationsWriteTimeout(t *testing.T) {
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 
 	entity := bytes.Buffer{}
-	json.NewEncoder(&entity).Encode(&expectedAnnotations)
+	err := json.NewEncoder(&entity).Encode(&expectedAnnotations)
+	if err != nil {
+		t.Fatalf("failed to encode annotations: %v", err)
+	}
 
 	req := httptest.NewRequest(
 		"PUT",
@@ -684,9 +693,14 @@ type AnnotationsAPIMock struct {
 	mock.Mock
 }
 
-func (m *AnnotationsAPIMock) Get(ctx context.Context, contentUUID string) (*http.Response, error) {
+func (m *AnnotationsAPIMock) GetAll(ctx context.Context, contentUUID string) ([]annotations.Annotation, error) {
 	args := m.Called(ctx, contentUUID)
-	return args.Get(0).(*http.Response), args.Error(1)
+	return args.Get(0).([]annotations.Annotation), args.Error(1)
+}
+
+func (m *AnnotationsAPIMock) GetAllButV2(ctx context.Context, contentUUID string) ([]annotations.Annotation, error) {
+	args := m.Called(ctx, contentUUID)
+	return args.Get(0).([]annotations.Annotation), args.Error(1)
 }
 
 func (m *AnnotationsAPIMock) Endpoint() string {

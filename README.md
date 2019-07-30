@@ -42,7 +42,7 @@ Options:
   --concept-search-endpoint="http://test.api.ft.com/concepts"                  Endpoint to get concepts from UPP ($CONCEPT_SEARCH_ENDPOINT)
   --concept-search-batch-size=30                                               Concept IDs batch size to concept search API ($CONCEPT_SEARCH_BATCH_SIZE)
   --upp-api-key=""                                                             API key to access UPP ($UPP_APIKEY)
-  --api-yml="./api.yml"                                                        Location of the API Swagger YML file. ($API_YML)
+  --api-yml="./_ft/api.yml"                                                    Location of the API Swagger YML file. ($API_YML)
 ```
 
 
