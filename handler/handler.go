@@ -159,7 +159,7 @@ func handleErrors(err error, readLog *log.Entry, w http.ResponseWriter) {
 func handleWriteErrors(msg string, err error, writeLog *log.Entry, w http.ResponseWriter, httpStatus int) {
 	msg = fmt.Sprintf(msg+": %v", err.Error())
 	if isTimeoutErr(err) {
-		msg = "Timeout while waiting to write draft annotations."
+		msg = "Timeout while waiting to write draft annotations"
 		httpStatus = http.StatusGatewayTimeout
 	}
 

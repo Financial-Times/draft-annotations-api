@@ -17,7 +17,7 @@ import (
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/Financial-Times/go-ft-http/fthttp"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
-	"github.com/Pallinder/go-randomdata"
+	randomdata "github.com/Pallinder/go-randomdata"
 	"github.com/husobee/vestigo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -465,7 +465,7 @@ func TestSaveAnnotationsInvalidContentUUID(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	body, err := ioutil.ReadAll(resp.Body)
 	assert.NoError(t, err)
-	assert.JSONEq(t, `{"message":"Invalid content UUID: not-a-valid-uuid"}`, string(body))
+	assert.JSONEq(t, `{"message":"Invalid content UUID: uuid: UUID string too short: not-a-valid-uuid"}`, string(body))
 
 	rw.AssertExpectations(t)
 	aug.AssertExpectations(t)
