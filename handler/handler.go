@@ -54,14 +54,14 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Content-Type", "application/json")
 
-	readLog.Debug("Reading Annotations from Annotations R/W")
+	readLog.Info("Reading Annotations from Annotations R/W")
 	rawAnnotations, err := h.readAnnotations(ctx, w, contentUUID, readLog)
 	if err != nil {
 		handleErrors(err, readLog, w)
 		return
 	}
 
-	readLog.Debug("Augmenting annotations with recent UPP data")
+	readLog.Info("Augmenting annotations with recent UPP data")
 	augmentedAnnotations, err := h.annotationsAugmenter.AugmentAnnotations(ctx, rawAnnotations)
 	if err != nil {
 		readLog.WithError(err).Error("Failed to augment annotations")
@@ -105,7 +105,7 @@ func (h *Handler) readAnnotations(ctx context.Context, w http.ResponseWriter, co
 	}
 
 	if !found {
-		readLog.Debug("Annotations not found, retrieving annotations from UPP")
+		readLog.Info("Annotations not found, retrieving annotations from UPP")
 		anns, err := h.annotationsAPI.GetAll(ctx, contentUUID)
 		return anns, err
 	}
@@ -145,10 +145,10 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeLog.Debug("Canonicalizing annotations...")
+	writeLog.Info("Canonicalizing annotations...")
 	draftAnnotations.Annotations = h.c14n.Canonicalize(draftAnnotations.Annotations)
 
-	writeLog.Debug("Writing to annotations RW...")
+	writeLog.Info("Writing to annotations RW...")
 	newHash, err := h.annotationsRW.Write(ctx, contentUUID, &draftAnnotations, oldHash)
 
 	if isTimeoutErr(err) {
