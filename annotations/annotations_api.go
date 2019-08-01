@@ -157,7 +157,7 @@ func (api *UPPAnnotationsAPI) getUPPAnnotationsResponse(ctx context.Context, con
 	}
 
 	apiReq.Header.Set(apiKeyHeader, api.apiKey)
-	getAnnotationsLog.Debug("Calling UPP Public Annotations API")
+	getAnnotationsLog.Info("Calling UPP Public Annotations API")
 
 	return api.httpClient.Do(apiReq.WithContext(ctx))
 }
