@@ -17,6 +17,7 @@ jobs:
             go get -u github.com/mattn/goveralls
             go get -u github.com/jstemmer/go-junit-report
             curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $(go env GOPATH)/bin v1.17.1
+            curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh| sh -s -- -b $(go env GOPATH)/bin
       - run:
           name: Test Results
           command: |
@@ -31,7 +32,7 @@ jobs:
       - run:
           name: Run linters
           command: |
-            golangci-lint run --new-from-rev=HEAD~
+            golangci-lint run --new-from-rev=HEAD~ | reviewdog -efm="%f:%l:%c: %m" -diff="git diff master" -name="golangci-lint" -reporter=github-pr-check
       - run:
           name: Run Tests
           command: |
