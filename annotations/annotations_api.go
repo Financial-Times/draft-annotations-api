@@ -36,7 +36,12 @@ const (
 	nextVideoAnnotationLifecycle = "next-video"
 )
 
-// UPPError encapsulate error information for errors originating from calls to UPP annotations endpoint.
+type UPP1Error struct {
+	msg     string
+	status  int
+	uppBody []byte
+}
+
 type UPPError struct {
 	msg     string
 	status  int
