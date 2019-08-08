@@ -86,7 +86,7 @@ Draft Annotations API fetches published annotations by calling
 [UPP Public Annotations API](https://github.com/Financial-Times/public-annotations-api).
 Fetching published annotations is part of the strategy for dynamic importing legacy annotations in PAC.
 
-This is an example of response body:
+This is an example response body:
 ```
 {
       "annotations":[
@@ -154,8 +154,39 @@ A PUT request on this endpoint writes the draft annotations in PAC.
 The input body is an array of annotation JSON objects in which only `predicate` and `id` are the required fields.
 If the write operation is successful, the application returns the canonicalized input body with
 a HTTP 200 response code.
-The listings below shows an example of canonicalized response.
+The listings below shows an example of a canonicalized response.
 
+```
+{
+      "annotations":[
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
+        "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/about",
+        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
+        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+      }
+    ]
+}
+```
+
+### DELETE - Deleting draft editorial annotations and writing them in PAC
+
+Using curl:
+
+```
+curl http://localhost:8080/draft/content/{content-uuid}/annotations/{concept-uuid} | jq
+```
+
+A DELETE request on this endpoint deletes a single concept from the editorially curated published annotations for a specific piece of content. To retrieve these specific annotations it is calling [UPP Public Annotations API](https://github.com/Financial-Times/public-annotations-api) using the "lifecycle" parameter.
+If the write operation is successful, the application returns the canonicalized input body with a HTTP 200 response code.
+
+This is an example response body:
 ```
 {
       "annotations":[

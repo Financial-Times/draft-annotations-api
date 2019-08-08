@@ -118,6 +118,39 @@ paths:
           description: Invalid uuid or annotations body supplied
         500:
           description: Internal service error
+  /drafts/content/{uuid}/annotations/{conceptUuid}:
+    delete:
+      summary: Delete a Concept from the Draft Annotations of a Content
+      description: Returns the draft annotations for the content after the delete operation.
+      tags:
+        - Public API
+      produces:
+        - application/json
+      parameters:
+        - name: uuid
+          in: path
+          description: The UUID of the content
+          required: true
+          type: string
+          x-example: 8df16ae8-0dfd-4859-a5ff-eeb9644bed35
+        - name: conceptUuid
+          in: path
+          description: The UUID of the concept to be deleted
+          required: true
+          type: string
+          x-example: 0667615f-499e-4fa6-8130-f3430450228d
+      responses:
+        200:
+          description: Returns the canonicalized array of annotations that have been successufully saved in PAC.
+          examples:
+            application/json:
+              annotations:
+                - id: http://api.ft.com/things/5507ab98-b747-3ebc-b816-11603b9009f4
+                  predicate: http://www.ft.com/ontology/annotation/about
+        400:
+          description: Invalid content or concept UUID supplied
+        404:
+          description: Content with the specified UUID was not found
   /__health:
     get:
       summary: Healthchecks
