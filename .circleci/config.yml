@@ -18,6 +18,7 @@ jobs:
             go get -u github.com/jstemmer/go-junit-report
             curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $(go env GOPATH)/bin v1.17.1
             curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh| sh -s -- -b $(go env GOPATH)/bin
+            git clone -b go-linting git@github.com:Financial-Times/upp-coding-standard.git
       - run:
           name: Test Results
           command: |
@@ -32,7 +33,7 @@ jobs:
       - run:
           name: Run linters
           command: |
-            golangci-lint run | reviewdog -efm="%f:%l:%c: %m" -diff="git diff master" -name="golangci-lint" -reporter=github-pr-review
+            golangci-lint run --config upp-coding-standard/golangci-config/.golangci.yml | reviewdog -efm="%f:%l:%c: %m" -diff="git diff master" -name="golangci-lint" -reporter=github-pr-review
       - run:
           name: Run Tests
           command: |
