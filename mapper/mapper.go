@@ -24,7 +24,7 @@ func ConvertPredicates(body []byte) ([]byte, error) {
 	convertedAnnotations := make([]map[string]interface{}, 0)
 	err := json.Unmarshal(body, &originalAnnotations)
 	if err != nil {
-		log.Fatal("Could not unmarshall json body", err)
+		return []byte{}, errors.New("could not unmarshal json body")
 	}
 
 	for i := 0; i < len(originalAnnotations); i++ {

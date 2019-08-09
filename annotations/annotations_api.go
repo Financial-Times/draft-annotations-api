@@ -107,7 +107,7 @@ func (api *UPPAnnotationsAPI) getAnnotations(ctx context.Context, contentUUID st
 
 	convertedBody, err := mapper.ConvertPredicates(respBody)
 	if err != nil {
-		return nil, errors.New("failed to map predicates from UPP response")
+		return nil, errors.Wrap(err, "failed to map predicates from UPP response")
 	}
 
 	if convertedBody == nil {
