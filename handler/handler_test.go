@@ -345,6 +345,17 @@ const annotationsAPIBody = `[
          "http://www.ft.com/ontology/person/Person"
       ],
       "prefLabel": "David J Lynch"
+   },
+   {
+      "predicate": "http://www.ft.com/ontology/annotation/mentions",
+      "id": "http://api.ft.com/thing/d33215f2-9804-3e4b-9774-736b749f6472",
+      "apiUrl": "http://api.ft.com/concepts/d33215f2-9804-3e4b-9774-736b749f6472",
+      "types": [
+         "http://www.ft.com/ontology/core/Thing",
+         "http://www.ft.com/ontology/concept/Concept",
+         "http://www.ft.com/ontology/person/Person"
+      ],
+      "prefLabel": "John Ridding"
    }
 ]`
 
@@ -362,6 +373,13 @@ const expectedAnnotationsBody = `[
       "apiUrl": "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
       "type": "http://www.ft.com/ontology/person/Person",
       "prefLabel": "David J Lynch"
+   },
+   {
+      "predicate": "http://www.ft.com/ontology/annotation/mentions",
+      "id": "http://www.ft.com/thing/d33215f2-9804-3e4b-9774-736b749f6472",
+      "apiUrl": "http://api.ft.com/concepts/d33215f2-9804-3e4b-9774-736b749f6472",
+      "type": "http://www.ft.com/ontology/person/Person",
+      "prefLabel": "John Ridding"
    }
 ]`
 
@@ -381,6 +399,13 @@ var expectedAnnotations = annotations.Annotations{
 			Type:      "http://www.ft.com/ontology/person/Person",
 			PrefLabel: "David J Lynch",
 		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/d33215f2-9804-3e4b-9774-736b749f6472",
+			ApiUrl:    "http://api.ft.com/concepts/d33215f2-9804-3e4b-9774-736b749f6472",
+			Type:      "http://www.ft.com/ontology/person/Person",
+			PrefLabel: "John Ridding",
+		},
 	},
 }
 
@@ -393,6 +418,23 @@ var expectedCanonicalisedAnnotationsBody = annotations.Annotations{
 		{
 			Predicate: "http://www.ft.com/ontology/annotation/mentions",
 			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/d33215f2-9804-3e4b-9774-736b749f6472",
+		},
+	},
+}
+
+var expectedCanonicalisedAnnotationsAfterDelete = annotations.Annotations{
+	Annotations: []annotations.Annotation{
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
+			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/d33215f2-9804-3e4b-9774-736b749f6472",
 		},
 	},
 }
@@ -655,7 +697,7 @@ func TestHappyDeleteAnnotations(t *testing.T) {
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895",
-		&expectedCanonicalisedAnnotationsBody, oldHash).Return(newHash, nil)
+		&expectedCanonicalisedAnnotationsAfterDelete, oldHash).Return(newHash, nil)
 	annAPI := new(AnnotationsAPIMock)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").
 		Return(expectedAnnotations.Annotations, nil)
@@ -667,7 +709,7 @@ func TestHappyDeleteAnnotations(t *testing.T) {
 
 	req := httptest.NewRequest(
 		"DELETE",
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/0a619d71-9af5-3755-90dd-f789b686c67a",
 		nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
@@ -681,7 +723,7 @@ func TestHappyDeleteAnnotations(t *testing.T) {
 	err := json.NewDecoder(resp.Body).Decode(&actual)
 	assert.NoError(t, err)
 
-	assert.Equal(t, expectedCanonicalisedAnnotationsBody, actual)
+	assert.Equal(t, expectedCanonicalisedAnnotationsAfterDelete, actual)
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 
 	rw.AssertExpectations(t)
