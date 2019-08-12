@@ -347,15 +347,26 @@ const annotationsAPIBody = `[
       "prefLabel": "David J Lynch"
    },
    {
-      "predicate": "http://www.ft.com/ontology/annotation/mentions",
-      "id": "http://api.ft.com/thing/d33215f2-9804-3e4b-9774-736b749f6472",
-      "apiUrl": "http://api.ft.com/concepts/d33215f2-9804-3e4b-9774-736b749f6472",
+      "predicate": "http://www.ft.com/ontology/annotation/about",
+      "id": "http://api.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+      "apiUrl": "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
       "types": [
          "http://www.ft.com/ontology/core/Thing",
          "http://www.ft.com/ontology/concept/Concept",
-         "http://www.ft.com/ontology/person/Person"
+         "http://www.ft.com/ontology/Topic"
       ],
-      "prefLabel": "John Ridding"
+      "prefLabel": "US interest rates"
+   },
+   {
+      "predicate": "http://www.ft.com/ontology/hasDisplayTag",
+      "id": "http://api.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+      "apiUrl": "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+      "types": [
+         "http://www.ft.com/ontology/core/Thing",
+         "http://www.ft.com/ontology/concept/Concept",
+         "http://www.ft.com/ontology/Topic"
+      ],
+      "prefLabel": "US interest rates"
    }
 ]`
 
@@ -375,11 +386,18 @@ const expectedAnnotationsBody = `[
       "prefLabel": "David J Lynch"
    },
    {
-      "predicate": "http://www.ft.com/ontology/annotation/mentions",
-      "id": "http://www.ft.com/thing/d33215f2-9804-3e4b-9774-736b749f6472",
-      "apiUrl": "http://api.ft.com/concepts/d33215f2-9804-3e4b-9774-736b749f6472",
-      "type": "http://www.ft.com/ontology/person/Person",
-      "prefLabel": "John Ridding"
+      "predicate": "http://www.ft.com/ontology/annotation/about",
+      "id": "http://api.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+      "apiUrl": "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+      "type": "http://www.ft.com/ontology/Topic",
+      "prefLabel": "US interest rates"
+   },
+   {
+      "predicate": "http://www.ft.com/ontology/hasDisplayTag",
+      "id": "http://api.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+      "apiUrl": "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+      "type": "http://www.ft.com/ontology/Topic",
+      "prefLabel": "US interest rates"
    }
 ]`
 
@@ -400,17 +418,28 @@ var expectedAnnotations = annotations.Annotations{
 			PrefLabel: "David J Lynch",
 		},
 		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/d33215f2-9804-3e4b-9774-736b749f6472",
-			ApiUrl:    "http://api.ft.com/concepts/d33215f2-9804-3e4b-9774-736b749f6472",
-			Type:      "http://www.ft.com/ontology/person/Person",
-			PrefLabel: "John Ridding",
+			Predicate: "http://www.ft.com/ontology/annotation/about",
+			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			Type:      "http://www.ft.com/ontology/Topic",
+			PrefLabel: "US interest rates",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
+			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			Type:      "http://www.ft.com/ontology/Topic",
+			PrefLabel: "US interest rates",
 		},
 	},
 }
 
 var expectedCanonicalisedAnnotationsBody = annotations.Annotations{
 	Annotations: []annotations.Annotation{
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/about",
+			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		},
 		{
 			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
 			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
@@ -420,8 +449,8 @@ var expectedCanonicalisedAnnotationsBody = annotations.Annotations{
 			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
 		},
 		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/d33215f2-9804-3e4b-9774-736b749f6472",
+			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
+			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		},
 	},
 }
@@ -434,7 +463,7 @@ var expectedCanonicalisedAnnotationsAfterDelete = annotations.Annotations{
 		},
 		{
 			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/d33215f2-9804-3e4b-9774-736b749f6472",
+			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
 		},
 	},
 }
@@ -709,7 +738,7 @@ func TestHappyDeleteAnnotations(t *testing.T) {
 
 	req := httptest.NewRequest(
 		"DELETE",
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/0a619d71-9af5-3755-90dd-f789b686c67a",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
