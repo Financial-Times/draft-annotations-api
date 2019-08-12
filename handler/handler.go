@@ -76,13 +76,16 @@ func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
 	writeLog.Debug("Canonicalizing annotations...")
 	uppList = h.c14n.Canonicalize(uppList)
 
-	for i, item := range uppList {
+	i := 0
+	for _, item := range uppList {
 		if item.ConceptId == conceptUUID {
-			uppList[i] = uppList[len(uppList)-1]
-			uppList = uppList[:len(uppList)-1]
-			break
+			continue
 		}
+
+		uppList[i] = item
+		i++
 	}
+	uppList = uppList[:i]
 
 	writeLog.Debug("Writing to annotations RW...")
 	newAnnotations := annotations.Annotations{Annotations: uppList}
