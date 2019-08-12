@@ -20,3 +20,7 @@ spec:
           backend:
             serviceName: {{.Values.service.name}}
             servicePort: 8080
+        - path: /drafts/content/.*/annotations/.*
+          backend:
+            serviceName: {{.Values.service.name}}
+            servicePort: 8080
