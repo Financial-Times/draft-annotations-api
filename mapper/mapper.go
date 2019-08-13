@@ -12,6 +12,8 @@ const PREDICATE_IS_CLASSIFIED_BY = "http://www.ft.com/ontology/classification/is
 const PREDICATE_IS_PRIMARILY_CLASSIFIED_BY = "http://www.ft.com/ontology/classification/isPrimarilyClassifiedBy"
 const PREDICATE_MAJOR_MENTIONS = "http://www.ft.com/ontology/annotation/majorMentions"
 const PREDICATE_ABOUT = "http://www.ft.com/ontology/annotation/about"
+const PredicateImplicitlyAbout = "http://www.ft.com/ontology/implicitlyAbout"
+const PredicateImplicitlyClassifiedBy = "http://www.ft.com/ontology/implicitlyClassifiedBy"
 const CONCEPT_TYPE_BRAND = "http://www.ft.com/ontology/product/Brand"
 const CONCEPT_TYPE_GENRE = "http://www.ft.com/ontology/Genre"
 const CONCEPT_TYPE_TOPIC = "http://www.ft.com/ontology/Topic"
@@ -49,24 +51,28 @@ func ConvertPredicates(body []byte) ([]byte, error) {
 		annoMap["type"] = conceptType
 		delete(annoMap, "types")
 
-		if conceptType != CONCEPT_TYPE_SPECIAL_REPORT && conceptType != CONCEPT_TYPE_SUBJECT {
-			if predicate == PREDICATE_IS_CLASSIFIED_BY {
-				if conceptType == CONCEPT_TYPE_TOPIC || conceptType == CONCEPT_TYPE_LOCATION {
-					originalAnnotations[i]["predicate"] = PREDICATE_ABOUT
-				}
-			} else if predicate == PREDICATE_IS_PRIMARILY_CLASSIFIED_BY {
-				if conceptType == CONCEPT_TYPE_TOPIC || conceptType == CONCEPT_TYPE_LOCATION {
-					originalAnnotations[i]["predicate"] = PREDICATE_ABOUT
-				} else if conceptType == CONCEPT_TYPE_BRAND || conceptType == CONCEPT_TYPE_GENRE {
-					originalAnnotations[i]["predicate"] = PREDICATE_IS_CLASSIFIED_BY
-				} else {
-					continue
-				}
-			} else if predicate == PREDICATE_MAJOR_MENTIONS {
+		if conceptType == CONCEPT_TYPE_SPECIAL_REPORT || conceptType == CONCEPT_TYPE_SUBJECT {
+			continue
+		}
+
+		if predicate == PREDICATE_IS_CLASSIFIED_BY {
+			if conceptType == CONCEPT_TYPE_TOPIC || conceptType == CONCEPT_TYPE_LOCATION {
 				originalAnnotations[i]["predicate"] = PREDICATE_ABOUT
 			}
-			convertedAnnotations = append(convertedAnnotations, originalAnnotations[i])
+		} else if predicate == PREDICATE_IS_PRIMARILY_CLASSIFIED_BY {
+			if conceptType == CONCEPT_TYPE_TOPIC || conceptType == CONCEPT_TYPE_LOCATION {
+				originalAnnotations[i]["predicate"] = PREDICATE_ABOUT
+			} else if conceptType == CONCEPT_TYPE_BRAND || conceptType == CONCEPT_TYPE_GENRE {
+				originalAnnotations[i]["predicate"] = PREDICATE_IS_CLASSIFIED_BY
+			} else {
+				continue
+			}
+		} else if predicate == PREDICATE_MAJOR_MENTIONS {
+			originalAnnotations[i]["predicate"] = PREDICATE_ABOUT
+		} else if predicate == PredicateImplicitlyAbout || predicate == PredicateImplicitlyClassifiedBy {
+			continue
 		}
+		convertedAnnotations = append(convertedAnnotations, originalAnnotations[i])
 	}
 
 	if len(convertedAnnotations) == 0 {
@@ -74,7 +80,6 @@ func ConvertPredicates(body []byte) ([]byte, error) {
 	} else {
 		return json.Marshal(convertedAnnotations)
 	}
-
 }
 
 func toStringArray(val interface{}) ([]string, error) {
