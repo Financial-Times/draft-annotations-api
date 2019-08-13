@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -86,7 +87,6 @@ func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
 		i++
 	}
 	uppList = uppList[:i]
-
 	writeLog.Debug("Writing to annotations RW...")
 	newAnnotations := annotations.Annotations{Annotations: uppList}
 	newHash, err := h.annotationsRW.Write(ctx, contentUUID, &newAnnotations, oldHash)
@@ -99,6 +99,83 @@ func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(newAnnotations)
 	if err != nil {
 		handleWriteErrors("Error in encoding draft annotations response", err, writeLog, w, http.StatusInternalServerError)
+		return
+	}
+}
+
+// AddAnnotation adds an annotation for a specific content uuid.
+// It gets the annotations only from UPP skipping V2 annotations because they are not editorially curated.
+func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+
+	contentUUID := vestigo.Param(r, "uuid")
+
+	tID := tidutils.GetTransactionIDFromRequest(r)
+	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
+
+	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
+
+	if err := validateUUID(contentUUID); err != nil {
+		handleWriteErrors("Invalid content UUID", err, writeLog, w, http.StatusInternalServerError)
+		return
+	}
+
+	annotation := annotations.Annotation{}
+	dec := json.NewDecoder(r.Body)
+	err := dec.Decode(&annotation)
+	if err != nil {
+		handleWriteErrors("Error decoding request body", err, writeLog, w, http.StatusInternalServerError)
+	}
+
+	oldHash := r.Header.Get(annotations.PreviousDocumentHashHeader)
+
+	if err := validateUUID(annotation.ConceptId); err != nil {
+		handleWriteErrors("Invalid concept UUID", err, writeLog, w, http.StatusInternalServerError)
+		return
+	}
+
+	if err := validatePredicate(annotation.Predicate); err != nil {
+		handleWriteErrors(err.Error(), err, writeLog, w, http.StatusInternalServerError)
+		return
+	}
+
+	conceptUUID := mapper.TransformConceptID("/" + annotation.ConceptId)
+	annotation.ConceptId = conceptUUID
+
+	writeLog.Debug("Reading annotations from UPP...")
+	uppList, err := h.annotationsAPI.GetAllButV2(ctx, contentUUID)
+	if err != nil {
+		handleErrors(err, writeLog, w)
+		return
+	}
+
+	for _, item := range uppList {
+		if conceptUUID == item.ConceptId {
+			if annotation.Predicate == item.Predicate {
+				writeLog.Debug("Annotation is already in list")
+				return
+			}
+			break
+		}
+	}
+
+	uppList = append(uppList, annotation)
+
+	writeLog.Debug("Canonicalizing annotations...")
+	uppList = h.c14n.Canonicalize(uppList)
+
+	writeLog.Debug("Writing to annotations RW...")
+	newAnnotations := annotations.Annotations{Annotations: uppList}
+	newHash, err := h.annotationsRW.Write(ctx, contentUUID, &newAnnotations, oldHash)
+	if err != nil {
+		handleWriteErrors("Error writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set(annotations.DocumentHashHeader, newHash)
+	err = json.NewEncoder(w).Encode(newAnnotations)
+	if err != nil {
+		handleWriteErrors("Error encoding draft annotations response", err, writeLog, w, http.StatusInternalServerError)
 		return
 	}
 }
@@ -242,6 +319,13 @@ func isTimeoutErr(err error) bool {
 func validateUUID(u string) error {
 	_, err := uuid.FromString(u)
 	return err
+}
+
+func validatePredicate(pr string) error {
+	if pr != "http://www.ft.com/ontology/annotation/mentions" && pr != "http://www.ft.com/ontology/annotation/about" {
+		return errors.New("Invalid predicate")
+	}
+	return nil
 }
 
 func writeMessage(w http.ResponseWriter, msg string, status int) {
