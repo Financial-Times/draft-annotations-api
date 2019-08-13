@@ -78,3 +78,19 @@ func TestDefaultPassThrough(t *testing.T) {
 
 	assert.JSONEq(t, string(expectedBody), string(actualBody), "json not equal")
 }
+
+func TestImplicitAnnotationsAreFiltered(t *testing.T) {
+
+	originalBody, err := ioutil.ReadFile("test_resources/implicit_annotations_v2.json")
+	if err != nil {
+		panic(err)
+	}
+	expectedBody, err := ioutil.ReadFile("test_resources/implicit_annotations_PAC.json")
+
+	if err != nil {
+		panic(err)
+	}
+	actualBody, _ := ConvertPredicates(originalBody)
+
+	assert.JSONEq(t, string(expectedBody), string(actualBody), "they do not match")
+}
