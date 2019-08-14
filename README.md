@@ -59,7 +59,7 @@ Options:
 
 ## Build and deployment
 
-* The application is built as a docker image inside a helm chart to be deployed in a Kubernetes cluster.
+* The application is built as a Docker image inside a helm chart to be deployed in a Kubernetes cluster.
   An internal Jenkins job takes care to push the Docker image to Docker Hub and deploy the chart when a tag is created.
   This is the Docker Hub repository: [coco/draft-annotations-api](https://hub.docker.com/r/coco/draft-annotations-api)
 * CI provided by CircleCI: [draft-annotations-api](https://circleci.com/gh/Financial-Times/draft-annotations-api)
@@ -116,6 +116,41 @@ This is an example response body:
 }
 ```
 
+### POST - Adding draft editorial annotations and writing them in PAC
+
+Using curl:
+
+```
+curl http://localhost:8080/draft/content/{content-uuid}/annotations -X POST --data '{
+          "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd"
+          "predicate": "http://www.ft.com/ontology/annotation/about",
+}'
+```
+
+A POST request on this endpoint adds an annotation to the editorially curated published annotations for a specific piece of content. To retrieve these annotations it calls [UPP Public Annotations API](https://github.com/Financial-Times/public-annotations-api) using the "lifecycle" parameter.
+The new list of draft annotations will override any unpublished draft annotations for this piece of content.
+If the operation is successful, the application returns the canonicalized input body with an HTTP 200 response code.
+
+This is an example response body:
+```
+{
+      "annotations":[
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
+        "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/about",
+        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
+        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+      }
+    ]
+}
+```
+
 ### PUT - Writing draft annotations to PAC
 
 Using curl:
@@ -152,7 +187,7 @@ curl -X PUT \
 A PUT request on this endpoint writes the draft annotations in PAC.
 The input body is an array of annotation JSON objects in which only `predicate` and `id` are the required fields.
 If the write operation is successful, the application returns the canonicalized input body with
-a HTTP 200 response code.
+an HTTP 200 response code.
 The listings below shows an example of a canonicalized response.
 
 ```
@@ -182,8 +217,8 @@ Using curl:
 curl http://localhost:8080/draft/content/{content-uuid}/annotations/{concept-uuid} | jq
 ```
 
-A DELETE request on this endpoint deletes all the annotations for a single concept from the editorially curated published annotations for a specific piece of content. To retrieve these specific annotations it is calling [UPP Public Annotations API](https://github.com/Financial-Times/public-annotations-api) using the "lifecycle" parameter.
-If the operation is successful, the application returns the canonicalized input body with a HTTP 200 response code.
+A DELETE request on this endpoint deletes all the annotations for a single concept from the editorially curated published annotations for a specific piece of content. To retrieve these specific annotations it calls [UPP Public Annotations API](https://github.com/Financial-Times/public-annotations-api) using the "lifecycle" parameter.
+If the operation is successful, the application returns the canonicalized input body with an HTTP 200 response code.
 
 This is an example response body:
 ```

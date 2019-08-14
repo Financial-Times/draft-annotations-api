@@ -117,7 +117,58 @@ paths:
         400:
           description: Invalid uuid or annotations body supplied
         500:
-          description: Internal service error
+          description: Internal server error
+    post:
+      summary: Add annotation to draft annotations
+      description: Adds an annotation for specified content ID and returns a cannonicalized array of draft annotations for this content.
+      tags:
+        - Public API
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - name: uuid
+          in: path
+          description: The UUID of the content
+          required: true
+          type: string
+          x-example: 8df16ae8-0dfd-4859-a5ff-eeb9644bed35
+        - name: body
+          in: body
+          description: An annotation for specific content
+          required: true
+          schema: 
+            type: object
+            properties:
+              id:
+                type: string
+                description: The UUID of the concept to be added
+                x-example: http://www.ft.com/thing/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
+              predicate:
+                type: string
+                description: The relationship between the concept and this piece of FT content
+                x-example: http://www.ft.com/ontology/annotation/about
+            example:
+              id: http://www.ft.com/thing/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
+              predicate: http://www.ft.com/ontology/annotation/about
+            required:
+              - id
+              - predicate
+      responses:
+        200:
+          description: Returns a canonicalized array of annotations that have been successufully saved in PAC.
+          examples:
+            application/json:
+              annotations:
+                - id: http://api.ft.com/thing/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
+                  predicate: http://www.ft.com/ontology/annotation/about
+        400:
+          description: Invalid content UUID, concept UUID or predicate supplied.
+        404:
+          description: The content with the specified UUID was not found.
+        500:
+          description: Internal server error
   /drafts/content/{uuid}/annotations/{conceptUuid}:
     delete:
       summary: Delete all annotations with a given concept from the draft annotations for a specified content
@@ -151,6 +202,8 @@ paths:
           description: Invalid content or concept UUID supplied
         404:
           description: Content with the specified UUID was not found
+        500:
+          description: Internal server error
   /__health:
     get:
       summary: Healthchecks
@@ -182,7 +235,6 @@ paths:
                   checkOutput: Technical output from the check
                   lastUpdated: 2017-08-03T10:44:32.324709638+01:00
               ok: true
-
   /__build-info:
     get:
       summary: Build Information
