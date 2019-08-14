@@ -116,7 +116,7 @@ func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
 
 	if err := validateUUID(contentUUID); err != nil {
-		handleWriteErrors("Invalid content UUID", err, writeLog, w, http.StatusInternalServerError)
+		handleWriteErrors("Invalid content UUID", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
@@ -130,12 +130,12 @@ func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 	oldHash := r.Header.Get(annotations.PreviousDocumentHashHeader)
 
 	if err := validateUUID(annotation.ConceptId); err != nil {
-		handleWriteErrors("Invalid concept UUID", err, writeLog, w, http.StatusInternalServerError)
+		handleWriteErrors("Invalid concept UUID", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
 	if err := validatePredicate(annotation.Predicate); err != nil {
-		handleWriteErrors(err.Error(), err, writeLog, w, http.StatusInternalServerError)
+		handleWriteErrors(err.Error(), err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
