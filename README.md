@@ -34,15 +34,17 @@ go install
 $GOPATH/bin/draft-annotations-api [--help]
 
 Options:
-  --app-system-code="draft-annotations-api"                                    System Code of the application ($APP_SYSTEM_CODE)
-  --app-name="draft-annotations-api"                                           Application name ($APP_NAME)
-  --port="8080"                                                                Port to listen on ($APP_PORT)
-  --annotations-rw-endpoint="http://localhost:8888"                            Endpoint to get concepts from PAC ($ANNOTATIONS_RW_ENDPOINT)
-  --upp-annotations-endpoint="http://test.api.ft.com/content/%v/annotations"   Endpoint to get annotations from UPP ($ANNOTATIONS_ENDPOINT)
-  --concept-search-endpoint="http://test.api.ft.com/concepts"                  Endpoint to get concepts from UPP ($CONCEPT_SEARCH_ENDPOINT)
-  --concept-search-batch-size=30                                               Concept IDs batch size to concept search API ($CONCEPT_SEARCH_BATCH_SIZE)
-  --upp-api-key=""                                                             API key to access UPP ($UPP_APIKEY)
-  --api-yml="./_ft/api.yml"                                                    Location of the API Swagger YML file. ($API_YML)
+  --app-system-code="draft-annotations-api"                                        System Code of the application ($APP_SYSTEM_CODE)
+  --app-name="draft-annotations-api"                                               Application name ($APP_NAME)
+  --port="8080"                                                                    Port to listen on ($APP_PORT)
+  --annotations-rw-endpoint="http://localhost:8888"                                Endpoint to get draft annotations from DB ($ANNOTATIONS_RW_ENDPOINT)
+  --upp-annotations-endpoint="http://test.api.ft.com/content/%v/annotations"       Public Annotations API endpoint ($ANNOTATIONS_ENDPOINT)
+  --internal-concordances-endpoint="http://test.api.ft.com/internalconcordances"   Endpoint to get concepts from UPP ($INTERNAL_CONCORDANCES_ENDPOINT)
+  --internal-concordances-batch-size=30                                            Concept IDs maximum batch size to use when querying the UPP Internal Concordances API ($INTERNAL_CONCORDANCES_BATCH_SIZE)
+  --upp-api-key=""                                                                 API key to access UPP ($UPP_APIKEY)
+  --api-yml="./_ft/api.yml"                                                        Location of the API Swagger YML file. ($API_YML)
+  --http-timeout="8s"                                                              Duration to wait before timing out a request ($HTTP_TIMEOUT)
+  --log-level="INFO"                                                               Log level ($LOG_LEVEL)
 ```
 
 
@@ -84,7 +86,7 @@ Draft Annotations API fetches published annotations by calling
 [UPP Public Annotations API](https://github.com/Financial-Times/public-annotations-api).
 Fetching published annotations is part of the strategy for dynamic importing legacy annotations in PAC.
 
-This is an example of response body:
+This is an example response body:
 ```
 {
       "annotations":[
@@ -152,8 +154,39 @@ A PUT request on this endpoint writes the draft annotations in PAC.
 The input body is an array of annotation JSON objects in which only `predicate` and `id` are the required fields.
 If the write operation is successful, the application returns the canonicalized input body with
 a HTTP 200 response code.
-The listings below shows an example of canonicalized response.
+The listings below shows an example of a canonicalized response.
 
+```
+{
+      "annotations":[
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
+        "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/about",
+        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
+        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+      }
+    ]
+}
+```
+
+### DELETE - Deleting draft editorial annotations and writing them in PAC
+
+Using curl:
+
+```
+curl http://localhost:8080/draft/content/{content-uuid}/annotations/{concept-uuid} | jq
+```
+
+A DELETE request on this endpoint deletes all the annotations for a single concept from the editorially curated published annotations for a specific piece of content. To retrieve these specific annotations it is calling [UPP Public Annotations API](https://github.com/Financial-Times/public-annotations-api) using the "lifecycle" parameter.
+If the operation is successful, the application returns the canonicalized input body with a HTTP 200 response code.
+
+This is an example response body:
 ```
 {
       "annotations":[
@@ -185,7 +218,7 @@ At the moment the `/__health` and `/__gtg` check the availability of the UPP Pub
 
 ### Logging
 
-* The application uses [logrus](https://github.com/sirupsen/logrus); the log file is initialised in [main.go](main.go).
-* Logging requires an `env` app parameter, for all environments other than `local` logs are written to file.
-* When running locally, logs are written to console. If you want to log locally to file, you need to pass in an env parameter that is != `local`.
+* The application uses [logrus](https://github.com/sirupsen/logrus); the logger is initialised in [main.go](main.go).
+* Logs are written to the standard output.
+* 
 * NOTE: `/__build-info` and `/__gtg` endpoints are not logged as they are called every second from varnish/vulcand and this information is not needed in logs/splunk.

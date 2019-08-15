@@ -17,7 +17,7 @@ import (
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/Financial-Times/go-ft-http/fthttp"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
-	"github.com/Pallinder/go-randomdata"
+	randomdata "github.com/Pallinder/go-randomdata"
 	"github.com/husobee/vestigo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -345,6 +345,28 @@ const annotationsAPIBody = `[
          "http://www.ft.com/ontology/person/Person"
       ],
       "prefLabel": "David J Lynch"
+   },
+   {
+      "predicate": "http://www.ft.com/ontology/annotation/about",
+      "id": "http://api.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+      "apiUrl": "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+      "types": [
+         "http://www.ft.com/ontology/core/Thing",
+         "http://www.ft.com/ontology/concept/Concept",
+         "http://www.ft.com/ontology/Topic"
+      ],
+      "prefLabel": "US interest rates"
+   },
+   {
+      "predicate": "http://www.ft.com/ontology/hasDisplayTag",
+      "id": "http://api.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+      "apiUrl": "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+      "types": [
+         "http://www.ft.com/ontology/core/Thing",
+         "http://www.ft.com/ontology/concept/Concept",
+         "http://www.ft.com/ontology/Topic"
+      ],
+      "prefLabel": "US interest rates"
    }
 ]`
 
@@ -362,6 +384,20 @@ const expectedAnnotationsBody = `[
       "apiUrl": "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
       "type": "http://www.ft.com/ontology/person/Person",
       "prefLabel": "David J Lynch"
+   },
+   {
+      "predicate": "http://www.ft.com/ontology/annotation/about",
+      "id": "http://api.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+      "apiUrl": "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+      "type": "http://www.ft.com/ontology/Topic",
+      "prefLabel": "US interest rates"
+   },
+   {
+      "predicate": "http://www.ft.com/ontology/hasDisplayTag",
+      "id": "http://api.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+      "apiUrl": "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+      "type": "http://www.ft.com/ontology/Topic",
+      "prefLabel": "US interest rates"
    }
 ]`
 
@@ -381,10 +417,45 @@ var expectedAnnotations = annotations.Annotations{
 			Type:      "http://www.ft.com/ontology/person/Person",
 			PrefLabel: "David J Lynch",
 		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/about",
+			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			Type:      "http://www.ft.com/ontology/Topic",
+			PrefLabel: "US interest rates",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
+			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			Type:      "http://www.ft.com/ontology/Topic",
+			PrefLabel: "US interest rates",
+		},
 	},
 }
 
 var expectedCanonicalisedAnnotationsBody = annotations.Annotations{
+	Annotations: []annotations.Annotation{
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/about",
+			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
+			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
+			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		},
+	},
+}
+
+var expectedCanonicalisedAnnotationsAfterDelete = annotations.Annotations{
 	Annotations: []annotations.Annotation{
 		{
 			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
@@ -465,7 +536,7 @@ func TestSaveAnnotationsInvalidContentUUID(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	body, err := ioutil.ReadAll(resp.Body)
 	assert.NoError(t, err)
-	assert.JSONEq(t, `{"message":"Invalid content UUID: not-a-valid-uuid"}`, string(body))
+	assert.JSONEq(t, `{"message":"Invalid content UUID: uuid: UUID string too short: not-a-valid-uuid"}`, string(body))
 
 	rw.AssertExpectations(t)
 	aug.AssertExpectations(t)
@@ -648,6 +719,138 @@ func TestAnnotationsWriteTimeout(t *testing.T) {
 	rw.AssertExpectations(t)
 	aug.AssertExpectations(t)
 	annotationsAPI.AssertExpectations(t)
+}
+
+func TestHappyDeleteAnnotations(t *testing.T) {
+	rw := new(RWMock)
+	oldHash := randomdata.RandStringRunes(56)
+	newHash := randomdata.RandStringRunes(56)
+	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895",
+		&expectedCanonicalisedAnnotationsAfterDelete, oldHash).Return(newHash, nil)
+	annAPI := new(AnnotationsAPIMock)
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").
+		Return(expectedAnnotations.Annotations, nil)
+	aug := new(AugmenterMock)
+
+	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Delete("/drafts/content/:uuid/annotations/:cuuid", h.DeleteAnnotation)
+
+	req := httptest.NewRequest(
+		"DELETE",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		nil)
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	actual := annotations.Annotations{}
+	err := json.NewDecoder(resp.Body).Decode(&actual)
+	assert.NoError(t, err)
+
+	assert.Equal(t, expectedCanonicalisedAnnotationsAfterDelete, actual)
+	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
+
+	rw.AssertExpectations(t)
+	aug.AssertExpectations(t)
+	annAPI.AssertExpectations(t)
+}
+
+func TestUnHappyDeleteAnnotationsWhenMissingContentUUID(t *testing.T) {
+	rw := new(RWMock)
+	annAPI := new(AnnotationsAPIMock)
+	aug := new(AugmenterMock)
+
+	h := New(rw, annAPI, nil, aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Delete("/drafts/content/:uuid/annotations/:cuuid", h.DeleteAnnotation)
+
+	req := httptest.NewRequest(
+		"DELETE",
+		"http://api.ft.com/drafts/content/foo/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
+		nil)
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestUnHappyDeleteAnnotationsWhenMissingConceptUUID(t *testing.T) {
+	rw := new(RWMock)
+	annAPI := new(AnnotationsAPIMock)
+	aug := new(AugmenterMock)
+
+	h := New(rw, annAPI, nil, aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Delete("/drafts/content/:uuid/annotations/:cuuid", h.DeleteAnnotation)
+
+	req := httptest.NewRequest(
+		"DELETE",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/bar",
+		nil)
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestUnHappyDeleteAnnotationsWhenRetrievingAnnotationsFails(t *testing.T) {
+	rw := new(RWMock)
+	annAPI := new(AnnotationsAPIMock)
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").
+		Return([]annotations.Annotation{}, errors.New("sorry something failed"))
+	aug := new(AugmenterMock)
+
+	h := New(rw, annAPI, nil, aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Delete("/drafts/content/:uuid/annotations/:cuuid", h.DeleteAnnotation)
+
+	req := httptest.NewRequest(
+		"DELETE",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
+		nil)
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+}
+
+func TestUnHappyDeleteAnnotationsWhenWritingAnnotationsFails(t *testing.T) {
+	rw := new(RWMock)
+	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsBody, "").Return(mock.Anything, errors.New("sorry something failed"))
+	annAPI := new(AnnotationsAPIMock)
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").
+		Return(expectedAnnotations.Annotations, nil)
+	aug := new(AugmenterMock)
+
+	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Delete("/drafts/content/:uuid/annotations/:cuuid", h.DeleteAnnotation)
+
+	req := httptest.NewRequest(
+		"DELETE",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
+		nil)
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 }
 
 type AugmenterMock struct {

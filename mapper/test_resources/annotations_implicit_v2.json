@@ -1,0 +1,48 @@
+[
+    {
+        "predicate": "http://www.ft.com/ontology/classification/isClassifiedBy",
+        "id": "http://api.ft.com/things/13006c72-7d1b-47a0-96fe-d1ad1f12de9f",
+        "apiUrl": "http://api.ft.com/brands/13006c72-7d1b-47a0-96fe-d1ad1f12de9f",
+        "types": [
+            "http://www.ft.com/ontology/core/Thing",
+            "http://www.ft.com/ontology/concept/Concept",
+            "http://www.ft.com/ontology/classification/Classification",
+            "http://www.ft.com/ontology/product/Brand"
+        ],
+        "prefLabel": "Material World"
+    },
+    {
+        "predicate": "http://www.ft.com/ontology/implicitlyClassifiedBy",
+        "id": "http://api.ft.com/things/dbb0bdae-1f0c-11e4-b0cb-b2227cce2b54",
+        "apiUrl": "http://api.ft.com/brands/dbb0bdae-1f0c-11e4-b0cb-b2227cce2b54",
+        "types": [
+            "http://www.ft.com/ontology/core/Thing",
+            "http://www.ft.com/ontology/concept/Concept",
+            "http://www.ft.com/ontology/classification/Classification",
+            "http://www.ft.com/ontology/product/Brand"
+        ],
+        "prefLabel": "Financial Times"
+    },
+    {
+        "predicate": "http://www.ft.com/ontology/annotation/about",
+        "id": "http://api.ft.com/things/29e67a92-a3b8-410c-9139-15abe9b47e12",
+        "apiUrl": "http://api.ft.com/things/29e67a92-a3b8-410c-9139-15abe9b47e12",
+        "types": [
+            "http://www.ft.com/ontology/core/Thing",
+            "http://www.ft.com/ontology/concept/Concept",
+            "http://www.ft.com/ontology/Topic"
+        ],
+        "prefLabel": "Global Economy"
+    },
+        {
+        "predicate": "http://www.ft.com/ontology/implicitlyAbout",
+        "id": "http://api.ft.com/things/82645c31-4426-4ef5-99c9-9df6e0940c00",
+        "apiUrl": "http://api.ft.com/things/82645c31-4426-4ef5-99c9-9df6e0940c00",
+        "types": [
+            "http://www.ft.com/ontology/core/Thing",
+            "http://www.ft.com/ontology/concept/Concept",
+            "http://www.ft.com/ontology/Topic"
+        ],
+        "prefLabel": "World"
+    }
+]
