@@ -497,10 +497,6 @@ var expectedCanonicalisedAnnotationsSameConceptId = annotations.Annotations{
 	Annotations: []annotations.Annotation{
 		{
 			Predicate: "http://www.ft.com/ontology/annotation/about",
-			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/about",
 			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		},
 		{
@@ -510,6 +506,10 @@ var expectedCanonicalisedAnnotationsSameConceptId = annotations.Annotations{
 		{
 			Predicate: "http://www.ft.com/ontology/annotation/mentions",
 			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
 		},
 		{
 			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
@@ -972,6 +972,17 @@ func TestHappyAddExistingAnnotation(t *testing.T) {
 	r.ServeHTTP(w, req)
 	resp := w.Result()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	actual := annotations.Annotations{}
+	err := json.NewDecoder(resp.Body).Decode(&actual)
+	assert.NoError(t, err)
+
+	assert.Equal(t, expectedCanonicalisedAnnotationsBody, actual)
+	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
+
+	rw.AssertExpectations(t)
+	aug.AssertExpectations(t)
+	annAPI.AssertExpectations(t)
 }
 
 func TestHappyAddAnnotationWithExistingConceptIdDifferentPredicate(t *testing.T) {
@@ -989,7 +1000,7 @@ func TestHappyAddAnnotationWithExistingConceptIdDifferentPredicate(t *testing.T)
 
 	r.Add("POST", "/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{"http://www.ft.com/ontology/annotation/about", "0a619d71-9af5-3755-90dd-f789b686c67a", "", "", "", false}
+	ann := annotations.Annotation{"http://www.ft.com/ontology/annotation/mentions", "838b3fbe-efbc-3cfe-b5c0-d38c046492a4", "", "", "", false}
 	b, _ := json.Marshal(ann)
 
 	req := httptest.NewRequest(
@@ -1097,7 +1108,7 @@ func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsSameConceptId, "").Return(mock.Anything, errors.New("Error writing annotations"))
+	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, errors.New("Error writing annotations"))
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, nil)
 
 	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
@@ -1105,7 +1116,7 @@ func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 
 	r.Add("POST", "/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{"http://www.ft.com/ontology/annotation/about", "0a619d71-9af5-3755-90dd-f789b686c67a", "", "", "", false}
+	ann := annotations.Annotation{"http://www.ft.com/ontology/annotation/mentions", "100e3cc0-aecc-4458-8ebd-6b1fbc7345ed", "", "", "", false}
 	b, _ := json.Marshal(ann)
 
 	req := httptest.NewRequest(
@@ -1126,7 +1137,7 @@ func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsSameConceptId, "").Return(mock.Anything, nil)
+	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, errors.New("Error getting annotations"))
 
 	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
@@ -1134,7 +1145,7 @@ func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 
 	r.Add("POST", "/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{"http://www.ft.com/ontology/annotation/about", "0a619d71-9af5-3755-90dd-f789b686c67a", "", "", "", false}
+	ann := annotations.Annotation{"http://www.ft.com/ontology/annotation/mentions", "100e3cc0-aecc-4458-8ebd-6b1fbc7345ed", "", "", "", false}
 	b, _ := json.Marshal(ann)
 
 	req := httptest.NewRequest(
