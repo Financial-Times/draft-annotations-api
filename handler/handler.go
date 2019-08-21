@@ -134,6 +134,8 @@ func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 	conceptUUID := mapper.TransformConceptID("/" + annotation.ConceptId)
 	annotation.ConceptId = conceptUUID
 
+	uppList = canonicalizeAnnotations(h, uppList, writeLog)
+
 	for _, item := range uppList {
 		if conceptUUID == item.ConceptId {
 			if annotation.Predicate == item.Predicate {
