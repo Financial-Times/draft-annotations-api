@@ -7,6 +7,7 @@ import (
 
 	fthealth "github.com/Financial-Times/go-fthealth/v1_1"
 	"github.com/Financial-Times/service-status-go/gtg"
+	log "github.com/sirupsen/logrus"
 )
 
 type externalService interface {
@@ -57,7 +58,7 @@ func (service *HealthService) rwCheck() fthealth.Check {
 
 func (service *HealthService) rwChecker() (string, error) {
 	if err := service.rw.GTG(); err != nil {
-		return "", err
+		return "Generic RW Aurora is not healthy", err
 	}
 	return "Generic RW Aurora is healthy", nil
 }
@@ -76,7 +77,7 @@ func (service *HealthService) annotationsAPICheck() fthealth.Check {
 
 func (service *HealthService) annotationsAPIChecker() (string, error) {
 	if err := service.annotationsAPI.GTG(); err != nil {
-		return "", err
+		return "UPP Public Annotations API is not healthy", err
 	}
 	return "UPP Public Annotations API is healthy", nil
 }
@@ -95,7 +96,7 @@ func (service *HealthService) conceptSearchAPICheck() fthealth.Check {
 
 func (service *HealthService) conceptSearchAPIChecker() (string, error) {
 	if err := service.conceptSearchAPI.GTG(); err != nil {
-		return "", err
+		return "UPP Internal Concordances API is not healthy", err
 	}
 	return "UPP Internal Concordances API is healthy", nil
 }
@@ -107,7 +108,8 @@ func (service *HealthService) GTG() gtg.Status {
 		check := service.Checks[idx]
 
 		checks = append(checks, func() gtg.Status {
-			if _, err := check.Checker(); err != nil {
+			if msg, err := check.Checker(); err != nil {
+				log.WithError(err).Error(msg)
 				return gtg.Status{GoodToGo: false, Message: err.Error()}
 			}
 			return gtg.Status{GoodToGo: true}
