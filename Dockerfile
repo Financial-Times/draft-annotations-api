@@ -1,4 +1,4 @@
-FROM golang:1.12-alpine
+FROM golang:1.12.9-alpine
 
 ENV PROJECT=draft-annotations-api
 COPY . /${PROJECT}-sources/
