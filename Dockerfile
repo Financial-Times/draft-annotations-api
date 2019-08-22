@@ -19,7 +19,7 @@ RUN apk --no-cache --virtual .build-dependencies add git \
   && LDFLAGS="-X '"${BUILDINFO_PACKAGE}$VERSION"' -X '"${BUILDINFO_PACKAGE}$DATETIME"' -X '"${BUILDINFO_PACKAGE}$REPOSITORY"' -X '"${BUILDINFO_PACKAGE}$REVISION"' -X '"${BUILDINFO_PACKAGE}$BUILDER"'" \
   && echo "Build flags: $LDFLAGS" \
   && echo "Fetching dependencies..." \
-  && GO111MODULE=on go build -mod=readonly -ldflags="${LDFLAGS}" \
+  && CGO_ENABLED=0 GO111MODULE=on go build -mod=readonly -v -ldflags="${LDFLAGS}" \
   && mv ${PROJECT} /${PROJECT} \
   && mv ./_ft/api.yml / \
   && apk del .build-dependencies \
