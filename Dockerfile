@@ -3,7 +3,7 @@ FROM golang:1.12-alpine
 ENV PROJECT=draft-annotations-api
 COPY . /${PROJECT}-sources/
 
-RUN apk --no-cache --virtual .build-dependencies add git curl \
+RUN apk --no-cache --virtual .build-dependencies add git \
   && ORG_PATH="github.com/Financial-Times" \
   && REPO_PATH="${ORG_PATH}/${PROJECT}" \
   && mkdir -p $GOPATH/src/${ORG_PATH} \
@@ -19,9 +19,7 @@ RUN apk --no-cache --virtual .build-dependencies add git curl \
   && LDFLAGS="-X '"${BUILDINFO_PACKAGE}$VERSION"' -X '"${BUILDINFO_PACKAGE}$DATETIME"' -X '"${BUILDINFO_PACKAGE}$REPOSITORY"' -X '"${BUILDINFO_PACKAGE}$REVISION"' -X '"${BUILDINFO_PACKAGE}$BUILDER"'" \
   && echo "Build flags: $LDFLAGS" \
   && echo "Fetching dependencies..." \
-  && curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh \
-  && $GOPATH/bin/dep ensure -v -vendor-only \
-  && go build -v -ldflags="${LDFLAGS}" \
+  && GO111MODULE=on go build -mod=readonly -v -ldflags="${LDFLAGS}" \
   && mv ${PROJECT} /${PROJECT} \
   && mv ./_ft/api.yml / \
   && apk del .build-dependencies \
