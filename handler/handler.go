@@ -157,7 +157,6 @@ func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string,
 func (h *Handler) saveAndReturnAnnotations(ctx context.Context, w http.ResponseWriter, uppList []annotations.Annotation, writeLog *log.Entry, oldHash string, contentUUID string) {
 	writeLog.Debug("Canonicalizing annotations...")
 	uppList = h.c14n.Canonicalize(uppList)
-
 	writeLog.Debug("Writing to annotations RW...")
 	newAnnotations := annotations.Annotations{Annotations: uppList}
 	newHash, err := h.annotationsRW.Write(ctx, contentUUID, &newAnnotations, oldHash)
