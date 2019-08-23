@@ -67,13 +67,13 @@ func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
 	}
 	conceptUUID = mapper.TransformConceptID("/" + conceptUUID)
 
-	uppList, err := getAnnotations(ctx, h, w, writeLog, contentUUID)
+	uppList, err := h.getAnnotations(ctx, w, writeLog, contentUUID)
 	if err != nil {
 		handleErrors(err, writeLog, w)
 		return
 	}
 
-	uppList = canonicalizeAnnotations(h, uppList, writeLog)
+	uppList = h.canonicalizeAnnotations(uppList, writeLog)
 
 	i := 0
 	for _, item := range uppList {
@@ -86,7 +86,7 @@ func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
 	}
 	uppList = uppList[:i]
 
-	writeAnnotations(ctx, h, w, uppList, writeLog, oldHash, contentUUID)
+	h.writeAnnotationsRW(ctx, w, uppList, writeLog, oldHash, contentUUID)
 }
 
 // AddAnnotation adds an annotation for a specific content uuid.
@@ -125,7 +125,7 @@ func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	uppList, err := getAnnotations(ctx, h, w, writeLog, contentUUID)
+	uppList, err := h.getAnnotations(ctx, w, writeLog, contentUUID)
 	if err != nil {
 		handleErrors(err, writeLog, w)
 		return
@@ -134,26 +134,23 @@ func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 	conceptUUID := mapper.TransformConceptID("/" + annotation.ConceptId)
 	annotation.ConceptId = conceptUUID
 
-	uppList = canonicalizeAnnotations(h, uppList, writeLog)
+	uppList = h.canonicalizeAnnotations(uppList, writeLog)
 
 	for _, item := range uppList {
-		if conceptUUID == item.ConceptId {
-			if annotation.Predicate == item.Predicate {
-				writeLog.Debug("Annotation is already in list")
-				uppList = canonicalizeAnnotations(h, uppList, writeLog)
-				writeAnnotations(ctx, h, w, uppList, writeLog, oldHash, contentUUID)
-				return
-			}
-			break
+		if conceptUUID == item.ConceptId && annotation.Predicate == item.Predicate {
+			writeLog.Debug("Annotation is already in list")
+			uppList = h.canonicalizeAnnotations(uppList, writeLog)
+			h.writeAnnotationsRW(ctx, w, uppList, writeLog, oldHash, contentUUID)
+			return
 		}
 	}
 
 	uppList = append(uppList, annotation)
-	uppList = canonicalizeAnnotations(h, uppList, writeLog)
-	writeAnnotations(ctx, h, w, uppList, writeLog, oldHash, contentUUID)
+	uppList = h.canonicalizeAnnotations(uppList, writeLog)
+	h.writeAnnotationsRW(ctx, w, uppList, writeLog, oldHash, contentUUID)
 }
 
-func getAnnotations(ctx context.Context, h *Handler, w http.ResponseWriter, writeLog *log.Entry, contentUUID string) ([]annotations.Annotation, error) {
+func (h *Handler) getAnnotations(ctx context.Context, w http.ResponseWriter, writeLog *log.Entry, contentUUID string) ([]annotations.Annotation, error) {
 	writeLog.Debug("Reading annotations from UPP...")
 	uppList, err := h.annotationsAPI.GetAllButV2(ctx, contentUUID)
 	if err != nil {
@@ -162,13 +159,13 @@ func getAnnotations(ctx context.Context, h *Handler, w http.ResponseWriter, writ
 	return uppList, nil
 }
 
-func canonicalizeAnnotations(h *Handler, uppList []annotations.Annotation, writeLog *log.Entry) []annotations.Annotation {
+func (h *Handler) canonicalizeAnnotations(uppList []annotations.Annotation, writeLog *log.Entry) []annotations.Annotation {
 	writeLog.Debug("Canonicalizing annotations...")
 	uppList = h.c14n.Canonicalize(uppList)
 	return uppList
 }
 
-func writeAnnotations(ctx context.Context, h *Handler, w http.ResponseWriter, uppList []annotations.Annotation, writeLog *log.Entry, oldHash string, contentUUID string) {
+func (h *Handler) writeAnnotationsRW(ctx context.Context, w http.ResponseWriter, uppList []annotations.Annotation, writeLog *log.Entry, oldHash string, contentUUID string) {
 	writeLog.Debug("Writing to annotations RW...")
 	newAnnotations := annotations.Annotations{Annotations: uppList}
 	newHash, err := h.annotationsRW.Write(ctx, contentUUID, &newAnnotations, oldHash)
