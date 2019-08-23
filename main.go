@@ -138,7 +138,7 @@ func serveEndpoints(port string, apiYml *string, handler *handler.Handler, healt
 	r.Put("/drafts/content/:uuid/annotations", handler.WriteAnnotations)
 	r.Post("/drafts/content/:uuid/annotations", handler.AddAnnotation)
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", handler.ReplaceAnnotation)
-	
+
 	var monitoringRouter http.Handler = r
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
 	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)

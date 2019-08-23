@@ -2,6 +2,9 @@ package handler
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -9,10 +12,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"context"
-	"encoding/json"
-	"errors"
 
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/Financial-Times/go-ft-http/fthttp"
@@ -434,6 +433,27 @@ var expectedAnnotations = annotations.Annotations{
 	},
 }
 
+var expectedAnnotationsReplace = annotations.Annotations{
+	Annotations: []annotations.Annotation{
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			Type:      "http://www.ft.com/ontology/person/Person",
+			PrefLabel: "Barack H. Obama",
+		},
+	},
+}
+
+var expectedAnnotationsReplaceExisting = annotations.Annotations{
+	Annotations: []annotations.Annotation{
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		},
+	},
+}
+
 var expectedCanonicalisedAnnotationsBody = annotations.Annotations{
 	Annotations: []annotations.Annotation{
 		{
@@ -489,6 +509,27 @@ var expectedCanonicalisedAnnotationsAfterAdditon = annotations.Annotations{
 		{
 			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
 			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		},
+	},
+}
+
+var expectedCanonicalisedAnnotationsAfterReplace = annotations.Annotations{
+	Annotations: []annotations.Annotation{
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/about",
+			ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
+			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
+			ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 		},
 	},
 }
@@ -920,12 +961,15 @@ func TestHappyAddAnnotation(t *testing.T) {
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
 	ann := annotations.Annotation{
-		Predicate: "http://www.ft.com/ontology/annotation/mentions", 
-		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed", 
+		Predicate: "http://www.ft.com/ontology/annotation/mentions",
+		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 	}
 	b, _ := json.Marshal(ann)
 
-	req := httptest.NewRequest("POST", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", bytes.NewBuffer(b))
+	req := httptest.NewRequest(
+		"POST",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
@@ -964,12 +1008,15 @@ func TestHappyAddExistingAnnotation(t *testing.T) {
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
 	ann := annotations.Annotation{
-		Predicate: "http://www.ft.com/ontology/annotation/mentions", 
-		ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a", 
+		Predicate: "http://www.ft.com/ontology/annotation/mentions",
+		ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
 	}
 	b, _ := json.Marshal(ann)
 
-	req := httptest.NewRequest("POST", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", bytes.NewBuffer(b))
+	req := httptest.NewRequest(
+		"POST",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
@@ -1007,7 +1054,7 @@ func TestHappyAddAnnotationWithExistingConceptIdDifferentPredicate(t *testing.T)
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
 	ann := annotations.Annotation{
-		Predicate: "http://www.ft.com/ontology/annotation/mentions", 
+		Predicate: "http://www.ft.com/ontology/annotation/mentions",
 		ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
 	}
 	b, _ := json.Marshal(ann)
@@ -1070,7 +1117,7 @@ func TestUnHappyAddAnnotationInvalidConceptIdPrefix(t *testing.T) {
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
 	ann := annotations.Annotation{
-		Predicate: "http://www.ft.com/ontology/annotation/about", 
+		Predicate: "http://www.ft.com/ontology/annotation/about",
 		ConceptId: "http://www.ft.com/thing//838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
 	}
 	b, _ := json.Marshal(ann)
@@ -1127,7 +1174,7 @@ func TestUnHappyAddAnnotationInvalidConceptUuid(t *testing.T) {
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
 	ann := annotations.Annotation{
-		Predicate: "http://www.ft.com/ontology/annotation/about", 
+		Predicate: "http://www.ft.com/ontology/annotation/about",
 		ConceptId: "http://www.ft.com/thing//838b3fbe",
 	}
 	b, _ := json.Marshal(ann)
@@ -1156,8 +1203,8 @@ func TestUnHappyAddAnnotationInvalidPredicate(t *testing.T) {
 	r.Add("POST", "/drafts/content/:uuid/annotations", h.AddAnnotation)
 
 	ann := annotations.Annotation{
-		Predicate:"http://www.ft.com/ontology/annotation/foobar", 
-		ConceptId:"http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		Predicate: "http://www.ft.com/ontology/annotation/foobar",
+		ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
 	}
 	b, _ := json.Marshal(ann)
 
@@ -1180,7 +1227,7 @@ func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, errors.New("Error writing annotations"))
+	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, errors.New("error writing annotations"))
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, nil)
 
 	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
@@ -1189,8 +1236,8 @@ func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
 	ann := annotations.Annotation{
-		Predicate:"http://www.ft.com/ontology/annotation/mentions", 
-		ConceptId:"http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed", 
+		Predicate: "http://www.ft.com/ontology/annotation/mentions",
+		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 	}
 	b, _ := json.Marshal(ann)
 
@@ -1213,7 +1260,7 @@ func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 	aug := new(AugmenterMock)
 
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
-	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, errors.New("Error getting annotations"))
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, errors.New("error getting annotations"))
 
 	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	r := vestigo.NewRouter()
@@ -1221,14 +1268,256 @@ func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
 	ann := annotations.Annotation{
-		Predicate: "http://www.ft.com/ontology/annotation/mentions", 
-		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed", 
+		Predicate: "http://www.ft.com/ontology/annotation/mentions",
+		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 	}
 	b, _ := json.Marshal(ann)
 
 	req := httptest.NewRequest(
 		"POST",
 		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		bytes.NewBuffer(b))
+
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+}
+
+func TestHappyReplaceAnnotation(t *testing.T) {
+	rw := new(RWMock)
+	annAPI := new(AnnotationsAPIMock)
+	aug := new(AugmenterMock)
+
+	oldHash := randomdata.RandStringRunes(56)
+	newHash := randomdata.RandStringRunes(56)
+
+	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterReplace, oldHash).Return(newHash, nil)
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, nil)
+
+	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	r := vestigo.NewRouter()
+
+	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+
+	ann := annotations.Annotation{
+		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+	}
+	b, _ := json.Marshal(ann)
+
+	req := httptest.NewRequest(
+		"PATCH",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		bytes.NewBuffer(b))
+
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func TestHappyReplaceExistingAnnotation(t *testing.T) {
+	rw := new(RWMock)
+	annAPI := new(AnnotationsAPIMock)
+	aug := new(AugmenterMock)
+
+	oldHash := randomdata.RandStringRunes(56)
+	newHash := randomdata.RandStringRunes(56)
+
+	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedAnnotationsReplaceExisting, oldHash).Return(newHash, nil)
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotationsReplace.Annotations, nil)
+
+	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+
+	ann := annotations.Annotation{
+		ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+	}
+	b, _ := json.Marshal(ann)
+
+	req := httptest.NewRequest(
+		"PATCH",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/0a619d71-9af5-3755-90dd-f789b686c67a",
+		bytes.NewBuffer(b))
+
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	actual := annotations.Annotations{}
+	err := json.NewDecoder(resp.Body).Decode(&actual)
+	assert.NoError(t, err)
+
+	assert.Equal(t, expectedAnnotationsReplaceExisting, actual)
+	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
+
+	rw.AssertExpectations(t)
+	aug.AssertExpectations(t)
+	annAPI.AssertExpectations(t)
+}
+
+func TestUnHappyReplaceAnnotationsInvalidContentUUID(t *testing.T) {
+	rw := new(RWMock)
+	annAPI := new(AnnotationsAPIMock)
+	aug := new(AugmenterMock)
+
+	h := New(rw, annAPI, nil, aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+
+	req := httptest.NewRequest(
+		"PATCH",
+		"http://api.ft.com/drafts/content/foo/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
+		nil)
+
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestUnHappyReplaceAnnotationInvalidConceptIdInURL(t *testing.T) {
+	rw := new(RWMock)
+	annAPI := new(AnnotationsAPIMock)
+	aug := new(AugmenterMock)
+
+	h := New(rw, annAPI, nil, aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+
+	ann := annotations.Annotation{
+		ConceptId: "9577c6d4-b09e-4552-b88f-e52745abe02b",
+	}
+	b, _ := json.Marshal(ann)
+
+	req := httptest.NewRequest(
+		"PATCH",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/bar",
+		bytes.NewBuffer(b))
+
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestUnHappyReplaceAnnotationEmptyBody(t *testing.T) {
+	rw := new(RWMock)
+	annAPI := new(AnnotationsAPIMock)
+	aug := new(AugmenterMock)
+
+	h := New(rw, annAPI, nil, aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+
+	req := httptest.NewRequest(
+		"PATCH",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		nil)
+
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestUnHappyReplaceAnnotationInvalidConceptIdInBody(t *testing.T) {
+	rw := new(RWMock)
+	annAPI := new(AnnotationsAPIMock)
+	aug := new(AugmenterMock)
+
+	h := New(rw, annAPI, nil, aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+
+	ann := annotations.Annotation{
+		ConceptId: "foobar",
+	}
+	b, _ := json.Marshal(ann)
+
+	req := httptest.NewRequest(
+		"PATCH",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		bytes.NewBuffer(b))
+
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestUnhappyReplaceAnnotationWhenWritingAnnotationsFails(t *testing.T) {
+	rw := new(RWMock)
+	annAPI := new(AnnotationsAPIMock)
+	aug := new(AugmenterMock)
+
+	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterReplace, "").Return(mock.Anything, errors.New("error writing annotations"))
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, nil)
+
+	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+
+	ann := annotations.Annotation{
+		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+	}
+	b, _ := json.Marshal(ann)
+
+	req := httptest.NewRequest(
+		"PATCH",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		bytes.NewBuffer(b))
+
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+}
+
+func TestUnhappyReplaceAnnotationWhenGettingAnnotationsFails(t *testing.T) {
+	rw := new(RWMock)
+	annAPI := new(AnnotationsAPIMock)
+	aug := new(AugmenterMock)
+
+	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, errors.New("error getting annotations"))
+
+	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+
+	ann := annotations.Annotation{
+		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+	}
+	b, _ := json.Marshal(ann)
+
+	req := httptest.NewRequest(
+		"PATCH",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
