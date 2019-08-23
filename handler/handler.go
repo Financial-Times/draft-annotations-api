@@ -368,25 +368,25 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var newConceptID string
-	dec := json.NewDecoder(r.Body)
-	err := dec.Decode(&newConceptID)
-	if err != nil {
-		handleWriteErrors("Error decoding request body", err, writeLog, w, http.StatusInternalServerError)
-	}
-
 	if err := validateUUID(conceptUUID); err != nil {
 		handleWriteErrors("Invalid concept UUID in URL", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
-	if err := validateUUID(newConceptID); err != nil {
+	var newAnnotation annotations.Annotation
+	dec := json.NewDecoder(r.Body)
+	err := dec.Decode(&newAnnotation)
+	if err != nil {
+		handleWriteErrors("Error decoding request body", err, writeLog, w, http.StatusInternalServerError)
+	}
+
+	if err := validateUUID(newAnnotation.ConceptId); err != nil {
 		handleWriteErrors("Invalid concept UUID in body", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
 	conceptUUID = mapper.TransformConceptID("/" + conceptUUID)
-	newConceptID = mapper.TransformConceptID("/" + newConceptID)
+	newAnnotation.ConceptId = mapper.TransformConceptID("/" + newAnnotation.ConceptId)
 
 	uppList, err := h.getAnnotations(ctx, w, writeLog, contentUUID)
 	if err != nil {
@@ -396,14 +396,14 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 
 	uppList = h.canonicalizeAnnotations(uppList, writeLog)
 	//create a list of annotations with the same ID to keep the predicate
-	var annotationsToBeReplaced []annotations.Annotation
+	var newAnnotations []annotations.Annotation
 
 	//delete annotation
 	i := 0
 	for _, item := range uppList {
 		if item.ConceptId == conceptUUID {
-			annotation := annotations.Annotation{item.Predicate, newConceptID, "", "", "", false}
-			annotationsToBeReplaced = append(annotationsToBeReplaced, annotation)
+			annotation := annotations.Annotation{item.Predicate, newAnnotation.ConceptId, "", "", "", false}
+			newAnnotations = append(newAnnotations, annotation)
 			continue
 		}
 		uppList[i] = item
@@ -411,7 +411,7 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 	}
 	uppList = uppList[:i]
 
-	for _, item :=range annotationsToBeReplaced {
+	for _, item := range newAnnotations {
 		uppList = append(uppList, item)
 	}
 
