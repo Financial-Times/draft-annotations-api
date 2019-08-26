@@ -151,6 +151,55 @@ paths:
           description: Invalid content or concept UUID supplied
         404:
           description: Content with the specified UUID was not found
+    patch:
+      summary: Replaces all annotations with a given concept from the draft annotations for a specified content
+      description: Returns the draft annotations for the content after the delete operation.
+      tags:
+        - Public API
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - name: uuid
+          in: path
+          description: The UUID of the content
+          required: true
+          type: string
+          x-example: 8df16ae8-0dfd-4859-a5ff-eeb9644bed35
+        - name: conceptUuid
+          in: path
+          description: The UUID of the concept to be replaced
+          required: true
+          type: string
+          x-example: d7113d1d-ed66-3adf-9910-1f62b2c40e6a
+        - name: body
+          in: body
+          description: An annotation for specific content
+          required: true
+          schema: 
+            type: object
+            properties:
+              id:
+                type: string
+                description: The UUID of the concept to be added
+                x-example: 100e3cc0-aecc-4458-8ebd-6b1fbc7345ed
+            example:
+              id: 100e3cc0-aecc-4458-8ebd-6b1fbc7345ed
+            required:
+              - id
+      responses:
+        200:
+          description: Returns the canonicalized array of annotations that have been successufully saved in PAC.
+          examples:
+            application/json:
+              annotations:
+                - id: http://api.ft.com/things/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed
+                  predicate: http://www.ft.com/ontology/annotation/about
+        400:
+          description: Invalid content or concept UUID supplied
+        404:
+          description: Content with the specified UUID was not found
   /__health:
     get:
       summary: Healthchecks

@@ -206,6 +206,42 @@ This is an example response body:
 }
 ```
 
+### PATCH - Replacing draft editorial annotations
+
+Using curl:
+
+```
+curl http://localhost:8080/draft/content/{content-uuid}/annotations/{concept-uuid} -X PATCH --data '{
+        {
+          "id": {new-concept-uuid},
+        }
+}'
+```
+
+A PATCH request on this endpoint replaces all annotations for a single concept in the editorially curated published annotations for a specific piece of content. To retrieve these annotations it calls [UPP Public Annotations API](https://github.com/Financial-Times/public-annotations-api) using the "lifecycle" parameter.
+The new list of draft annotations will override any unpublished draft annotations for this piece of content.
+If the operation is successful, the application returns the canonicalized input body with an HTTP 200 response code.
+
+This is an example response body:
+```
+{
+      "annotations":[
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
+        "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/about",
+        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+      },
+      {
+        "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
+        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
+      }
+    ]
+}
+```
+
 ## Healthchecks
 
 Admin endpoints are:
