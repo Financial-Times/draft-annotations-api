@@ -3,7 +3,7 @@ jobs:
   build:
     working_directory: /go/src/github.com/Financial-Times/draft-annotations-api
     docker:
-      - image: golang:1.12.9
+      - image: circleci/golang:1
         environment:
           GOPATH: /go
           CIRCLE_TEST_REPORTS: /tmp/test-results
