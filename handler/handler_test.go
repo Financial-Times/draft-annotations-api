@@ -1442,62 +1442,6 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInBody(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
-	rw := new(RWMock)
-	annAPI := new(AnnotationsAPIMock)
-	aug := new(AugmenterMock)
-
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterReplace, "").Return(mock.Anything, errors.New("Error writing annotations"))
-	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotationsPatch.Annotations, nil)
-
-	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
-	r := vestigo.NewRouter()
-
-	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
-
-	ann := annotations.Annotation{}
-	ann.ConceptId = "100e3cc0-aecc-4458-8ebd-6b1fbc7345ed"
-	b, _ := json.Marshal(ann)
-
-	req := httptest.NewRequest(
-		"PATCH",
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
-		bytes.NewBuffer(b))
-
-	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-	resp := w.Result()
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-}
-
-func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
-	rw := new(RWMock)
-	annAPI := new(AnnotationsAPIMock)
-	aug := new(AugmenterMock)
-
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterReplace, "").Return(mock.Anything, nil)
-	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, errors.New("Error getting annotations"))
-
-	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
-	r := vestigo.NewRouter()
-
-	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
-
-	req := httptest.NewRequest(
-		"PATCH",
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
-		nil)
-
-	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-	resp := w.Result()
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-}
-
 var expectedCanonicalisedAnnotationsAfterReplace = annotations.Annotations{
 	Annotations: []annotations.Annotation{
 		{
