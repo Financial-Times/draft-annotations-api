@@ -11,12 +11,11 @@ Draft Annotations API is a microservice that provides access to draft annotation
 Download the source code, dependencies and test dependencies:
 
 ```
-curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 mkdir $GOPATH/src/github.com/Financial-Times/draft-annotations-api
 cd $GOPATH/src/github.com/Financial-Times
 git clone https://github.com/Financial-Times/draft-annotations-api.git
-cd draft-annotations-api && dep ensure -vendor-only
-go build .
+cd draft-annotations-api
+GO111MODULE=on go build -mod=readonly
 ```
 
 ## Running locally
@@ -24,7 +23,7 @@ go build .
 1. Run the tests and install the binary:
 
 ```
-go test ./...
+GO111MODULE=on go test -mod=readonly ./...
 go install
 ```
 
