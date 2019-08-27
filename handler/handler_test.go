@@ -1233,7 +1233,7 @@ func TestHappyReplaceAnnotation(t *testing.T) {
 	newHash := randomdata.RandStringRunes(56)
 
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterReplace, oldHash).Return(newHash, nil)
-	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, nil)
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotationsPatch.Annotations, nil)
 
 	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	r := vestigo.NewRouter()
@@ -1370,7 +1370,7 @@ func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 	aug := new(AugmenterMock)
 
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterReplace, "").Return(mock.Anything, errors.New("Error writing annotations"))
-	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, nil)
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotationsPatch.Annotations, nil)
 
 	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	r := vestigo.NewRouter()
@@ -1420,7 +1420,6 @@ func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 }
 
-
 var expectedCanonicalisedAnnotationsAfterReplace = annotations.Annotations{
 	Annotations: []annotations.Annotation{
 		{
@@ -1436,8 +1435,63 @@ var expectedCanonicalisedAnnotationsAfterReplace = annotations.Annotations{
 			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
 		},
 		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/classification/isClassifiedBy",
+			ConceptId: "http://www.ft.com/thing/a579350c-61ce-4c00-97ca-ddaa2e0cacf6",
+		},
+		{
 			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
 			ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+		},
+	},
+}
+
+var expectedAnnotationsPatch = annotations.Annotations{
+	Annotations: []annotations.Annotation{
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			Type:      "http://www.ft.com/ontology/person/Person",
+			PrefLabel: "Barack H. Obama",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
+			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			Type:      "http://www.ft.com/ontology/Topic",
+			PrefLabel: "US interest rates",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
+			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			ApiUrl:    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			Type:      "http://www.ft.com/ontology/person/Person",
+			PrefLabel: "David J Lynch",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/classification/isClassifiedBy",
+			ConceptId: "http://www.ft.com/thing/a579350c-61ce-4c00-97ca-ddaa2e0cacf6",
+			ApiUrl:    "http://api.ft.com/things/a579350c-61ce-4c00-97ca-ddaa2e0cacf6",
+			Type:      "http://www.ft.com/ontology/Genre",
+			PrefLabel: "News",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/about",
+			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			Type:      "http://www.ft.com/ontology/Topic",
+			PrefLabel: "US interest rates",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			Type:      "http://www.ft.com/ontology/Topic",
+			PrefLabel: "US interest rates",
 		},
 	},
 }

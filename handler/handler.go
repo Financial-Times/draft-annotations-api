@@ -391,14 +391,14 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 
 	uppList = h.canonicalizeAnnotations(uppList, writeLog)
 	//create a list of annotations with the same ID to keep the predicate
-	var annotationsToBeReplaced []annotations.Annotation
+	var newAnnotations []annotations.Annotation
 
 	//delete annotation
 	i := 0
 	for _, item := range uppList {
 		if item.ConceptId == conceptUUID {
 			annotation := annotations.Annotation{item.Predicate, newAnnotation.ConceptId, "", "", "", false}
-			annotationsToBeReplaced = append(annotationsToBeReplaced, annotation)
+			newAnnotations = append(newAnnotations, annotation)
 			continue
 		}
 		uppList[i] = item
@@ -406,7 +406,7 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 	}
 	uppList = uppList[:i]
 
-	for _, item :=range annotationsToBeReplaced {
+	for _, item := range newAnnotations {
 		uppList = append(uppList, item)
 	}
 
