@@ -1,4 +1,4 @@
-FROM golang:1 as builder
+FROM golang:1
 
 ENV PROJECT=draft-annotations-api
 
@@ -22,7 +22,7 @@ RUN BUILDINFO_PACKAGE="${ORG_PATH}/service-status-go/buildinfo." \
 FROM scratch
 WORKDIR /
 COPY ./_ft/api.yml /_ft/
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /artifacts/* /
+COPY --from=0 /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=0 /artifacts/* /
 
 CMD [ "/draft-annotations-api" ]
