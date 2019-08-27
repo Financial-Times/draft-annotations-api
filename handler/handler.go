@@ -413,35 +413,3 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 	uppList = h.canonicalizeAnnotations(uppList, writeLog)
 	h.writeAnnotationsRW(ctx, w, uppList, writeLog, oldHash, contentUUID)
 }
-
-func (h *Handler) getAnnotations(ctx context.Context, w http.ResponseWriter, writeLog *log.Entry, contentUUID string) ([]annotations.Annotation, error) {
-	writeLog.Debug("Reading annotations from UPP...")
-	uppList, err := h.annotationsAPI.GetAllButV2(ctx, contentUUID)
-	if err != nil {
-		return nil, errors.New("Can't retrieve annotations")
-	}
-	return uppList, nil
-}
-
-func (h *Handler) canonicalizeAnnotations(uppList []annotations.Annotation, writeLog *log.Entry) []annotations.Annotation {
-	writeLog.Debug("Canonicalizing annotations...")
-	uppList = h.c14n.Canonicalize(uppList)
-	return uppList
-}
-
-func (h *Handler) writeAnnotationsRW(ctx context.Context, w http.ResponseWriter, uppList []annotations.Annotation, writeLog *log.Entry, oldHash string, contentUUID string) {
-	writeLog.Debug("Writing to annotations RW...")
-	newAnnotations := annotations.Annotations{Annotations: uppList}
-	newHash, err := h.annotationsRW.Write(ctx, contentUUID, &newAnnotations, oldHash)
-	if err != nil {
-		handleWriteErrors("Error writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set(annotations.DocumentHashHeader, newHash)
-	err = json.NewEncoder(w).Encode(newAnnotations)
-	if err != nil {
-		handleWriteErrors("Error encoding draft annotations response", err, writeLog, w, http.StatusInternalServerError)
-		return
-	}
-}
