@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"time"
+	"strings"
 
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/Financial-Times/draft-annotations-api/mapper"
@@ -47,125 +48,130 @@ func New(rw annotations.RW, annotationsAPI AnnotationsAPI, c14n *annotations.Can
 // It gets the annotations only from UPP skipping V2 annotations because they are not editorially curated.
 func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
-
 	contentUUID := vestigo.Param(r, "uuid")
-	conceptUUID := vestigo.Param(r, "cuuid")
+
 	tID := tidutils.GetTransactionIDFromRequest(r)
-	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
-
-	oldHash := r.Header.Get(annotations.PreviousDocumentHashHeader)
-
 	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
-
-	if err := validateUUID(contentUUID); err != nil {
-		handleWriteErrors("Invalid content UUID", err, writeLog, w, http.StatusBadRequest)
-		return
-	}
-	if err := validateUUID(conceptUUID); err != nil {
-		handleWriteErrors("Invalid concept UUID", err, writeLog, w, http.StatusBadRequest)
-		return
-	}
-	conceptUUID = mapper.TransformConceptID("/" + conceptUUID)
-
-	uppList, err := h.getAnnotations(ctx, w, writeLog, contentUUID)
+	
+	annotation := annotations.Annotation{}
+	ctx, oldHash, err := h.prepareAnnotations(w, r, contentUUID, &annotation)
 	if err != nil {
-		handleErrors(err, writeLog, w)
+		handleWriteErrors(err.Error(), err, writeLog, w, http.StatusBadRequest)
 		return
 	}
+	annotation.ConceptId = mapper.TransformConceptID("/" + annotation.ConceptId)
 
-	uppList = h.canonicalizeAnnotations(uppList, writeLog)
+	writeLog.Debug("Reading annotations from UPP...")
+	uppList, err := h.annotationsAPI.GetAllButV2(ctx, contentUUID)
+	if err != nil {
+		handleReadErrors(err, writeLog, w)
+		return
+	}
 
 	i := 0
 	for _, item := range uppList {
-		if item.ConceptId == conceptUUID {
+		if item.ConceptId == annotation.ConceptId {
 			continue
 		}
-
 		uppList[i] = item
 		i++
 	}
 	uppList = uppList[:i]
 
-	h.writeAnnotationsRW(ctx, w, uppList, writeLog, oldHash, contentUUID)
+	h.saveAndReturnAnnotations(ctx, w, uppList, writeLog, oldHash, contentUUID)
 }
 
 // AddAnnotation adds an annotation for a specific content uuid.
 // It gets the annotations only from UPP skipping V2 annotations because they are not editorially curated.
 func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
-
 	contentUUID := vestigo.Param(r, "uuid")
 
 	tID := tidutils.GetTransactionIDFromRequest(r)
-	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
-
 	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
 
-	if err := validateUUID(contentUUID); err != nil {
-		handleWriteErrors("Invalid content UUID", err, writeLog, w, http.StatusBadRequest)
-		return
-	}
-
 	annotation := annotations.Annotation{}
-	dec := json.NewDecoder(r.Body)
-	err := dec.Decode(&annotation)
+	ctx, oldHash, err := h.prepareAnnotations(w, r, contentUUID, &annotation)
 	if err != nil {
-		handleWriteErrors("Error decoding request body", err, writeLog, w, http.StatusInternalServerError)
-	}
-
-	oldHash := r.Header.Get(annotations.PreviousDocumentHashHeader)
-
-	if err := validateUUID(annotation.ConceptId); err != nil {
-		handleWriteErrors("Invalid concept UUID", err, writeLog, w, http.StatusBadRequest)
+		handleWriteErrors(err.Error(), err, writeLog, w, http.StatusBadRequest)
 		return
 	}
-
+	
 	if err := validatePredicate(annotation.Predicate); err != nil {
 		handleWriteErrors(err.Error(), err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
-	uppList, err := h.getAnnotations(ctx, w, writeLog, contentUUID)
-	if err != nil {
-		handleErrors(err, writeLog, w)
-		return
-	}
-
-	conceptUUID := mapper.TransformConceptID("/" + annotation.ConceptId)
-	annotation.ConceptId = conceptUUID
-
-	uppList = h.canonicalizeAnnotations(uppList, writeLog)
-
-	for _, item := range uppList {
-		if conceptUUID == item.ConceptId && annotation.Predicate == item.Predicate {
-			writeLog.Debug("Annotation is already in list")
-			uppList = h.canonicalizeAnnotations(uppList, writeLog)
-			h.writeAnnotationsRW(ctx, w, uppList, writeLog, oldHash, contentUUID)
-			return
-		}
-	}
-
-	uppList = append(uppList, annotation)
-	uppList = h.canonicalizeAnnotations(uppList, writeLog)
-	h.writeAnnotationsRW(ctx, w, uppList, writeLog, oldHash, contentUUID)
-}
-
-func (h *Handler) getAnnotations(ctx context.Context, w http.ResponseWriter, writeLog *log.Entry, contentUUID string) ([]annotations.Annotation, error) {
 	writeLog.Debug("Reading annotations from UPP...")
 	uppList, err := h.annotationsAPI.GetAllButV2(ctx, contentUUID)
 	if err != nil {
-		return nil, errors.New("Can't retrieve annotations")
+		handleReadErrors(err, writeLog, w)
+		return
 	}
-	return uppList, nil
+
+	var isFound = false
+	for _, item := range uppList {
+		if annotation.ConceptId == item.ConceptId && annotation.Predicate == item.Predicate {
+			writeLog.Debug("Annotation is already in list")
+			isFound = true
+			break
+		}
+	}
+
+	if !isFound {
+		uppList = append(uppList, annotation)
+	}
+	h.saveAndReturnAnnotations(ctx, w, uppList, writeLog, oldHash, contentUUID)
 }
 
-func (h *Handler) canonicalizeAnnotations(uppList []annotations.Annotation, writeLog *log.Entry) []annotations.Annotation {
+func (h *Handler) prepareAnnotations(w http.ResponseWriter, r *http.Request, contentUUID string, ann *annotations.Annotation) (ctx context.Context, oldHash string, err error) {
+	conceptUUID := vestigo.Param(r, "cuuid")
+	ann.ConceptId = conceptUUID
+
+	tID := tidutils.GetTransactionIDFromRequest(r)
+	ctx = tidutils.TransactionAwareContext(context.Background(), tID)
+
+	oldHash = r.Header.Get(annotations.PreviousDocumentHashHeader)
+
+	if err := validateUUID(contentUUID); err != nil {
+		err = errors.New("Invalid content UUID")
+		return nil, "", err
+	}
+
+	//when conceptId is not passed in the URL, we read it from the body
+	if ann.ConceptId == "" {
+		dec := json.NewDecoder(r.Body)
+		err = dec.Decode(&ann)
+		if err != nil {
+			err = errors.New("Error decoding request body")
+			return nil, "", err		
+		}
+		i := strings.LastIndex(ann.ConceptId, "/")
+		conceptUUID = ann.ConceptId[i+1:]
+		if i == -1 || i == len(conceptUUID)-1 {
+			err := errors.New("Concept ID is empty")
+			return nil, "", err
+		}
+
+		prefix := ann.ConceptId[0:i+1]
+		if prefix != "http://www.ft.com/thing/" {
+			err := errors.New("Invalid concept ID prefix")
+			return nil, "", err
+		}
+	} 
+	
+	if err := validateUUID(conceptUUID); err != nil {
+		err = errors.New("Invalid concept UUID")
+		return nil, "", err
+	}
+
+	return ctx, oldHash, nil
+}
+
+func (h *Handler) saveAndReturnAnnotations(ctx context.Context, w http.ResponseWriter, uppList []annotations.Annotation, writeLog *log.Entry, oldHash string, contentUUID string) {
 	writeLog.Debug("Canonicalizing annotations...")
 	uppList = h.c14n.Canonicalize(uppList)
-	return uppList
-}
 
-func (h *Handler) writeAnnotationsRW(ctx context.Context, w http.ResponseWriter, uppList []annotations.Annotation, writeLog *log.Entry, oldHash string, contentUUID string) {
 	writeLog.Debug("Writing to annotations RW...")
 	newAnnotations := annotations.Annotations{Annotations: uppList}
 	newHash, err := h.annotationsRW.Write(ctx, contentUUID, &newAnnotations, oldHash)
@@ -198,7 +204,7 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 	readLog.Info("Reading Annotations from Annotations R/W")
 	rawAnnotations, err := h.readAnnotations(ctx, w, contentUUID, readLog)
 	if err != nil {
-		handleErrors(err, readLog, w)
+		handleReadErrors(err, readLog, w)
 		return
 	}
 
@@ -206,7 +212,7 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 	augmentedAnnotations, err := h.annotationsAugmenter.AugmentAnnotations(ctx, rawAnnotations)
 	if err != nil {
 		readLog.WithError(err).Error("Failed to augment annotations")
-		handleErrors(err, readLog, w)
+		handleReadErrors(err, readLog, w)
 		return
 	}
 
@@ -214,11 +220,11 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(&response)
 	if err != nil {
 		readLog.WithError(err).Error("Failed to encode response")
-		handleErrors(err, readLog, w)
+		handleReadErrors(err, readLog, w)
 	}
 }
 
-func handleErrors(err error, readLog *log.Entry, w http.ResponseWriter) {
+func handleReadErrors(err error, readLog *log.Entry, w http.ResponseWriter) {
 	if isTimeoutErr(err) {
 		readLog.WithError(err).Error("Timeout while reading annotations.")
 		writeMessage(w, "Timeout while reading annotations", http.StatusGatewayTimeout)
@@ -324,10 +330,20 @@ func validateUUID(u string) error {
 }
 
 func validatePredicate(pr string) error {
-	if pr != "http://www.ft.com/ontology/annotation/mentions" && pr != "http://www.ft.com/ontology/annotation/about" {
-		return errors.New("Invalid predicate")
+	predicates := []string{
+		"http://www.ft.com/ontology/annotation/mentions",
+		"http://www.ft.com/ontology/annotation/about",
+		"http://www.ft.com/ontology/annotation/hasAuthor",
+		"http://www.ft.com/ontology/hasContributor",
+		"http://www.ft.com/ontology/hasDisplayTag",
+		"http://www.ft.com/ontology/classification/isClassifiedBy",
 	}
-	return nil
+	for _, item := range predicates {
+		if pr == item {
+			return nil
+		}
+	}
+	return errors.New("Invalid predicate")
 }
 
 func writeMessage(w http.ResponseWriter, msg string, status int) {
