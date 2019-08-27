@@ -1086,7 +1086,7 @@ func TestUnHappyAddAnnotationInvalidPredicate(t *testing.T) {
 	r := vestigo.NewRouter()
 	r.Add("POST", "/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{"http://www.ft.com/ontology/annotation/hasAuthor", "0a619d71-9af5-3755-90dd-f789b686c67a", "", "", "", false}
+	ann := annotations.Annotation{"http://www.ft.com/ontology/annotation/foobar", "0a619d71-9af5-3755-90dd-f789b686c67a", "", "", "", false}
 	b, _ := json.Marshal(ann)
 
 	req := httptest.NewRequest(
