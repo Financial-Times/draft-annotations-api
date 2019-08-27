@@ -919,7 +919,10 @@ func TestHappyAddAnnotation(t *testing.T) {
 
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{"http://www.ft.com/ontology/annotation/mentions", "100e3cc0-aecc-4458-8ebd-6b1fbc7345ed", "", "", "", false}
+	ann := annotations.Annotation{
+		Predicate: "http://www.ft.com/ontology/annotation/mentions", 
+		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed", 
+	}
 	b, _ := json.Marshal(ann)
 
 	req := httptest.NewRequest("POST", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", bytes.NewBuffer(b))
@@ -960,7 +963,10 @@ func TestHappyAddExistingAnnotation(t *testing.T) {
 
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{"http://www.ft.com/ontology/annotation/mentions", "0a619d71-9af5-3755-90dd-f789b686c67a", "", "", "", false}
+	ann := annotations.Annotation{
+		Predicate: "http://www.ft.com/ontology/annotation/mentions", 
+		ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a", 
+	}
 	b, _ := json.Marshal(ann)
 
 	req := httptest.NewRequest("POST", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", bytes.NewBuffer(b))
@@ -1000,7 +1006,10 @@ func TestHappyAddAnnotationWithExistingConceptIdDifferentPredicate(t *testing.T)
 
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{"http://www.ft.com/ontology/annotation/mentions", "838b3fbe-efbc-3cfe-b5c0-d38c046492a4", "", "", "", false}
+	ann := annotations.Annotation{
+		Predicate: "http://www.ft.com/ontology/annotation/mentions", 
+		ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+	}
 	b, _ := json.Marshal(ann)
 
 	req := httptest.NewRequest(
@@ -1051,7 +1060,7 @@ func TestUnHappyAddAnnotationInvalidContentId(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-func TestUnHappyAddAnnotationInvalidConceptId(t *testing.T) {
+func TestUnHappyAddAnnotationInvalidConceptIdPrefix(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -1060,7 +1069,67 @@ func TestUnHappyAddAnnotationInvalidConceptId(t *testing.T) {
 	r := vestigo.NewRouter()
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{"http://www.ft.com/ontology/annotation/about", "foobar", "", "", "", false}
+	ann := annotations.Annotation{
+		Predicate: "http://www.ft.com/ontology/annotation/about", 
+		ConceptId: "http://www.ft.com/thing//838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+	}
+	b, _ := json.Marshal(ann)
+
+	req := httptest.NewRequest(
+		"POST",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		bytes.NewBuffer(b))
+
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestUnHappyAddAnnotationEmptyConceptId(t *testing.T) {
+	rw := new(RWMock)
+	annAPI := new(AnnotationsAPIMock)
+	aug := new(AugmenterMock)
+
+	h := New(rw, annAPI, nil, aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
+
+	ann := annotations.Annotation{
+		Predicate: "http://www.ft.com/ontology/annotation/about",
+	}
+	b, _ := json.Marshal(ann)
+
+	req := httptest.NewRequest(
+		"POST",
+		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		bytes.NewBuffer(b))
+
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestUnHappyAddAnnotationInvalidConceptUuid(t *testing.T) {
+	rw := new(RWMock)
+	annAPI := new(AnnotationsAPIMock)
+	aug := new(AugmenterMock)
+
+	h := New(rw, annAPI, nil, aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
+
+	ann := annotations.Annotation{
+		Predicate: "http://www.ft.com/ontology/annotation/about", 
+		ConceptId: "http://www.ft.com/thing//838b3fbe",
+	}
 	b, _ := json.Marshal(ann)
 
 	req := httptest.NewRequest(
@@ -1086,7 +1155,10 @@ func TestUnHappyAddAnnotationInvalidPredicate(t *testing.T) {
 	r := vestigo.NewRouter()
 	r.Add("POST", "/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{"http://www.ft.com/ontology/annotation/hasAuthor", "0a619d71-9af5-3755-90dd-f789b686c67a", "", "", "", false}
+	ann := annotations.Annotation{
+		Predicate:"http://www.ft.com/ontology/annotation/foobar", 
+		ConceptId:"http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+	}
 	b, _ := json.Marshal(ann)
 
 	req := httptest.NewRequest(
@@ -1116,7 +1188,10 @@ func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{"http://www.ft.com/ontology/annotation/mentions", "100e3cc0-aecc-4458-8ebd-6b1fbc7345ed", "", "", "", false}
+	ann := annotations.Annotation{
+		Predicate:"http://www.ft.com/ontology/annotation/mentions", 
+		ConceptId:"http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed", 
+	}
 	b, _ := json.Marshal(ann)
 
 	req := httptest.NewRequest(
@@ -1145,7 +1220,10 @@ func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{"http://www.ft.com/ontology/annotation/mentions", "100e3cc0-aecc-4458-8ebd-6b1fbc7345ed", "", "", "", false}
+	ann := annotations.Annotation{
+		Predicate: "http://www.ft.com/ontology/annotation/mentions", 
+		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed", 
+	}
 	b, _ := json.Marshal(ann)
 
 	req := httptest.NewRequest(
