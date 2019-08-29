@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -16,6 +15,7 @@ import (
 	"github.com/husobee/vestigo"
 	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
+	errors "github.com/pkg/errors"
 )
 
 // AnnotationsAPI interface encapsulates logic for getting published annotations from API
@@ -56,7 +56,7 @@ func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
 	annotation := annotations.Annotation{}
 	ctx, oldHash, err := h.prepareAnnotations(w, r, contentUUID, &annotation)
 	if err != nil {
-		handleWriteErrors(err.Error(), err, writeLog, w, http.StatusBadRequest)
+		handleWriteErrors("Invalid request", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 	annotation.ConceptId = mapper.TransformConceptID("/" + annotation.ConceptId)
@@ -93,12 +93,12 @@ func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 	annotation := annotations.Annotation{}
 	ctx, oldHash, err := h.prepareAnnotations(w, r, contentUUID, &annotation)
 	if err != nil {
-		handleWriteErrors(err.Error(), err, writeLog, w, http.StatusBadRequest)
+		handleWriteErrors("Invalid request", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 	
 	if err := validatePredicate(annotation.Predicate); err != nil {
-		handleWriteErrors(err.Error(), err, writeLog, w, http.StatusBadRequest)
+		handleWriteErrors("Invalid input", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
@@ -134,8 +134,7 @@ func (h *Handler) prepareAnnotations(w http.ResponseWriter, r *http.Request, con
 	oldHash = r.Header.Get(annotations.PreviousDocumentHashHeader)
 
 	if err := validateUUID(contentUUID); err != nil {
-		err = errors.New("Invalid content UUID")
-		return nil, "", err
+		return nil, "", errors.Wrap(err, "invalid content ID")
 	}
 
 	//when conceptId is not passed in the URL, we read it from the body
@@ -143,26 +142,25 @@ func (h *Handler) prepareAnnotations(w http.ResponseWriter, r *http.Request, con
 		dec := json.NewDecoder(r.Body)
 		err = dec.Decode(&ann)
 		if err != nil {
-			err = errors.New("Error decoding request body")
-			return nil, "", err		
+			return nil, "", errors.Wrap(err, "error decoding request body")
 		}
+		
 		i := strings.LastIndex(ann.ConceptId, "/")
 		conceptUUID = ann.ConceptId[i+1:]
 		if i == -1 || i == len(conceptUUID)-1 {
-			err := errors.New("Concept ID is empty")
+			err := errors.New("concept ID is empty")
 			return nil, "", err
 		}
 
 		prefix := ann.ConceptId[0:i+1]
 		if prefix != "http://www.ft.com/thing/" {
-			err := errors.New("Invalid concept ID prefix")
+			err := errors.New("invalid concept ID prefix")
 			return nil, "", err
 		}
 	} 
 	
 	if err := validateUUID(conceptUUID); err != nil {
-		err = errors.New("Invalid concept UUID")
-		return nil, "", err
+		return nil, "", errors.Wrap(err, "invalid concept ID")
 	}
 
 	return ctx, oldHash, nil
@@ -343,7 +341,7 @@ func validatePredicate(pr string) error {
 			return nil
 		}
 	}
-	return errors.New("Invalid predicate")
+	return errors.New("invalid predicate")
 }
 
 func writeMessage(w http.ResponseWriter, msg string, status int) {
