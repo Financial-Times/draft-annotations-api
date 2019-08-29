@@ -1103,7 +1103,7 @@ func TestUnHappyAddAnnotationEmptyConceptId(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-func TestUnHappyAddAnnotationInvalidUuid(t *testing.T) {
+func TestUnHappyAddAnnotationInvalidConceptUuid(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
