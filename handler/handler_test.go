@@ -873,7 +873,7 @@ func TestUnHappyDeleteAnnotationsMissingContentUUID(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-func TestUnHappyDeleteAnnotationsWhenMissingConceptUUID(t *testing.T) {
+func TestUnHappyDeleteAnnotationsInvalidConceptUUID(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -1389,7 +1389,7 @@ func TestUnHappyReplaceAnnotationsInvalidContentUUID(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-func TestUnHappyReplaceAnnotationInvalidConceptIdInURL(t *testing.T) {
+func TestUnHappyReplaceAnnotationInvalidConceptIdInURI(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -1399,7 +1399,7 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInURL(t *testing.T) {
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
 
 	ann := annotations.Annotation{
-		ConceptId: "9577c6d4-b09e-4552-b88f-e52745abe02b",
+		ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
 	}
 	b, _ := json.Marshal(ann)
 

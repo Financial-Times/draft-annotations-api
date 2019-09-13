@@ -143,7 +143,7 @@ func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string,
 		return
 	}
 	if tmpErr := validateUUID(conceptID[i+1:]); tmpErr != nil {
-		err = errors.Wrap(tmpErr, "invalid concept UUID")
+		err = errors.Wrap(tmpErr, "invalid concept ID")
 		return
 	}
 
@@ -348,6 +348,8 @@ func writeMessage(w http.ResponseWriter, msg string, status int) {
 	}
 }
 
+// ReplaceAnnotation deletes an annotation for a specific content uuid and adds a new one.
+// It gets the annotations only from UPP skipping V2 annotations because they are not editorially curated.
 func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 
@@ -360,90 +362,33 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
 	oldHash := r.Header.Get(annotations.PreviousDocumentHashHeader)
 
-	if err := validateUUID(contentUUID); err != nil {
-		handleWriteErrors("Invalid content UUID", err, writeLog, w, http.StatusBadRequest)
-		return
-	}
-
 	if err := validateUUID(conceptUUID); err != nil {
-		handleWriteErrors("Invalid concept UUID in URL", err, writeLog, w, http.StatusBadRequest)
+		handleWriteErrors("invalid concept UUID", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
-	var newAnnotation annotations.Annotation
+	conceptUUID = mapper.TransformConceptID("/" + vestigo.Param(r, "cuuid"))
+
+	addedAnnotation := annotations.Annotation{}
 	dec := json.NewDecoder(r.Body)
-	err := dec.Decode(&newAnnotation)
+	err := dec.Decode(&addedAnnotation)
 	if err != nil {
-		handleWriteErrors("Error decoding request body", err, writeLog, w, http.StatusInternalServerError)
-	}
-
-	if err := validateUUID(newAnnotation.ConceptId); err != nil {
-		handleWriteErrors("Invalid concept UUID in body", err, writeLog, w, http.StatusBadRequest)
+		handleWriteErrors("Error decoding request body", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
-	conceptUUID = mapper.TransformConceptID("/" + conceptUUID)
-	newAnnotation.ConceptId = mapper.TransformConceptID("/" + newAnnotation.ConceptId)
-
-	uppList, err := h.getAnnotations(ctx, w, writeLog, contentUUID)
+	writeLog.Debug("Validating input and reading annotations from UPP...")
+	uppList, httpStatus, err := h.prepareUPPAnnotations(ctx, contentUUID, addedAnnotation.ConceptId)
 	if err != nil {
-		handleErrors(err, writeLog, w)
+		handleWriteErrors("Error while preparing annotations", err, writeLog, w, httpStatus)
 		return
 	}
 
-	uppList = h.canonicalizeAnnotations(uppList, writeLog)
-	//create a list of annotations with the same ID to keep the predicate
-	var newAnnotations []annotations.Annotation
-
-	//delete annotation
-	i := 0
-	for _, item := range uppList {
-		if item.ConceptId == conceptUUID {
-			annotation := annotations.Annotation{item.Predicate, newAnnotation.ConceptId, "", "", "", false}
-			newAnnotations = append(newAnnotations, annotation)
-			continue
+	for i := range uppList {
+		if uppList[i].ConceptId == conceptUUID {
+			uppList[i].ConceptId = addedAnnotation.ConceptId
 		}
-		uppList[i] = item
-		i++
-	}
-	uppList = uppList[:i]
-
-	for _, item := range newAnnotations {
-		uppList = append(uppList, item)
 	}
 
-	uppList = h.canonicalizeAnnotations(uppList, writeLog)
-	h.writeAnnotationsRW(ctx, w, uppList, writeLog, oldHash, contentUUID)
-}
-
-func (h *Handler) getAnnotations(ctx context.Context, w http.ResponseWriter, writeLog *log.Entry, contentUUID string) ([]annotations.Annotation, error) {
-	writeLog.Debug("Reading annotations from UPP...")
-	uppList, err := h.annotationsAPI.GetAllButV2(ctx, contentUUID)
-	if err != nil {
-		return nil, errors.New("Can't retrieve annotations")
-	}
-	return uppList, nil
-}
-
-func (h *Handler) canonicalizeAnnotations(uppList []annotations.Annotation, writeLog *log.Entry) []annotations.Annotation {
-	writeLog.Debug("Canonicalizing annotations...")
-	uppList = h.c14n.Canonicalize(uppList)
-	return uppList
-}
-
-func (h *Handler) writeAnnotationsRW(ctx context.Context, w http.ResponseWriter, uppList []annotations.Annotation, writeLog *log.Entry, oldHash string, contentUUID string) {
-	writeLog.Debug("Writing to annotations RW...")
-	newAnnotations := annotations.Annotations{Annotations: uppList}
-	newHash, err := h.annotationsRW.Write(ctx, contentUUID, &newAnnotations, oldHash)
-	if err != nil {
-		handleWriteErrors("Error writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set(annotations.DocumentHashHeader, newHash)
-	err = json.NewEncoder(w).Encode(newAnnotations)
-	if err != nil {
-		handleWriteErrors("Error encoding draft annotations response", err, writeLog, w, http.StatusInternalServerError)
-		return
-	}
+	h.saveAndReturnAnnotations(ctx, w, uppList, writeLog, oldHash, contentUUID)
 }
