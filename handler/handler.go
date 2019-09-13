@@ -157,9 +157,7 @@ func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string,
 func (h *Handler) saveAndReturnAnnotations(ctx context.Context, w http.ResponseWriter, uppList []annotations.Annotation, writeLog *log.Entry, oldHash string, contentUUID string) {
 	writeLog.Debug("Canonicalizing annotations...")
 	uppList = h.c14n.Canonicalize(uppList)
-}
 
-func (h *Handler) writeAnnotationsRW(ctx context.Context, w http.ResponseWriter, uppList []annotations.Annotation, writeLog *log.Entry, oldHash string, contentUUID string) {
 	writeLog.Debug("Writing to annotations RW...")
 	newAnnotations := annotations.Annotations{Annotations: uppList}
 	newHash, err := h.annotationsRW.Write(ctx, contentUUID, &newAnnotations, oldHash)
@@ -351,11 +349,13 @@ func writeMessage(w http.ResponseWriter, msg string, status int) {
 	}
 }
 
+// ReplaceAnnotation deletes an annotation for a specific content uuid and adds a new one.
+// It gets the annotations only from UPP skipping V2 annotations because they are not editorially curated.
 func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 
 	contentUUID := vestigo.Param(r, "uuid")
-	conceptUUID := vestigo.Param(r, "cuuid")
+	conceptUUID := mapper.TransformConceptID("/" + vestigo.Param(r, "cuuid"))
 
 	tID := tidutils.GetTransactionIDFromRequest(r)
 	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
@@ -363,38 +363,21 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
 	oldHash := r.Header.Get(annotations.PreviousDocumentHashHeader)
 
-	if err := validateUUID(contentUUID); err != nil {
-		handleWriteErrors("Invalid content UUID", err, writeLog, w, http.StatusBadRequest)
-		return
-	}
-
-	if err := validateUUID(conceptUUID); err != nil {
-		handleWriteErrors("Invalid concept UUID in URL", err, writeLog, w, http.StatusBadRequest)
-		return
-	}
-
 	var newAnnotation annotations.Annotation
 	dec := json.NewDecoder(r.Body)
 	err := dec.Decode(&newAnnotation)
 	if err != nil {
-		handleWriteErrors("Error decoding request body", err, writeLog, w, http.StatusInternalServerError)
-	}
-
-	if err := validateUUID(newAnnotation.ConceptId); err != nil {
-		handleWriteErrors("Invalid concept UUID in body", err, writeLog, w, http.StatusBadRequest)
+		handleWriteErrors("Error decoding request body", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
-	conceptUUID = mapper.TransformConceptID("/" + conceptUUID)
-	newAnnotation.ConceptId = mapper.TransformConceptID("/" + newAnnotation.ConceptId)
-
-	uppList, err := h.getAnnotations(ctx, w, writeLog, contentUUID)
+	writeLog.Debug("Validating input and reading annotations from UPP...")
+	uppList, httpStatus, err := h.prepareUPPAnnotations(ctx, contentUUID, newAnnotation.ConceptId)
 	if err != nil {
-		handleErrors(err, writeLog, w)
+		handleWriteErrors("Error while preparing annotations", err, writeLog, w, httpStatus)
 		return
 	}
 
-	uppList = h.canonicalizeAnnotations(uppList, writeLog)
 	//create a list of annotations with the same ID to keep the predicate
 	var newAnnotations []annotations.Annotation
 
@@ -415,6 +398,5 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 		uppList = append(uppList, item)
 	}
 
-	uppList = h.canonicalizeAnnotations(uppList, writeLog)
-	h.writeAnnotationsRW(ctx, w, uppList, writeLog, oldHash, contentUUID)
+	h.saveAndReturnAnnotations(ctx, w, uppList, writeLog, oldHash, contentUUID)
 }
