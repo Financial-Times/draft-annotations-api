@@ -133,7 +133,8 @@ func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string,
 		return
 	}
 
-	if conceptID != mapper.TransformConceptID(conceptID) {
+	cid := mapper.TransformConceptID(conceptID)
+	if conceptID != cid {
 		err = errors.New("invalid concept ID URI")
 		return
 	}
@@ -143,7 +144,7 @@ func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string,
 		return
 	}
 	if tmpErr := validateUUID(conceptID[i+1:]); tmpErr != nil {
-		err = errors.Wrap(tmpErr, "invalid concept UUID")
+		err = errors.Wrap(tmpErr, "invalid concept ID")
 		return
 	}
 
@@ -355,24 +356,31 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 
 	contentUUID := vestigo.Param(r, "uuid")
-	conceptUUID := mapper.TransformConceptID("/" + vestigo.Param(r, "cuuid"))
+	conceptUUID := vestigo.Param(r, "cuuid")
 
 	tID := tidutils.GetTransactionIDFromRequest(r)
 	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
 
 	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
 	oldHash := r.Header.Get(annotations.PreviousDocumentHashHeader)
+	
+	if err := validateUUID(conceptUUID); err != nil {
+		handleWriteErrors("invalid concept UUID", err, writeLog, w, http.StatusBadRequest)
+		return
+	}
 
-	var newAnnotation annotations.Annotation
+	conceptUUID = mapper.TransformConceptID("/" + vestigo.Param(r, "cuuid"))
+
+	addedAnnotation := annotations.Annotation{}
 	dec := json.NewDecoder(r.Body)
-	err := dec.Decode(&newAnnotation)
+	err := dec.Decode(&addedAnnotation)
 	if err != nil {
 		handleWriteErrors("Error decoding request body", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
 	writeLog.Debug("Validating input and reading annotations from UPP...")
-	uppList, httpStatus, err := h.prepareUPPAnnotations(ctx, contentUUID, newAnnotation.ConceptId)
+	uppList, httpStatus, err := h.prepareUPPAnnotations(ctx, contentUUID, addedAnnotation.ConceptId)
 	if err != nil {
 		handleWriteErrors("Error while preparing annotations", err, writeLog, w, httpStatus)
 		return
@@ -385,7 +393,7 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 	i := 0
 	for _, item := range uppList {
 		if item.ConceptId == conceptUUID {
-			annotation := annotations.Annotation{item.Predicate, newAnnotation.ConceptId, "", "", "", false}
+			annotation := annotations.Annotation{item.Predicate, addedAnnotation.ConceptId, "", "", "", false}
 			newAnnotations = append(newAnnotations, annotation)
 			continue
 		}
