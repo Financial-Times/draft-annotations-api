@@ -143,7 +143,7 @@ func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string,
 		return
 	}
 	if tmpErr := validateUUID(conceptID[i+1:]); tmpErr != nil {
-		err = errors.Wrap(tmpErr, "invalid concept UUID")
+		err = errors.Wrap(tmpErr, "invalid concept ID")
 		return
 	}
 
@@ -157,7 +157,6 @@ func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string,
 func (h *Handler) saveAndReturnAnnotations(ctx context.Context, w http.ResponseWriter, uppList []annotations.Annotation, writeLog *log.Entry, oldHash string, contentUUID string) {
 	writeLog.Debug("Canonicalizing annotations...")
 	uppList = h.c14n.Canonicalize(uppList)
-
 	writeLog.Debug("Writing to annotations RW...")
 	newAnnotations := annotations.Annotations{Annotations: uppList}
 	newHash, err := h.annotationsRW.Write(ctx, contentUUID, &newAnnotations, oldHash)
@@ -347,4 +346,49 @@ func writeMessage(w http.ResponseWriter, msg string, status int) {
 	if err != nil {
 		log.WithError(err).Error("Failed to parse response message.")
 	}
+}
+
+// ReplaceAnnotation deletes an annotation for a specific content uuid and adds a new one.
+// It gets the annotations only from UPP skipping V2 annotations because they are not editorially curated.
+func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "application/json")
+
+	contentUUID := vestigo.Param(r, "uuid")
+	conceptUUID := vestigo.Param(r, "cuuid")
+
+	tID := tidutils.GetTransactionIDFromRequest(r)
+	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
+
+	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
+	oldHash := r.Header.Get(annotations.PreviousDocumentHashHeader)
+
+	if err := validateUUID(conceptUUID); err != nil {
+		handleWriteErrors("invalid concept UUID", err, writeLog, w, http.StatusBadRequest)
+		return
+	}
+
+	conceptUUID = mapper.TransformConceptID("/" + vestigo.Param(r, "cuuid"))
+
+	addedAnnotation := annotations.Annotation{}
+	dec := json.NewDecoder(r.Body)
+	err := dec.Decode(&addedAnnotation)
+	if err != nil {
+		handleWriteErrors("Error decoding request body", err, writeLog, w, http.StatusBadRequest)
+		return
+	}
+
+	writeLog.Debug("Validating input and reading annotations from UPP...")
+	uppList, httpStatus, err := h.prepareUPPAnnotations(ctx, contentUUID, addedAnnotation.ConceptId)
+	if err != nil {
+		handleWriteErrors("Error while preparing annotations", err, writeLog, w, httpStatus)
+		return
+	}
+
+	for i := range uppList {
+		if uppList[i].ConceptId == conceptUUID {
+			uppList[i].ConceptId = addedAnnotation.ConceptId
+		}
+	}
+
+	h.saveAndReturnAnnotations(ctx, w, uppList, writeLog, oldHash, contentUUID)
 }
