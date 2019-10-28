@@ -322,6 +322,7 @@ func validatePredicate(pr string) error {
 		"http://www.ft.com/ontology/hasContributor",
 		"http://www.ft.com/ontology/hasDisplayTag",
 		"http://www.ft.com/ontology/classification/isClassifiedBy",
+		"http://www.ft.com/ontology/hasBrand",
 	}
 	for _, item := range predicates {
 		if pr == item {
@@ -375,6 +376,12 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		handleWriteErrors("Error decoding request body", err, writeLog, w, http.StatusBadRequest)
 		return
+	}
+	if addedAnnotation.Predicate != "" {
+		if err = validatePredicate(addedAnnotation.Predicate); err != nil {
+			handleWriteErrors("Invalid request", err, writeLog, w, http.StatusBadRequest)
+			return
+		}
 	}
 
 	writeLog.Debug("Validating input and reading annotations from UPP...")
