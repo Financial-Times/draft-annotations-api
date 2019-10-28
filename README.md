@@ -11,11 +11,9 @@ Draft Annotations API is a microservice that provides access to draft annotation
 Download the source code, dependencies and test dependencies:
 
 ```
-mkdir $GOPATH/src/github.com/Financial-Times/draft-annotations-api
-cd $GOPATH/src/github.com/Financial-Times
 git clone https://github.com/Financial-Times/draft-annotations-api.git
 cd draft-annotations-api
-GO111MODULE=on go build -mod=readonly
+go build -mod=readonly
 ```
 
 ## Running locally
