@@ -322,6 +322,7 @@ func validatePredicate(pr string) error {
 		"http://www.ft.com/ontology/hasContributor",
 		"http://www.ft.com/ontology/hasDisplayTag",
 		"http://www.ft.com/ontology/classification/isClassifiedBy",
+		"http://www.ft.com/ontology/hasBrand",
 	}
 	for _, item := range predicates {
 		if pr == item {
@@ -376,7 +377,12 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 		handleWriteErrors("Error decoding request body", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
-
+	if addedAnnotation.Predicate != "" {
+		if err = validatePredicate(addedAnnotation.Predicate); err != nil {
+			handleWriteErrors("Invalid request", err, writeLog, w, http.StatusBadRequest)
+			return
+		}
+	}
 	writeLog.Debug("Validating input and reading annotations from UPP...")
 	uppList, httpStatus, err := h.prepareUPPAnnotations(ctx, contentUUID, addedAnnotation.ConceptId)
 	if err != nil {
@@ -387,6 +393,9 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 	for i := range uppList {
 		if uppList[i].ConceptId == conceptUUID {
 			uppList[i].ConceptId = addedAnnotation.ConceptId
+			if addedAnnotation.Predicate != "" {
+				uppList[i].Predicate = addedAnnotation.Predicate
+			}
 		}
 	}
 

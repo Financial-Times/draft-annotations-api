@@ -1321,6 +1321,70 @@ func TestHappyReplaceAnnotation(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
+func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
+	rw := new(RWMock)
+	annAPI := new(AnnotationsAPIMock)
+	aug := new(AugmenterMock)
+
+	oldHash := randomdata.RandStringRunes(56)
+	newHash := randomdata.RandStringRunes(56)
+
+	const contentID = "83a201c6-60cd-11e7-91a7-502f7ee26895"
+	fromAnnotationAPI := []annotations.Annotation{
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			Type:      "http://www.ft.com/ontology/person/Person",
+			PrefLabel: "Barack H. Obama",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/about",
+			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			Type:      "http://www.ft.com/ontology/Topic",
+			PrefLabel: "US interest rates",
+		},
+	}
+	afterReplace := []annotations.Annotation{
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/hasBrand",
+			ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+		},
+	}
+
+	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), contentID, &annotations.Annotations{Annotations: afterReplace}, oldHash).Return(newHash, nil)
+	annAPI.On("GetAllButV2", mock.Anything, contentID).Return(fromAnnotationAPI, nil)
+
+	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	r := vestigo.NewRouter()
+
+	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+
+	ann := annotations.Annotation{
+		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+		Predicate: "http://www.ft.com/ontology/hasBrand",
+	}
+	b, _ := json.Marshal(ann)
+
+	req := httptest.NewRequest(
+		"PATCH",
+		"/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		bytes.NewBuffer(b))
+
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
 func TestHappyReplaceExistingAnnotation(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
@@ -1457,6 +1521,35 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInBody(t *testing.T) {
 	req := httptest.NewRequest(
 		"PATCH",
 		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		bytes.NewBuffer(b))
+
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestUnHappyReplaceAnnotationInvalidPredicate(t *testing.T) {
+	rw := new(RWMock)
+	annAPI := new(AnnotationsAPIMock)
+	aug := new(AugmenterMock)
+
+	h := New(rw, annAPI, nil, aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+
+	ann := annotations.Annotation{
+		ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		Predicate: "foo",
+	}
+	b, _ := json.Marshal(ann)
+
+	req := httptest.NewRequest(
+		"PATCH",
+		"/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
