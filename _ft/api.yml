@@ -87,6 +87,7 @@ paths:
                         - http://www.ft.com/ontology/annotation/mentions
                         - http://www.ft.com/ontology/classification/isClassifiedBy
                         - http://www.ft.com/ontology/implicitlyClassifiedBy
+                        - http://www.ft.com/ontology/hasBrand
                     type:
                       type: string
                       description: The type of concept, i.e. Person, Organisation, Topic
@@ -169,7 +170,7 @@ paths:
           description: The content with the specified UUID was not found.
         500:
           description: Internal server error
-  /drafts/content/{uuid}/annotations/{conceptUuid}:
+  /drafts/content/{uuid}/annotations/{conceptUUID}:
     delete:
       summary: Delete all annotations with a given concept from the draft annotations for a specified content
       description: Returns the draft annotations for the content after the delete operation.
@@ -184,7 +185,7 @@ paths:
           required: true
           type: string
           x-example: 8df16ae8-0dfd-4859-a5ff-eeb9644bed35
-        - name: conceptUuid
+        - name: conceptUUID
           in: path
           description: The UUID of the concept to be deleted
           required: true
@@ -198,6 +199,62 @@ paths:
               annotations:
                 - id: http://api.ft.com/things/5507ab98-b747-3ebc-b816-11603b9009f4
                   predicate: http://www.ft.com/ontology/annotation/about
+        400:
+          description: Invalid content or concept UUID supplied
+        404:
+          description: Content with the specified UUID was not found
+        500:
+          description: Internal server error
+    patch:
+      summary: Replace all annotations with given conceptUUID from the draft annotations for a specified content with new annotation provided in the body
+      description: Returns the draft annotations for the content after the replace operation.
+      tags:
+        - Public API
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - name: uuid
+          in: path
+          description: The UUID of the content
+          required: true
+          type: string
+          x-example: 8df16ae8-0dfd-4859-a5ff-eeb9644bed35
+        - name: conceptUUID
+          in: path
+          description: The UUID of the concept to be replaced
+          required: true
+          type: string
+          x-example: ababe00a-d732-4690-b283-585e7f264d2f
+        - name: body
+          in: body
+          description: An annotation for specific content
+          required: true
+          schema: 
+            type: object
+            properties:
+              id:
+                type: string
+                description: The UUID of the new concept
+                x-example: http://www.ft.com/thing/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
+              predicate:
+                type: string
+                description: The relationship between the concept and this piece of FT content
+                x-example: http://www.ft.com/ontology/annotation/mentions
+            example:
+              id: http://www.ft.com/thing/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
+              predicate: http://www.ft.com/ontology/annotation/mentions
+            required:
+              - id
+      responses:
+        200:
+          description: Returns the canonicalized array of annotations that have been successfully saved in PAC.
+          examples:
+            application/json:
+              annotations:
+                - id: http://api.ft.com/things/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
+                  predicate: http://www.ft.com/ontology/annotation/mentions
         400:
           description: Invalid content or concept UUID supplied
         404:
