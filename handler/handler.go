@@ -166,11 +166,6 @@ func (h *Handler) saveAndReturnAnnotations(ctx context.Context, w http.ResponseW
 	}
 
 	w.Header().Set(annotations.DocumentHashHeader, newHash)
-	err = json.NewEncoder(w).Encode(newAnnotations)
-	if err != nil {
-		handleWriteErrors("Error encoding draft annotations response", err, writeLog, w, http.StatusInternalServerError)
-		return
-	}
 }
 
 // ReadAnnotations gets the annotations for a given content uuid.
