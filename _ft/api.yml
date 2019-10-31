@@ -159,11 +159,6 @@ paths:
       responses:
         200:
           description: Returns a canonicalized array of annotations that have been successufully saved in PAC.
-          examples:
-            application/json:
-              annotations:
-                - id: http://api.ft.com/thing/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
-                  predicate: http://www.ft.com/ontology/annotation/about
         400:
           description: Invalid content UUID, concept UUID or predicate supplied.
         404:
@@ -194,11 +189,6 @@ paths:
       responses:
         200:
           description: Returns the canonicalized array of annotations that have been successufully saved in PAC.
-          examples:
-            application/json:
-              annotations:
-                - id: http://api.ft.com/things/5507ab98-b747-3ebc-b816-11603b9009f4
-                  predicate: http://www.ft.com/ontology/annotation/about
         400:
           description: Invalid content or concept UUID supplied
         404:
@@ -250,11 +240,6 @@ paths:
       responses:
         200:
           description: Returns the canonicalized array of annotations that have been successfully saved in PAC.
-          examples:
-            application/json:
-              annotations:
-                - id: http://api.ft.com/things/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
-                  predicate: http://www.ft.com/ontology/annotation/mentions
         400:
           description: Invalid content or concept UUID supplied
         404:
