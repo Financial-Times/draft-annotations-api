@@ -11,11 +11,9 @@ Draft Annotations API is a microservice that provides access to draft annotation
 Download the source code, dependencies and test dependencies:
 
 ```
-mkdir $GOPATH/src/github.com/Financial-Times/draft-annotations-api
-cd $GOPATH/src/github.com/Financial-Times
 git clone https://github.com/Financial-Times/draft-annotations-api.git
 cd draft-annotations-api
-GO111MODULE=on go build -mod=readonly
+go build -mod=readonly
 ```
 
 ## Running locally
@@ -51,11 +49,11 @@ Options:
 
     1. Either using curl:
 
-            curl http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations | json_pp
+            curl http://localhost:8080/drafts/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations | json_pp
 
     1. Or using [httpie](https://github.com/jkbrzt/httpie):
 
-            http GET http://localhost:8080/draft/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations
+            http GET http://localhost:8080/drafts/content/b7b871f6-8a89-11e4-8e24-00144feabdc0/annotations
 
 ## Build and deployment
 
@@ -73,7 +71,7 @@ For a full description of API endpoints for the service, please see the [Open AP
 Using curl:
 
 ```
-curl http://localhost:8080/draft/content/{content-uuid}/annotations | jq
+curl http://localhost:8080/drafts/content/{content-uuid}/annotations | jq
 ```
 
 A GET request on this endpoint fetches the draft annotations for a specific piece of content by calling
@@ -121,7 +119,7 @@ This is an example response body:
 Using curl:
 
 ```
-curl http://localhost:8080/draft/content/{content-uuid}/annotations -X POST --data '{
+curl http://localhost:8080/drafts/content/{content-uuid}/annotations -X POST --data '{
           "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd"
           "predicate": "http://www.ft.com/ontology/annotation/about",
 }'
@@ -214,7 +212,7 @@ The listings below shows an example of a canonicalized response.
 Using curl:
 
 ```
-curl http://localhost:8080/draft/content/{content-uuid}/annotations/{concept-uuid} | jq
+curl http://localhost:8080/drafts/content/{content-uuid}/annotations/{concept-uuid} | jq
 ```
 
 A DELETE request on this endpoint deletes all the annotations for a single concept from the editorially curated published annotations for a specific piece of content. To retrieve these specific annotations it calls [UPP Public Annotations API](https://github.com/Financial-Times/public-annotations-api) using the "lifecycle" parameter.
@@ -245,7 +243,7 @@ This is an example response body:
 Using curl:
 
 ```
-curl http://localhost:8080/draft/content/{content-uuid}/annotations/{concept-uuid} -X PATCH --data '{
+curl http://localhost:8080/drafts/content/{content-uuid}/annotations/{concept-uuid} -X PATCH --data '{
         "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd"
 }'
 ```
