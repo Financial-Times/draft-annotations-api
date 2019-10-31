@@ -838,12 +838,6 @@ func TestHappyDeleteAnnotations(t *testing.T) {
 	r.ServeHTTP(w, req)
 	resp := w.Result()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-	actual := annotations.Annotations{}
-	err := json.NewDecoder(resp.Body).Decode(&actual)
-	assert.NoError(t, err)
-
-	assert.Equal(t, expectedCanonicalisedAnnotationsAfterDelete, actual)
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 
 	rw.AssertExpectations(t)
@@ -978,12 +972,6 @@ func TestHappyAddAnnotation(t *testing.T) {
 	r.ServeHTTP(w, req)
 	resp := w.Result()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-	actual := annotations.Annotations{}
-	err := json.NewDecoder(resp.Body).Decode(&actual)
-	assert.NoError(t, err)
-
-	assert.Equal(t, actual, expectedCanonicalisedAnnotationsAfterAdditon)
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 
 	rw.AssertExpectations(t)
@@ -1025,12 +1013,6 @@ func TestHappyAddExistingAnnotation(t *testing.T) {
 	r.ServeHTTP(w, req)
 	resp := w.Result()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-	actual := annotations.Annotations{}
-	err := json.NewDecoder(resp.Body).Decode(&actual)
-	assert.NoError(t, err)
-
-	assert.Equal(t, expectedCanonicalisedAnnotationsBody, actual)
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 
 	rw.AssertExpectations(t)
@@ -1071,12 +1053,6 @@ func TestHappyAddAnnotationWithExistingConceptIdDifferentPredicate(t *testing.T)
 	r.ServeHTTP(w, req)
 	resp := w.Result()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-	actual := annotations.Annotations{}
-	err := json.NewDecoder(resp.Body).Decode(&actual)
-	assert.NoError(t, err)
-
-	assert.Equal(t, expectedCanonicalisedAnnotationsSameConceptId, actual)
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 
 	rw.AssertExpectations(t)
@@ -1319,6 +1295,7 @@ func TestHappyReplaceAnnotation(t *testing.T) {
 	r.ServeHTTP(w, req)
 	resp := w.Result()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 }
 
 func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
@@ -1383,6 +1360,7 @@ func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
 	r.ServeHTTP(w, req)
 	resp := w.Result()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 }
 
 func TestHappyReplaceExistingAnnotation(t *testing.T) {
@@ -1417,12 +1395,6 @@ func TestHappyReplaceExistingAnnotation(t *testing.T) {
 	r.ServeHTTP(w, req)
 	resp := w.Result()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-	actual := annotations.Annotations{}
-	err := json.NewDecoder(resp.Body).Decode(&actual)
-	assert.NoError(t, err)
-
-	assert.Equal(t, expectedAnnotationsReplaceExisting, actual)
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 
 	rw.AssertExpectations(t)
