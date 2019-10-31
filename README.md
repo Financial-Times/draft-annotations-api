@@ -127,27 +127,7 @@ curl http://localhost:8080/drafts/content/{content-uuid}/annotations -X POST --d
 
 A POST request on this endpoint adds an annotation to the editorially curated published annotations for a specific piece of content. To retrieve these annotations it calls [UPP Public Annotations API](https://github.com/Financial-Times/public-annotations-api) using the "lifecycle" parameter.
 The new list of draft annotations will override any unpublished draft annotations for this piece of content.
-If the operation is successful, the application returns the canonicalized input body with an HTTP 200 response code.
-
-This is an example response body:
-```
-{
-      "annotations":[
-      {
-        "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
-        "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-      },
-      {
-        "predicate": "http://www.ft.com/ontology/annotation/about",
-        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-      },
-      {
-        "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
-        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-      }
-    ]
-}
-```
+If the operation is successful, the application returns an HTTP 200 response code.
 
 ### PUT - Writing draft annotations to PAC
 
@@ -216,27 +196,7 @@ curl http://localhost:8080/drafts/content/{content-uuid}/annotations/{concept-uu
 ```
 
 A DELETE request on this endpoint deletes all the annotations for a single concept from the editorially curated published annotations for a specific piece of content. To retrieve these specific annotations it calls [UPP Public Annotations API](https://github.com/Financial-Times/public-annotations-api) using the "lifecycle" parameter.
-If the operation is successful, the application returns the canonicalized input body with an HTTP 200 response code.
-
-This is an example response body:
-```
-{
-      "annotations":[
-      {
-        "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
-        "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-      },
-      {
-        "predicate": "http://www.ft.com/ontology/annotation/about",
-        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-      },
-      {
-        "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
-        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-      }
-    ]
-}
-```
+If the operation is successful, the application returns an HTTP 200 response code.
 
 ### PATCH - Replacing draft editorial annotations
 
@@ -250,27 +210,7 @@ curl http://localhost:8080/drafts/content/{content-uuid}/annotations/{concept-uu
 
 A PATCH request on this endpoint replaces all annotations for a single concept in the editorially curated published annotations for a specific piece of content. To retrieve these annotations it calls [UPP Public Annotations API](https://github.com/Financial-Times/public-annotations-api) using the "lifecycle" parameter.
 The new list of draft annotations will override any unpublished draft annotations for this piece of content.
-If the operation is successful, the application returns the canonicalized input body with an HTTP 200 response code.
-
-This is an example response body:
-```
-{
-      "annotations":[
-      {
-        "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
-        "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-      },
-      {
-        "predicate": "http://www.ft.com/ontology/annotation/about",
-        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-      },
-      {
-        "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
-        "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
-      }
-    ]
-}
-```
+If the operation is successful, the application returns an HTTP 200 response code.
 
 ## Healthchecks
 

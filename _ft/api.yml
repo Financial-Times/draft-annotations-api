@@ -126,8 +126,6 @@ paths:
         - Public API
       consumes:
         - application/json
-      produces:
-        - application/json
       parameters:
         - name: uuid
           in: path
@@ -158,12 +156,7 @@ paths:
               - predicate
       responses:
         200:
-          description: Returns a canonicalized array of annotations that have been successufully saved in PAC.
-          examples:
-            application/json:
-              annotations:
-                - id: http://api.ft.com/thing/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
-                  predicate: http://www.ft.com/ontology/annotation/about
+          description: The annotation was successfully saved to the cannonicalized list of annotations in PAC.
         400:
           description: Invalid content UUID, concept UUID or predicate supplied.
         404:
@@ -176,8 +169,6 @@ paths:
       description: Returns the draft annotations for the content after the delete operation.
       tags:
         - Public API
-      produces:
-        - application/json
       parameters:
         - name: uuid
           in: path
@@ -193,12 +184,7 @@ paths:
           x-example: 0667615f-499e-4fa6-8130-f3430450228d
       responses:
         200:
-          description: Returns the canonicalized array of annotations that have been successufully saved in PAC.
-          examples:
-            application/json:
-              annotations:
-                - id: http://api.ft.com/things/5507ab98-b747-3ebc-b816-11603b9009f4
-                  predicate: http://www.ft.com/ontology/annotation/about
+          description: The annotation was successfully deleted from the cannonicalized list of annotations in PAC.
         400:
           description: Invalid content or concept UUID supplied
         404:
@@ -211,8 +197,6 @@ paths:
       tags:
         - Public API
       consumes:
-        - application/json
-      produces:
         - application/json
       parameters:
         - name: uuid
@@ -249,12 +233,7 @@ paths:
               - id
       responses:
         200:
-          description: Returns the canonicalized array of annotations that have been successfully saved in PAC.
-          examples:
-            application/json:
-              annotations:
-                - id: http://api.ft.com/things/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
-                  predicate: http://www.ft.com/ontology/annotation/mentions
+          description: The annotation was successfully replaced in the cannonicalized list of annotations in PAC.
         400:
           description: Invalid content or concept UUID supplied
         404:
