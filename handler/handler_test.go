@@ -1,4 +1,4 @@
-package handler
+package handler_test
 
 import (
 	"bytes"
@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/Financial-Times/draft-annotations-api/annotations"
+	"github.com/Financial-Times/draft-annotations-api/handler"
 	"github.com/Financial-Times/go-ft-http/fthttp"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
 	randomdata "github.com/Pallinder/go-randomdata"
@@ -39,7 +41,7 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations.Annotations).Return(expectedAnnotations.Annotations, nil)
 	annAPI := new(AnnotationsAPIMock)
 
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -109,7 +111,7 @@ func TestReadHasBrandAnnotation(t *testing.T) {
 	rw := &RWMock{}
 	aug := &AugmenterMock{}
 	annAPI := &AnnotationsAPIMock{}
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -151,7 +153,7 @@ func TestAddAnnotation(t *testing.T) {
 	annAPI := &AnnotationsAPIMock{}
 	aug := &AugmenterMock{}
 
-	handler := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	handler := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	router := vestigo.NewRouter()
 	router.Post("/drafts/content/:uuid/annotations", handler.AddAnnotation)
 
@@ -259,7 +261,7 @@ func TestWriteHasBrandAnnotation(t *testing.T) {
 	annAPI := &AnnotationsAPIMock{}
 	aug := &AugmenterMock{}
 
-	handler := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	handler := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	router := vestigo.NewRouter()
 	router.Put("/drafts/content/:uuid/annotations", handler.WriteAnnotations)
 
@@ -365,7 +367,7 @@ func TestReplaceHasBrandAnnotation(t *testing.T) {
 	aug := &AugmenterMock{}
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 
-	handler := New(rw, annAPI, canonicalizer, aug, time.Second)
+	handler := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
 	router := vestigo.NewRouter()
 	router.Patch("/drafts/content/:uuid/annotations/:cuuid", handler.ReplaceAnnotation)
 
@@ -377,7 +379,7 @@ func TestReplaceHasBrandAnnotation(t *testing.T) {
 		toReplace         string
 		replaceWith       annotations.Annotation
 		afterReplace      []annotations.Annotation
-		enriched          []annotations.Annotation
+		augmented         []annotations.Annotation
 		toStore           []annotations.Annotation
 		requestStatusCode int
 	}{
@@ -413,7 +415,7 @@ func TestReplaceHasBrandAnnotation(t *testing.T) {
 					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 				},
 			},
-			enriched: []annotations.Annotation{
+			augmented: []annotations.Annotation{
 				{
 					Predicate: "http://www.ft.com/ontology/annotation/mentions",
 					ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
@@ -458,7 +460,7 @@ func TestReplaceHasBrandAnnotation(t *testing.T) {
 			aug.augment = func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
 				depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
 				assert.Equal(t, test.afterReplace, depletedAnnotations)
-				return test.enriched, nil
+				return test.augmented, nil
 			}
 
 			b, _ := json.Marshal(test.replaceWith)
@@ -493,7 +495,7 @@ func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
 	aug := new(AugmenterMock)
 	annAPI := new(AnnotationsAPIMock)
 
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -522,7 +524,7 @@ func TestUnHappyAugmenter(t *testing.T) {
 	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations.Annotations).Return([]annotations.Annotation{}, errors.New("computer says no"))
 	annAPI := new(AnnotationsAPIMock)
 
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -558,7 +560,7 @@ func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
 	assert.Equal(t, annotationsAPIServerMock.URL+"/content/%v/annotations", annotationsAPI.Endpoint())
 
-	h := New(rw, annotationsAPI, nil, aug, time.Second)
+	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -590,7 +592,7 @@ func TestFetchFromAnnotationsAPI404(t *testing.T) {
 	defer annotationsAPIServerMock.Close()
 
 	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
-	h := New(rw, annotationsAPI, nil, aug, time.Second)
+	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -619,7 +621,7 @@ func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 	defer annotationsAPIServerMock.Close()
 
 	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
-	h := New(rw, annotationsAPI, nil, aug, time.Second)
+	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -647,7 +649,7 @@ func TestFetchFromAnnotationsAPI500(t *testing.T) {
 	defer annotationsAPIServerMock.Close()
 
 	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
-	h := New(rw, annotationsAPI, nil, aug, time.Second)
+	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -672,7 +674,7 @@ func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 	aug := new(AugmenterMock)
 	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, ":#", testAPIKey)
-	h := New(rw, annotationsAPI, nil, aug, time.Second)
+	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -700,7 +702,7 @@ func TestFetchFromAnnotationsAPIWithConnectionError(t *testing.T) {
 	annotationsAPIServerMock.Close()
 
 	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL, testAPIKey)
-	h := New(rw, annotationsAPI, nil, aug, time.Second)
+	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -858,6 +860,46 @@ var expectedAnnotations = annotations.Annotations{
 	},
 }
 
+var augmentedAnnotationsAfterAddition = annotations.Annotations{
+	Annotations: []annotations.Annotation{
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			Type:      "http://www.ft.com/ontology/person/Person",
+			PrefLabel: "Barack H. Obama",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
+			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			ApiUrl:    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			Type:      "http://www.ft.com/ontology/person/Person",
+			PrefLabel: "David J Lynch",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/about",
+			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			Type:      "http://www.ft.com/ontology/Topic",
+			PrefLabel: "US interest rates",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
+			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			Type:      "http://www.ft.com/ontology/Topic",
+			PrefLabel: "US interest rates",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			ApiUrl:    "http://api.ft.com/organisations/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			Type:      "http://www.ft.com/ontology/organisation/Organisation",
+			PrefLabel: "Office for National Statistics UK",
+		},
+	},
+}
+
 var expectedAnnotationsReplace = annotations.Annotations{
 	Annotations: []annotations.Annotation{
 		{
@@ -913,6 +955,25 @@ var expectedCanonicalisedAnnotationsAfterDelete = annotations.Annotations{
 	},
 }
 
+var augmentedAnnotationsAfterDelete = annotations.Annotations{
+	Annotations: []annotations.Annotation{
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
+			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			ApiUrl:    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			Type:      "http://www.ft.com/ontology/person/Person",
+			PrefLabel: "David J Lynch",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			Type:      "http://www.ft.com/ontology/person/Person",
+			PrefLabel: "Barack H. Obama",
+		},
+	},
+}
+
 var expectedCanonicalisedAnnotationsAfterAdditon = annotations.Annotations{
 	Annotations: []annotations.Annotation{
 		{
@@ -959,6 +1020,39 @@ var expectedCanonicalisedAnnotationsAfterReplace = annotations.Annotations{
 	},
 }
 
+var augmentedAnnotationsAfterReplace = annotations.Annotations{
+	Annotations: []annotations.Annotation{
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			Type:      "http://www.ft.com/ontology/person/Person",
+			PrefLabel: "Barack H. Obama",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
+			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			ApiUrl:    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			Type:      "http://www.ft.com/ontology/person/Person",
+			PrefLabel: "David J Lynch",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/about",
+			ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			ApiUrl:    "http://api.ft.com/organisations/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			Type:      "http://www.ft.com/ontology/organisation/Organisation",
+			PrefLabel: "Office for National Statistics UK",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
+			ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			ApiUrl:    "http://api.ft.com/organisations/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			Type:      "http://www.ft.com/ontology/organisation/Organisation",
+			PrefLabel: "Office for National Statistics UK",
+		},
+	},
+}
+
 var expectedCanonicalisedAnnotationsSameConceptId = annotations.Annotations{
 	Annotations: []annotations.Annotation{
 		{
@@ -984,16 +1078,63 @@ var expectedCanonicalisedAnnotationsSameConceptId = annotations.Annotations{
 	},
 }
 
+var augmentedAnnotationsSameConceptId = annotations.Annotations{
+	Annotations: []annotations.Annotation{
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			Type:      "http://www.ft.com/ontology/person/Person",
+			PrefLabel: "Barack H. Obama",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
+			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			ApiUrl:    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			Type:      "http://www.ft.com/ontology/person/Person",
+			PrefLabel: "David J Lynch",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			ApiUrl:    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			Type:      "http://www.ft.com/ontology/person/Person",
+			PrefLabel: "David J Lynch",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/about",
+			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			Type:      "http://www.ft.com/ontology/Topic",
+			PrefLabel: "US interest rates",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
+			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			Type:      "http://www.ft.com/ontology/Topic",
+			PrefLabel: "US interest rates",
+		},
+	},
+}
+
 func TestSaveAnnotations(t *testing.T) {
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
 	rw := new(RWMock)
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsBody, oldHash).Return(newHash, nil)
 
-	aug := new(AugmenterMock)
+	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	annotationsAPI := new(AnnotationsAPIMock)
+	aug := &AugmenterMock{
+		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
+			assert.Equal(t, expectedCanonicalisedAnnotationsBody.Annotations, depletedAnnotations)
+			return expectedAnnotations.Annotations, nil
+		},
+	}
 
-	h := New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	h := handler.New(rw, annotationsAPI, canonicalizer, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 
@@ -1034,7 +1175,7 @@ func TestSaveAnnotationsInvalidContentUUID(t *testing.T) {
 	aug := new(AugmenterMock)
 	annotationsAPI := new(AnnotationsAPIMock)
 
-	h := New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	h := handler.New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 
@@ -1065,7 +1206,7 @@ func TestSaveAnnotationsInvalidAnnotationsBody(t *testing.T) {
 	aug := new(AugmenterMock)
 	annotationsAPI := new(AnnotationsAPIMock)
 
-	h := New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	h := handler.New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 
@@ -1095,10 +1236,17 @@ func TestSaveAnnotationsErrorFromRW(t *testing.T) {
 	rw := new(RWMock)
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsBody, oldHash).Return("", errors.New("computer says no"))
 
-	aug := new(AugmenterMock)
+	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	annotationsAPI := new(AnnotationsAPIMock)
+	aug := &AugmenterMock{
+		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
+			assert.Equal(t, expectedCanonicalisedAnnotationsBody.Annotations, depletedAnnotations)
+			return expectedAnnotations.Annotations, nil
+		},
+	}
 
-	h := New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	h := handler.New(rw, annotationsAPI, canonicalizer, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 
@@ -1122,7 +1270,7 @@ func TestSaveAnnotationsErrorFromRW(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 	body, err := ioutil.ReadAll(resp.Body)
 	assert.NoError(t, err)
-	assert.JSONEq(t, `{"message":"Error in writing draft annotations: computer says no"}`, string(body))
+	assert.JSONEq(t, `{"message":"Error writing draft annotations: computer says no"}`, string(body))
 
 	rw.AssertExpectations(t)
 	aug.AssertExpectations(t)
@@ -1136,7 +1284,7 @@ func TestAnnotationsReadTimeoutGenericRW(t *testing.T) {
 	aug := new(AugmenterMock)
 	annAPI := new(AnnotationsAPIMock)
 
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -1162,7 +1310,7 @@ func TestAnnotationsReadTimeoutUPP(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	annAPI.On("GetAll", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return([]annotations.Annotation{}, &url.Error{Err: context.DeadlineExceeded})
 
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
 
@@ -1193,7 +1341,10 @@ func TestIsTimeoutErr(t *testing.T) {
 	defer cancel()
 
 	_, err := http.DefaultClient.Do(req.WithContext(ctx))
-	assert.True(t, isTimeoutErr(err))
+
+	var e net.Error
+	assert.True(t, errors.As(err, &e))
+	assert.True(t, e.Timeout())
 }
 
 func TestAnnotationsWriteTimeout(t *testing.T) {
@@ -1201,10 +1352,17 @@ func TestAnnotationsWriteTimeout(t *testing.T) {
 	rw := new(RWMock)
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsBody, oldHash).Return("", &url.Error{Err: context.DeadlineExceeded})
 
-	aug := new(AugmenterMock)
+	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	annotationsAPI := new(AnnotationsAPIMock)
+	aug := &AugmenterMock{
+		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
+			assert.Equal(t, expectedCanonicalisedAnnotationsBody.Annotations, depletedAnnotations)
+			return expectedAnnotations.Annotations, nil
+		},
+	}
 
-	h := New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	h := handler.New(rw, annotationsAPI, canonicalizer, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
 
@@ -1246,9 +1404,19 @@ func TestHappyDeleteAnnotations(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").
 		Return(expectedAnnotations.Annotations, nil)
-	aug := new(AugmenterMock)
 
-	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
+
+	aug := &AugmenterMock{
+		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
+			assert.Equal(t, expectedCanonicalisedAnnotationsAfterDelete.Annotations, depletedAnnotations)
+			return augmentedAnnotationsAfterDelete.Annotations, nil
+		},
+	}
+
+	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
+
 	r := vestigo.NewRouter()
 	r.Delete("/drafts/content/:uuid/annotations/:cuuid", h.DeleteAnnotation)
 
@@ -1275,7 +1443,7 @@ func TestUnHappyDeleteAnnotationsMissingContentUUID(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Delete("/drafts/content/:uuid/annotations/:cuuid", h.DeleteAnnotation)
 
@@ -1297,7 +1465,7 @@ func TestUnHappyDeleteAnnotationsInvalidConceptUUID(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Delete("/drafts/content/:uuid/annotations/:cuuid", h.DeleteAnnotation)
 
@@ -1321,7 +1489,7 @@ func TestUnHappyDeleteAnnotationsWhenRetrievingAnnotationsFails(t *testing.T) {
 		Return([]annotations.Annotation{}, errors.New("sorry something failed"))
 	aug := new(AugmenterMock)
 
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Delete("/drafts/content/:uuid/annotations/:cuuid", h.DeleteAnnotation)
 
@@ -1344,9 +1512,17 @@ func TestUnHappyDeleteAnnotationsWhenWritingAnnotationsFails(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").
 		Return(expectedAnnotations.Annotations, nil)
-	aug := new(AugmenterMock)
+	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 
-	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	aug := &AugmenterMock{
+		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
+			assert.Equal(t, expectedCanonicalisedAnnotationsBody.Annotations, depletedAnnotations)
+			return expectedAnnotations.Annotations, nil
+		},
+	}
+
+	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Delete("/drafts/content/:uuid/annotations/:cuuid", h.DeleteAnnotation)
 
@@ -1366,15 +1542,22 @@ func TestUnHappyDeleteAnnotationsWhenWritingAnnotationsFails(t *testing.T) {
 func TestHappyAddAnnotation(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
-	aug := new(AugmenterMock)
 
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
 
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterAdditon, oldHash).Return(newHash, nil)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, nil)
+	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
+	aug := &AugmenterMock{
+		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
+			assert.Equal(t, expectedCanonicalisedAnnotationsAfterAdditon.Annotations, depletedAnnotations)
+			return augmentedAnnotationsAfterAddition.Annotations, nil
+		},
+	}
 
-	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
 	r := vestigo.NewRouter()
 
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
@@ -1407,15 +1590,22 @@ func TestHappyAddAnnotation(t *testing.T) {
 func TestHappyAddExistingAnnotation(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
-	aug := new(AugmenterMock)
 
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
 
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsBody, oldHash).Return(newHash, nil)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, nil)
+	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
+	aug := &AugmenterMock{
+		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
+			assert.Equal(t, expectedCanonicalisedAnnotationsBody.Annotations, depletedAnnotations)
+			return expectedAnnotations.Annotations, nil
+		},
+	}
 
-	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
 	r := vestigo.NewRouter()
 
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
@@ -1453,9 +1643,16 @@ func TestHappyAddAnnotationWithExistingConceptIdDifferentPredicate(t *testing.T)
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsSameConceptId, oldHash).Return(newHash, nil)
 	annAPI := new(AnnotationsAPIMock)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, nil)
-	aug := new(AugmenterMock)
+	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
+	aug := &AugmenterMock{
+		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
+			assert.Equal(t, expectedCanonicalisedAnnotationsSameConceptId.Annotations, depletedAnnotations)
+			return augmentedAnnotationsSameConceptId.Annotations, nil
+		},
+	}
 
-	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
 	r := vestigo.NewRouter()
 
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
@@ -1490,7 +1687,7 @@ func TestUnHappyAddAnnotationInvalidContentId(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
@@ -1513,7 +1710,7 @@ func TestUnHappyAddAnnotationInvalidConceptIdPrefix(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
@@ -1542,7 +1739,7 @@ func TestUnHappyAddAnnotationEmptyConceptId(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
@@ -1570,7 +1767,7 @@ func TestUnHappyAddAnnotationInvalidConceptUuid(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
@@ -1599,7 +1796,7 @@ func TestUnHappyAddAnnotationInvalidPredicate(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Add("POST", "/drafts/content/:uuid/annotations", h.AddAnnotation)
 
@@ -1626,12 +1823,19 @@ func TestUnHappyAddAnnotationInvalidPredicate(t *testing.T) {
 func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
-	aug := new(AugmenterMock)
 
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, errors.New("error writing annotations"))
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, nil)
+	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
+	aug := &AugmenterMock{
+		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
+			assert.Equal(t, expectedCanonicalisedAnnotationsAfterAdditon.Annotations, depletedAnnotations)
+			return augmentedAnnotationsAfterAddition.Annotations, nil
+		},
+	}
 
-	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
 	r := vestigo.NewRouter()
 
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
@@ -1663,7 +1867,7 @@ func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, errors.New("error getting annotations"))
 
-	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	r := vestigo.NewRouter()
 
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
@@ -1690,15 +1894,22 @@ func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 func TestHappyReplaceAnnotation(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
-	aug := new(AugmenterMock)
 
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
 
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterReplace, oldHash).Return(newHash, nil)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, nil)
+	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
+	aug := &AugmenterMock{
+		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
+			assert.Equal(t, expectedCanonicalisedAnnotationsAfterReplace.Annotations, depletedAnnotations)
+			return augmentedAnnotationsAfterReplace.Annotations, nil
+		},
+	}
 
-	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
 	r := vestigo.NewRouter()
 
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
@@ -1726,7 +1937,6 @@ func TestHappyReplaceAnnotation(t *testing.T) {
 func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
-	aug := new(AugmenterMock)
 
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
@@ -1748,6 +1958,22 @@ func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
 			PrefLabel: "US interest rates",
 		},
 	}
+	augmentedAfterReplace := []annotations.Annotation{
+		{
+			Predicate: "http://www.ft.com/ontology/annotation/mentions",
+			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			Type:      "http://www.ft.com/ontology/person/Person",
+			PrefLabel: "Barack H. Obama",
+		},
+		{
+			Predicate: "http://www.ft.com/ontology/hasBrand",
+			ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			ApiUrl:    "http://api.ft.com/concepts/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			Type:      "http://www.ft.com/ontology/product/Brand",
+			PrefLabel: "Random Brand",
+		},
+	}
 	afterReplace := []annotations.Annotation{
 		{
 			Predicate: "http://www.ft.com/ontology/annotation/mentions",
@@ -1762,7 +1988,16 @@ func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), contentID, &annotations.Annotations{Annotations: afterReplace}, oldHash).Return(newHash, nil)
 	annAPI.On("GetAllButV2", mock.Anything, contentID).Return(fromAnnotationAPI, nil)
 
-	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
+	aug := &AugmenterMock{
+		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
+			assert.Equal(t, afterReplace, depletedAnnotations)
+			return augmentedAfterReplace, nil
+		},
+	}
+
+	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
 	r := vestigo.NewRouter()
 
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
@@ -1791,15 +2026,22 @@ func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
 func TestHappyReplaceExistingAnnotation(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
-	aug := new(AugmenterMock)
 
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
 
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedAnnotationsReplaceExisting, oldHash).Return(newHash, nil)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotationsReplace.Annotations, nil)
+	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
+	aug := &AugmenterMock{
+		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
+			assert.Equal(t, expectedAnnotationsReplaceExisting.Annotations, depletedAnnotations)
+			return expectedAnnotationsReplace.Annotations, nil
+		},
+	}
 
-	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
 
@@ -1832,7 +2074,7 @@ func TestUnHappyReplaceAnnotationsInvalidContentUUID(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
 
@@ -1855,7 +2097,7 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInURI(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
 
@@ -1883,7 +2125,7 @@ func TestUnHappyReplaceAnnotationEmptyBody(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
 
@@ -1906,7 +2148,7 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInBody(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
 
@@ -1934,7 +2176,7 @@ func TestUnHappyReplaceAnnotationInvalidPredicate(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := New(rw, annAPI, nil, aug, time.Second)
+	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
 
@@ -1961,12 +2203,19 @@ func TestUnHappyReplaceAnnotationInvalidPredicate(t *testing.T) {
 func TestUnhappyReplaceAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
-	aug := new(AugmenterMock)
 
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterReplace, "").Return(mock.Anything, errors.New("error writing annotations"))
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, nil)
+	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
+	aug := &AugmenterMock{
+		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
+			assert.Equal(t, expectedCanonicalisedAnnotationsAfterReplace.Annotations, depletedAnnotations)
+			return augmentedAnnotationsAfterReplace.Annotations, nil
+		},
+	}
 
-	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
 
@@ -1996,7 +2245,7 @@ func TestUnhappyReplaceAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, errors.New("error getting annotations"))
 
-	h := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
 

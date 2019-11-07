@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -14,7 +15,6 @@ import (
 	"github.com/Financial-Times/draft-annotations-api/mapper"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
-	errors "github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 )
@@ -142,7 +142,7 @@ func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string,
 	httpStatus = http.StatusBadRequest
 
 	if tmpErr := validateUUID(contentUUID); tmpErr != nil {
-		err = errors.Wrap(tmpErr, "invalid content ID")
+		err = fmt.Errorf("invalid content ID : %w", tmpErr)
 		return
 	}
 
@@ -156,7 +156,7 @@ func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string,
 		return
 	}
 	if tmpErr := validateUUID(conceptID[i+1:]); tmpErr != nil {
-		err = errors.Wrap(tmpErr, "invalid concept ID")
+		err = fmt.Errorf("invalid concept ID : %w", tmpErr)
 		return
 	}
 
@@ -338,8 +338,11 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 }
 
 func isTimeoutErr(err error) bool {
-	netErr, ok := err.(net.Error)
-	return ok && netErr.Timeout()
+	var e net.Error
+	if !errors.As(err, &e) {
+		return false
+	}
+	return e.Timeout()
 }
 
 func validateUUID(u string) error {
@@ -348,7 +351,7 @@ func validateUUID(u string) error {
 }
 
 func validatePredicate(pr string) error {
-	predicates := []string{
+	var predicates = [...]string{
 		"http://www.ft.com/ontology/annotation/mentions",
 		"http://www.ft.com/ontology/annotation/about",
 		"http://www.ft.com/ontology/annotation/hasAuthor",
