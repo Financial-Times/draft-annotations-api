@@ -14,6 +14,7 @@ const PREDICATE_MAJOR_MENTIONS = "http://www.ft.com/ontology/annotation/majorMen
 const PREDICATE_ABOUT = "http://www.ft.com/ontology/annotation/about"
 const PredicateImplicitlyAbout = "http://www.ft.com/ontology/implicitlyAbout"
 const PredicateImplicitlyClassifiedBy = "http://www.ft.com/ontology/implicitlyClassifiedBy"
+const PredicateHasBrand = "http://www.ft.com/ontology/hasBrand"
 const CONCEPT_TYPE_BRAND = "http://www.ft.com/ontology/product/Brand"
 const CONCEPT_TYPE_GENRE = "http://www.ft.com/ontology/Genre"
 const CONCEPT_TYPE_TOPIC = "http://www.ft.com/ontology/Topic"
