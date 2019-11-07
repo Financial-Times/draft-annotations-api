@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -174,29 +175,25 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 	contentUUID := vestigo.Param(r, "uuid")
 	tID := tidutils.GetTransactionIDFromRequest(r)
 
-	ctx, cancel := context.WithTimeout(tidutils.TransactionAwareContext(context.Background(), tID), h.timeout)
+	ctx, cancel := context.WithTimeout(tidutils.TransactionAwareContext(r.Context(), tID), h.timeout)
 	defer cancel()
 
 	readLog := readLogEntry(ctx, contentUUID)
 
 	w.Header().Add("Content-Type", "application/json")
 
-	readLog.Info("Reading Annotations from Annotations R/W")
-	rawAnnotations, err := h.readAnnotations(ctx, w, contentUUID, readLog)
+	showHasBrand, _ := strconv.ParseBool(r.URL.Query().Get("sendHasBrand"))
+
+	result, hash, err := h.readAnnotations(ctx, contentUUID, showHasBrand, readLog)
 	if err != nil {
 		handleReadErrors(err, readLog, w)
 		return
 	}
-
-	readLog.Info("Augmenting annotations with recent UPP data")
-	augmentedAnnotations, err := h.annotationsAugmenter.AugmentAnnotations(ctx, rawAnnotations)
-	if err != nil {
-		readLog.WithError(err).Error("Failed to augment annotations")
-		handleReadErrors(err, readLog, w)
-		return
+	if hash != "" {
+		w.Header().Set(annotations.DocumentHashHeader, hash)
 	}
 
-	response := annotations.Annotations{Annotations: augmentedAnnotations}
+	response := annotations.Annotations{Annotations: result}
 	err = json.NewEncoder(w).Encode(&response)
 	if err != nil {
 		readLog.WithError(err).Error("Failed to encode response")
@@ -235,21 +232,46 @@ func handleWriteErrors(msg string, err error, writeLog *log.Entry, w http.Respon
 	writeMessage(w, msg, httpStatus)
 }
 
-func (h *Handler) readAnnotations(ctx context.Context, w http.ResponseWriter, contentUUID string, readLog *log.Entry) ([]annotations.Annotation, error) {
-	rwAnnotations, hash, found, err := h.annotationsRW.Read(ctx, contentUUID)
+func (h *Handler) readAnnotations(ctx context.Context, contentUUID string, showHasBrand bool, readLog *log.Entry) ([]annotations.Annotation, string, error) {
+	var (
+		result        []annotations.Annotation
+		hash          string
+		hasDraft      bool
+		err           error
+		rwAnnotations *annotations.Annotations
+	)
+	readLog.Info("Reading Annotations from Annotations R/W")
+	rwAnnotations, hash, hasDraft, err = h.annotationsRW.Read(ctx, contentUUID)
 
 	if err != nil {
-		return nil, err
+		return nil, hash, err
 	}
 
-	if !found {
+	if hasDraft {
+		result = rwAnnotations.Annotations
+	} else {
 		readLog.Info("Annotations not found, retrieving annotations from UPP")
-		anns, err := h.annotationsAPI.GetAll(ctx, contentUUID)
-		return anns, err
+		result, err = h.annotationsAPI.GetAll(ctx, contentUUID)
+		if err != nil {
+			return nil, hash, err
+		}
+	}
+	readLog.Info("Augmenting annotations with recent UPP data")
+	result, err = h.annotationsAugmenter.AugmentAnnotations(ctx, result)
+	if err != nil {
+		readLog.WithError(err).Error("Failed to augment annotations")
+		return nil, hash, err
 	}
 
-	w.Header().Set(annotations.DocumentHashHeader, hash)
-	return rwAnnotations.Annotations, nil
+	if !showHasBrand {
+		result, err = switchToIsClassifiedBy(result)
+		if err != nil {
+			readLog.WithError(err).Error("Failed to hide hasBrand annotations")
+			return nil, hash, err
+		}
+	}
+
+	return result, hash, err
 }
 
 func readLogEntry(ctx context.Context, contentUUID string) *log.Entry {
@@ -395,4 +417,15 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.saveAndReturnAnnotations(ctx, w, uppList, writeLog, oldHash, contentUUID)
+}
+
+func switchToIsClassifiedBy(toChange []annotations.Annotation) ([]annotations.Annotation, error) {
+	changed := make([]annotations.Annotation, len(toChange))
+	for idx, ann := range toChange {
+		if ann.Predicate == mapper.PredicateHasBrand {
+			ann.Predicate = mapper.PREDICATE_IS_CLASSIFIED_BY
+		}
+		changed[idx] = ann
+	}
+	return changed, nil
 }

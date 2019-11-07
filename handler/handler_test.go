@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -62,6 +63,88 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 	annAPI.AssertExpectations(t)
 }
 
+func TestReadHasBrandAnnotation(t *testing.T) {
+
+	tests := map[string]struct {
+		readAnnotations     []annotations.Annotation
+		expectedAnnotations []annotations.Annotation
+		sendHasBrand        bool
+	}{
+		"show hasBrand annotations": {
+			readAnnotations: []annotations.Annotation{
+				{
+					Predicate: "http://www.ft.com/ontology/hasBrand",
+					ConceptId: "http://www.ft.com/thing/87645070-7d8a-492e-9695-bf61ac2b4d18",
+					Type:      "http://www.ft.com/ontology/product/Brand",
+				},
+			},
+			expectedAnnotations: []annotations.Annotation{
+				{
+					Predicate: "http://www.ft.com/ontology/hasBrand",
+					ConceptId: "http://www.ft.com/thing/87645070-7d8a-492e-9695-bf61ac2b4d18",
+					Type:      "http://www.ft.com/ontology/product/Brand",
+				},
+			},
+			sendHasBrand: true,
+		},
+		"hide hasBrand annotations": {
+			readAnnotations: []annotations.Annotation{
+				{
+					Predicate: "http://www.ft.com/ontology/hasBrand",
+					ConceptId: "http://www.ft.com/thing/87645070-7d8a-492e-9695-bf61ac2b4d18",
+					Type:      "http://www.ft.com/ontology/product/Brand",
+				},
+			},
+			expectedAnnotations: []annotations.Annotation{
+				{
+					Predicate: "http://www.ft.com/ontology/classification/isClassifiedBy",
+					ConceptId: "http://www.ft.com/thing/87645070-7d8a-492e-9695-bf61ac2b4d18",
+					Type:      "http://www.ft.com/ontology/product/Brand",
+				},
+			},
+			sendHasBrand: false,
+		},
+	}
+
+	rw := &RWMock{}
+	aug := &AugmenterMock{}
+	annAPI := &AnnotationsAPIMock{}
+	h := New(rw, annAPI, nil, aug, time.Second)
+	r := vestigo.NewRouter()
+	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			hash := randomdata.RandStringRunes(56)
+			rw.read = func(ctx context.Context, contentUUID string) (*annotations.Annotations, string, bool, error) {
+				return &annotations.Annotations{Annotations: test.readAnnotations}, hash, true, nil
+			}
+			aug.augment = func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+				return test.readAnnotations, nil
+			}
+
+			req := httptest.NewRequest("GET", "/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
+			q := req.URL.Query()
+			q.Add("sendHasBrand", strconv.FormatBool(test.sendHasBrand))
+			req.URL.RawQuery = q.Encode()
+			req.Header.Set(tidutils.TransactionIDHeader, testTID)
+			w := httptest.NewRecorder()
+
+			r.ServeHTTP(w, req)
+			resp := w.Result()
+			defer resp.Body.Close()
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+			actual := annotations.Annotations{}
+			err := json.NewDecoder(resp.Body).Decode(&actual)
+			assert.NoError(t, err)
+
+			assert.Equal(t, annotations.Annotations{Annotations: test.expectedAnnotations}, actual)
+			assert.Equal(t, hash, resp.Header.Get(annotations.DocumentHashHeader))
+
+		})
+	}
+}
 func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, errors.New("computer says no"))
@@ -1595,18 +1678,30 @@ func TestUnhappyReplaceAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 
 type AugmenterMock struct {
 	mock.Mock
+	augment func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error)
 }
 
 func (m *AugmenterMock) AugmentAnnotations(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+	if m.augment != nil {
+		return m.augment(ctx, depletedAnnotations)
+	}
 	args := m.Called(ctx, depletedAnnotations)
 	return args.Get(0).([]annotations.Annotation), args.Error(1)
 }
 
 type RWMock struct {
 	mock.Mock
+	read     func(ctx context.Context, contentUUID string) (*annotations.Annotations, string, bool, error)
+	write    func(ctx context.Context, contentUUID string, a *annotations.Annotations, hash string) (string, error)
+	endpoint func() string
+	gtg      func() error
 }
 
 func (m *RWMock) Read(ctx context.Context, contentUUID string) (*annotations.Annotations, string, bool, error) {
+	if m.read != nil {
+		return m.read(ctx, contentUUID)
+	}
+
 	args := m.Called(ctx, contentUUID)
 
 	var ann *annotations.Annotations
@@ -1618,40 +1713,65 @@ func (m *RWMock) Read(ctx context.Context, contentUUID string) (*annotations.Ann
 }
 
 func (m *RWMock) Write(ctx context.Context, contentUUID string, a *annotations.Annotations, hash string) (string, error) {
+	if m.write != nil {
+		return m.write(ctx, contentUUID, a, hash)
+	}
 	args := m.Called(ctx, contentUUID, a, hash)
 	return args.String(0), args.Error(1)
 }
 
 func (m *RWMock) Endpoint() string {
+	if m.endpoint != nil {
+		return m.endpoint()
+	}
 	args := m.Called()
 	return args.String(0)
 }
 
 func (m *RWMock) GTG() error {
+	if m.gtg != nil {
+		return m.gtg()
+	}
 	args := m.Called()
 	return args.Error(0)
 }
 
 type AnnotationsAPIMock struct {
 	mock.Mock
+	getAll      func(ctx context.Context, contentUUID string) ([]annotations.Annotation, error)
+	getAllButV2 func(ctx context.Context, contentUUID string) ([]annotations.Annotation, error)
+	endpoint    func() string
+	gtg         func() error
 }
 
 func (m *AnnotationsAPIMock) GetAll(ctx context.Context, contentUUID string) ([]annotations.Annotation, error) {
+	if m.getAll != nil {
+		return m.getAll(ctx, contentUUID)
+	}
 	args := m.Called(ctx, contentUUID)
 	return args.Get(0).([]annotations.Annotation), args.Error(1)
 }
 
 func (m *AnnotationsAPIMock) GetAllButV2(ctx context.Context, contentUUID string) ([]annotations.Annotation, error) {
+	if m.getAllButV2 != nil {
+		return m.getAllButV2(ctx, contentUUID)
+	}
 	args := m.Called(ctx, contentUUID)
 	return args.Get(0).([]annotations.Annotation), args.Error(1)
 }
 
 func (m *AnnotationsAPIMock) Endpoint() string {
+	if m.endpoint != nil {
+		return m.endpoint()
+	}
 	args := m.Called()
 	return args.String(0)
 }
 
 func (m *AnnotationsAPIMock) GTG() error {
+	if m.gtg != nil {
+		return m.gtg()
+	}
 	args := m.Called()
 	return args.Error(0)
 }
