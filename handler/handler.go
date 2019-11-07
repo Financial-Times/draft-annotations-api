@@ -76,7 +76,13 @@ func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
 	}
 	uppList = uppList[:i]
 
-	h.saveAndReturnAnnotations(ctx, w, uppList, writeLog, oldHash, contentUUID)
+	_, newHash, err := h.saveAndReturnAnnotations(ctx, uppList, writeLog, oldHash, contentUUID)
+	if err != nil {
+		handleWriteErrors("Error writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set(annotations.DocumentHashHeader, newHash)
 }
 
 // AddAnnotation adds an annotation for a specific content uuid.
@@ -123,7 +129,13 @@ func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 		uppList = append(uppList, addedAnnotation)
 	}
 
-	h.saveAndReturnAnnotations(ctx, w, uppList, writeLog, oldHash, contentUUID)
+	_, newHash, err := h.saveAndReturnAnnotations(ctx, uppList, writeLog, oldHash, contentUUID)
+	if err != nil {
+		handleWriteErrors("Error writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set(annotations.DocumentHashHeader, newHash)
 }
 
 func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string, conceptID string) (ann []annotations.Annotation, httpStatus int, err error) {
@@ -155,18 +167,25 @@ func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string,
 	return
 }
 
-func (h *Handler) saveAndReturnAnnotations(ctx context.Context, w http.ResponseWriter, uppList []annotations.Annotation, writeLog *log.Entry, oldHash string, contentUUID string) {
+func (h *Handler) saveAndReturnAnnotations(ctx context.Context, uppList []annotations.Annotation, writeLog *log.Entry, oldHash string, contentUUID string) (*annotations.Annotations, string, error) {
+	writeLog.Debug("Move to HasBrand annotations...")
+	uppList, err := h.annotationsAugmenter.AugmentAnnotations(ctx, uppList)
+	if err != nil {
+		return nil, "", err
+	}
+	uppList, err = switchToHasBrand(uppList)
+	if err != nil {
+		return nil, "", err
+	}
 	writeLog.Debug("Canonicalizing annotations...")
 	uppList = h.c14n.Canonicalize(uppList)
 	writeLog.Debug("Writing to annotations RW...")
-	newAnnotations := annotations.Annotations{Annotations: uppList}
-	newHash, err := h.annotationsRW.Write(ctx, contentUUID, &newAnnotations, oldHash)
+	newAnnotations := &annotations.Annotations{Annotations: uppList}
+	newHash, err := h.annotationsRW.Write(ctx, contentUUID, newAnnotations, oldHash)
 	if err != nil {
-		handleWriteErrors("Error writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
-		return
+		return nil, "", err
 	}
-
-	w.Header().Set(annotations.DocumentHashHeader, newHash)
+	return newAnnotations, newHash, nil
 }
 
 // ReadAnnotations gets the annotations for a given content uuid.
@@ -303,18 +322,15 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeLog.Info("Canonicalizing annotations...")
-	draftAnnotations.Annotations = h.c14n.Canonicalize(draftAnnotations.Annotations)
-
-	writeLog.Info("Writing to annotations RW...")
-	newHash, err := h.annotationsRW.Write(ctx, contentUUID, &draftAnnotations, oldHash)
+	savedAnnotations, newHash, err := h.saveAndReturnAnnotations(ctx, draftAnnotations.Annotations, writeLog, oldHash, contentUUID)
 	if err != nil {
-		handleWriteErrors("Error in writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
+		handleWriteErrors("Error writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set(annotations.DocumentHashHeader, newHash)
-	err = json.NewEncoder(w).Encode(draftAnnotations)
+
+	err = json.NewEncoder(w).Encode(savedAnnotations)
 	if err != nil {
 		handleWriteErrors("Error in encoding draft annotations response", err, writeLog, w, http.StatusInternalServerError)
 		return
@@ -416,7 +432,34 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.saveAndReturnAnnotations(ctx, w, uppList, writeLog, oldHash, contentUUID)
+	_, newHash, err := h.saveAndReturnAnnotations(ctx, uppList, writeLog, oldHash, contentUUID)
+	if err != nil {
+		handleWriteErrors("Error writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set(annotations.DocumentHashHeader, newHash)
+}
+
+func switchToHasBrand(toChange []annotations.Annotation) ([]annotations.Annotation, error) {
+	changed := make([]annotations.Annotation, len(toChange))
+	for idx, ann := range toChange {
+		err := validatePredicate(ann.Predicate)
+		if err != nil {
+			return nil, fmt.Errorf("index %d : %w", idx, err)
+		}
+		if ann.Type == "" {
+			return nil, fmt.Errorf("index %d : annotation missing concept type", idx)
+		}
+
+		if ann.Predicate == mapper.PREDICATE_IS_CLASSIFIED_BY && ann.Type == mapper.CONCEPT_TYPE_BRAND {
+			ann.Predicate = mapper.PredicateHasBrand
+		}
+
+		changed[idx] = ann
+	}
+
+	return changed, nil
 }
 
 func switchToIsClassifiedBy(toChange []annotations.Annotation) ([]annotations.Annotation, error) {

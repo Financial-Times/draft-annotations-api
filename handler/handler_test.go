@@ -145,6 +145,348 @@ func TestReadHasBrandAnnotation(t *testing.T) {
 		})
 	}
 }
+
+func TestAddAnnotation(t *testing.T) {
+	rw := &RWMock{}
+	annAPI := &AnnotationsAPIMock{}
+	aug := &AugmenterMock{}
+
+	handler := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	router := vestigo.NewRouter()
+	router.Post("/drafts/content/:uuid/annotations", handler.AddAnnotation)
+
+	oldHash := randomdata.RandStringRunes(56)
+	newHash := randomdata.RandStringRunes(56)
+
+	tests := map[string]struct {
+		saved             []annotations.Annotation
+		augmented         []annotations.Annotation
+		added             annotations.Annotation
+		requestStatusCode int
+	}{
+		"success - accept hasBrand annotation": {
+			augmented: []annotations.Annotation{
+				{
+					Predicate: "http://www.ft.com/ontology/hasBrand",
+					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					ApiUrl:    "http://api.ft.com/concepts/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					Type:      "http://www.ft.com/ontology/product/Brand",
+					PrefLabel: "Temp brand",
+				},
+			},
+			saved: []annotations.Annotation{
+				{
+					Predicate: "http://www.ft.com/ontology/hasBrand",
+					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+				},
+			},
+			added: annotations.Annotation{
+				Predicate: "http://www.ft.com/ontology/hasBrand",
+				ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			},
+			requestStatusCode: http.StatusOK,
+		},
+		"success - switch isClassifiedBy to hasBrand annotation": {
+			augmented: []annotations.Annotation{
+				{
+					Predicate: "http://www.ft.com/ontology/hasBrand",
+					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					ApiUrl:    "http://api.ft.com/concepts/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					Type:      "http://www.ft.com/ontology/product/Brand",
+					PrefLabel: "Temp brand",
+				},
+			},
+			saved: []annotations.Annotation{
+				{
+					Predicate: "http://www.ft.com/ontology/hasBrand",
+					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+				},
+			},
+			added: annotations.Annotation{
+				Predicate: "http://www.ft.com/ontology/classification/isClassifiedBy",
+				ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			},
+			requestStatusCode: http.StatusOK,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			calledGetAll := false
+			rw.write = func(ctx context.Context, contentUUID string, a *annotations.Annotations, hash string) (string, error) {
+				assert.Equal(t, &annotations.Annotations{Annotations: test.saved}, a)
+				assert.Equal(t, oldHash, hash)
+				return newHash, nil
+			}
+			annAPI.getAllButV2 = func(ctx context.Context, contentUUID string) ([]annotations.Annotation, error) {
+				calledGetAll = true
+				return []annotations.Annotation{}, nil
+			}
+			aug.augment = func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+				expect := []annotations.Annotation{test.added}
+				assert.Equal(t, expect, depletedAnnotations)
+				return test.augmented, nil
+			}
+
+			b, _ := json.Marshal(test.added)
+
+			req := httptest.NewRequest(
+				"POST",
+				"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+				bytes.NewBuffer(b))
+
+			req.Header.Set(tidutils.TransactionIDHeader, testTID)
+			req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			resp := w.Result()
+			defer resp.Body.Close()
+			assert.Equal(t, test.requestStatusCode, resp.StatusCode)
+			if test.requestStatusCode != http.StatusOK {
+				return
+			}
+			assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
+			assert.True(t, calledGetAll, "expect to request latest annotations from UPP")
+
+		})
+	}
+}
+
+func TestWriteHasBrandAnnotation(t *testing.T) {
+	rw := &RWMock{}
+	annAPI := &AnnotationsAPIMock{}
+	aug := &AugmenterMock{}
+
+	handler := New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
+	router := vestigo.NewRouter()
+	router.Put("/drafts/content/:uuid/annotations", handler.WriteAnnotations)
+
+	oldHash := randomdata.RandStringRunes(56)
+	newHash := randomdata.RandStringRunes(56)
+
+	tests := map[string]struct {
+		written           []annotations.Annotation
+		augmented         []annotations.Annotation
+		saved             []annotations.Annotation
+		requestStatusCode int
+	}{
+		"success - accept hasBrand annotation": {
+			written: []annotations.Annotation{
+				{
+					Predicate: "http://www.ft.com/ontology/hasBrand",
+					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+				},
+			},
+			augmented: []annotations.Annotation{
+				{
+					Predicate: "http://www.ft.com/ontology/hasBrand",
+					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					ApiUrl:    "http://api.ft.com/concepts/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					Type:      "http://www.ft.com/ontology/product/Brand",
+					PrefLabel: "Temp brand",
+				},
+			},
+			saved: []annotations.Annotation{
+				{
+					Predicate: "http://www.ft.com/ontology/hasBrand",
+					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+				},
+			},
+			requestStatusCode: http.StatusOK,
+		},
+		"success - switch isClassifiedBy to hasBrand annotation": {
+			written: []annotations.Annotation{
+				{
+					Predicate: "http://www.ft.com//classification/isClassifiedBy",
+					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+				},
+			},
+			augmented: []annotations.Annotation{
+				{
+					Predicate: "http://www.ft.com/ontology/hasBrand",
+					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					ApiUrl:    "http://api.ft.com/concepts/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					Type:      "http://www.ft.com/ontology/product/Brand",
+					PrefLabel: "Temp brand",
+				},
+			},
+			saved: []annotations.Annotation{
+				{
+					Predicate: "http://www.ft.com/ontology/hasBrand",
+					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+				},
+			},
+			requestStatusCode: http.StatusOK,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			rw.write = func(ctx context.Context, contentUUID string, a *annotations.Annotations, hash string) (string, error) {
+				assert.Equal(t, &annotations.Annotations{Annotations: test.saved}, a)
+				assert.Equal(t, oldHash, hash)
+				return newHash, nil
+			}
+			aug.augment = func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+				assert.Equal(t, test.written, depletedAnnotations)
+				return test.augmented, nil
+			}
+
+			b, _ := json.Marshal(annotations.Annotations{Annotations: test.written})
+
+			req := httptest.NewRequest(
+				"PUT",
+				"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+				bytes.NewBuffer(b))
+
+			req.Header.Set(tidutils.TransactionIDHeader, testTID)
+			req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			resp := w.Result()
+			defer resp.Body.Close()
+			assert.Equal(t, test.requestStatusCode, resp.StatusCode)
+
+			if test.requestStatusCode != http.StatusOK {
+				return
+			}
+			assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
+		})
+	}
+}
+
+func TestReplaceHasBrandAnnotation(t *testing.T) {
+	rw := &RWMock{}
+	annAPI := &AnnotationsAPIMock{}
+	aug := &AugmenterMock{}
+	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
+
+	handler := New(rw, annAPI, canonicalizer, aug, time.Second)
+	router := vestigo.NewRouter()
+	router.Patch("/drafts/content/:uuid/annotations/:cuuid", handler.ReplaceAnnotation)
+
+	oldHash := randomdata.RandStringRunes(56)
+	newHash := randomdata.RandStringRunes(56)
+
+	tests := map[string]struct {
+		fromUpp           []annotations.Annotation
+		toReplace         string
+		replaceWith       annotations.Annotation
+		afterReplace      []annotations.Annotation
+		enriched          []annotations.Annotation
+		toStore           []annotations.Annotation
+		requestStatusCode int
+	}{
+		"success - accept hasBrand annotation": {
+			fromUpp: []annotations.Annotation{
+				{
+					Predicate: "http://www.ft.com/ontology/annotation/mentions",
+					ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+					ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+					Type:      "http://www.ft.com/ontology/person/Person",
+					PrefLabel: "Barack H. Obama",
+				},
+				{
+					Predicate: "http://www.ft.com/ontology/annotation/about",
+					ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+					ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+					Type:      "http://www.ft.com/ontology/Topic",
+					PrefLabel: "US interest rates",
+				},
+			},
+			toReplace: "9577c6d4-b09e-4552-b88f-e52745abe02b",
+			replaceWith: annotations.Annotation{
+				Predicate: "http://www.ft.com/ontology/hasBrand",
+				ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			},
+			afterReplace: []annotations.Annotation{
+				{
+					Predicate: "http://www.ft.com/ontology/annotation/mentions",
+					ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+				},
+				{
+					Predicate: "http://www.ft.com/ontology/hasBrand",
+					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+				},
+			},
+			enriched: []annotations.Annotation{
+				{
+					Predicate: "http://www.ft.com/ontology/annotation/mentions",
+					ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+					ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+					Type:      "http://www.ft.com/ontology/person/Person",
+					PrefLabel: "Barack H. Obama",
+				},
+				{
+					Predicate: "http://www.ft.com/ontology/hasBrand",
+					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					ApiUrl:    "http://api.ft.com/concepts/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					Type:      "http://www.ft.com/ontology/product/Brand",
+					PrefLabel: "Random brand",
+				},
+			},
+			toStore: []annotations.Annotation{
+				{
+					Predicate: "http://www.ft.com/ontology/annotation/mentions",
+					ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+				},
+				{
+					Predicate: "http://www.ft.com/ontology/hasBrand",
+					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+				},
+			},
+			requestStatusCode: http.StatusOK,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			rw.write = func(ctx context.Context, contentUUID string, a *annotations.Annotations, hash string) (string, error) {
+				assert.Equal(t, &annotations.Annotations{Annotations: test.toStore}, a)
+				assert.Equal(t, oldHash, hash)
+				return newHash, nil
+			}
+			getAllCalled := false
+			annAPI.getAllButV2 = func(ctx context.Context, contentUUID string) ([]annotations.Annotation, error) {
+				getAllCalled = true
+				return test.fromUpp, nil
+			}
+			aug.augment = func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+				depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
+				assert.Equal(t, test.afterReplace, depletedAnnotations)
+				return test.enriched, nil
+			}
+
+			b, _ := json.Marshal(test.replaceWith)
+			url := "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/" + test.toReplace
+			req := httptest.NewRequest(
+				"PATCH",
+				url,
+				bytes.NewBuffer(b))
+
+			req.Header.Set(tidutils.TransactionIDHeader, testTID)
+			req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			resp := w.Result()
+			defer resp.Body.Close()
+			assert.Equal(t, test.requestStatusCode, resp.StatusCode)
+
+			if test.requestStatusCode != http.StatusOK {
+				return
+			}
+			assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
+			assert.True(t, getAllCalled, "expect to get annotations from UPP")
+		})
+	}
+}
+
 func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, errors.New("computer says no"))
