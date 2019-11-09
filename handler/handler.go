@@ -138,56 +138,6 @@ func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(annotations.DocumentHashHeader, newHash)
 }
 
-func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string, conceptID string) (ann []annotations.Annotation, httpStatus int, err error) {
-	httpStatus = http.StatusBadRequest
-
-	if tmpErr := validateUUID(contentUUID); tmpErr != nil {
-		err = fmt.Errorf("invalid content ID : %w", tmpErr)
-		return
-	}
-
-	if conceptID != mapper.TransformConceptID(conceptID) {
-		err = errors.New("invalid concept ID URI")
-		return
-	}
-	i := strings.LastIndex(conceptID, "/")
-	if i == -1 || i == len(conceptID)-1 {
-		err = errors.New("concept ID is empty")
-		return
-	}
-	if tmpErr := validateUUID(conceptID[i+1:]); tmpErr != nil {
-		err = fmt.Errorf("invalid concept ID : %w", tmpErr)
-		return
-	}
-
-	ann, err = h.annotationsAPI.GetAllButV2(ctx, contentUUID)
-	if err != nil {
-		httpStatus = http.StatusInternalServerError
-	}
-	return
-}
-
-func (h *Handler) saveAndReturnAnnotations(ctx context.Context, uppList []annotations.Annotation, writeLog *log.Entry, oldHash string, contentUUID string) (*annotations.Annotations, string, error) {
-	writeLog.Debug("Move to HasBrand annotations...")
-	uppList, err := h.annotationsAugmenter.AugmentAnnotations(ctx, uppList)
-	if err != nil {
-		return nil, "", err
-	}
-	uppList, err = switchToHasBrand(uppList)
-	if err != nil {
-		return nil, "", err
-	}
-	writeLog.Debug("Canonicalizing annotations...")
-	uppList = h.c14n.Canonicalize(uppList)
-	writeLog.Debug("Writing to annotations RW...")
-	newAnnotations := &annotations.Annotations{Annotations: uppList}
-	newHash, err := h.annotationsRW.Write(ctx, contentUUID, newAnnotations, oldHash)
-	if err != nil {
-		return nil, "", err
-	}
-	return newAnnotations, newHash, nil
-}
-
 // ReadAnnotations gets the annotations for a given content uuid.
 // If there are draft annotations, they are returned, otherwise the published annotations are returned.
 func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
@@ -218,84 +168,6 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 		readLog.WithError(err).Error("Failed to encode response")
 		handleReadErrors(err, readLog, w)
 	}
-}
-
-func handleReadErrors(err error, readLog *log.Entry, w http.ResponseWriter) {
-	if isTimeoutErr(err) {
-		readLog.WithError(err).Error("Timeout while reading annotations.")
-		writeMessage(w, "Timeout while reading annotations", http.StatusGatewayTimeout)
-		return
-	}
-
-	if uppErr, ok := err.(annotations.UPPError); ok {
-		if uppErr.UPPBody() != nil {
-			readLog.Info("UPP responded with a client error, forwarding UPP response back to client.")
-			w.WriteHeader(uppErr.Status())
-			w.Write(uppErr.UPPBody())
-			return
-		}
-		writeMessage(w, uppErr.Error(), uppErr.Status())
-		return
-	}
-	writeMessage(w, fmt.Sprintf("Failed to read annotations: %v", err), http.StatusInternalServerError)
-}
-
-func handleWriteErrors(msg string, err error, writeLog *log.Entry, w http.ResponseWriter, httpStatus int) {
-	msg = fmt.Sprintf(msg+": %v", err.Error())
-	if isTimeoutErr(err) {
-		msg = "Timeout while waiting to write draft annotations"
-		httpStatus = http.StatusGatewayTimeout
-	}
-
-	writeLog.WithError(err).Error(msg)
-	writeMessage(w, msg, httpStatus)
-}
-
-func (h *Handler) readAnnotations(ctx context.Context, contentUUID string, showHasBrand bool, readLog *log.Entry) ([]annotations.Annotation, string, error) {
-	var (
-		result        []annotations.Annotation
-		hash          string
-		hasDraft      bool
-		err           error
-		rwAnnotations *annotations.Annotations
-	)
-	readLog.Info("Reading Annotations from Annotations R/W")
-	rwAnnotations, hash, hasDraft, err = h.annotationsRW.Read(ctx, contentUUID)
-
-	if err != nil {
-		return nil, hash, err
-	}
-
-	if hasDraft {
-		result = rwAnnotations.Annotations
-	} else {
-		readLog.Info("Annotations not found, retrieving annotations from UPP")
-		result, err = h.annotationsAPI.GetAll(ctx, contentUUID)
-		if err != nil {
-			return nil, hash, err
-		}
-	}
-	readLog.Info("Augmenting annotations with recent UPP data")
-	result, err = h.annotationsAugmenter.AugmentAnnotations(ctx, result)
-	if err != nil {
-		readLog.WithError(err).Error("Failed to augment annotations")
-		return nil, hash, err
-	}
-
-	if !showHasBrand {
-		result, err = switchToIsClassifiedBy(result)
-		if err != nil {
-			readLog.WithError(err).Error("Failed to hide hasBrand annotations")
-			return nil, hash, err
-		}
-	}
-
-	return result, hash, err
-}
-
-func readLogEntry(ctx context.Context, contentUUID string) *log.Entry {
-	tid, _ := tidutils.GetTransactionIDFromContext(ctx)
-	return log.WithField(tidutils.TransactionIDKey, tid).WithField("uuid", contentUUID)
 }
 
 // WriteAnnotations writes draft annotations for given content.
@@ -334,54 +206,6 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		handleWriteErrors("Error in encoding draft annotations response", err, writeLog, w, http.StatusInternalServerError)
 		return
-	}
-}
-
-func isTimeoutErr(err error) bool {
-	var e net.Error
-	if !errors.As(err, &e) {
-		return false
-	}
-	return e.Timeout()
-}
-
-func validateUUID(u string) error {
-	_, err := uuid.FromString(u)
-	return err
-}
-
-func validatePredicate(pr string) error {
-	var predicates = [...]string{
-		"http://www.ft.com/ontology/annotation/mentions",
-		"http://www.ft.com/ontology/annotation/about",
-		"http://www.ft.com/ontology/annotation/hasAuthor",
-		"http://www.ft.com/ontology/hasContributor",
-		"http://www.ft.com/ontology/hasDisplayTag",
-		"http://www.ft.com/ontology/classification/isClassifiedBy",
-		"http://www.ft.com/ontology/hasBrand",
-	}
-	for _, item := range predicates {
-		if pr == item {
-			return nil
-		}
-	}
-	return errors.New("invalid predicate")
-}
-
-func writeMessage(w http.ResponseWriter, msg string, status int) {
-	w.WriteHeader(status)
-
-	message := make(map[string]interface{})
-	message["message"] = msg
-	j, err := json.Marshal(&message)
-	if err != nil {
-		log.WithError(err).Error("Failed to parse provided message to json, this is a bug.")
-		return
-	}
-
-	_, err = w.Write(j)
-	if err != nil {
-		log.WithError(err).Error("Failed to parse response message.")
 	}
 }
 
@@ -442,6 +266,182 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set(annotations.DocumentHashHeader, newHash)
+}
+
+func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string, conceptID string) (ann []annotations.Annotation, httpStatus int, err error) {
+	httpStatus = http.StatusBadRequest
+
+	if tmpErr := validateUUID(contentUUID); tmpErr != nil {
+		err = fmt.Errorf("invalid content ID : %w", tmpErr)
+		return
+	}
+
+	if conceptID != mapper.TransformConceptID(conceptID) {
+		err = errors.New("invalid concept ID URI")
+		return
+	}
+	i := strings.LastIndex(conceptID, "/")
+	if i == -1 || i == len(conceptID)-1 {
+		err = errors.New("concept ID is empty")
+		return
+	}
+	if tmpErr := validateUUID(conceptID[i+1:]); tmpErr != nil {
+		err = fmt.Errorf("invalid concept ID : %w", tmpErr)
+		return
+	}
+
+	ann, err = h.annotationsAPI.GetAllButV2(ctx, contentUUID)
+	if err != nil {
+		httpStatus = http.StatusInternalServerError
+	}
+	return
+}
+
+func (h *Handler) saveAndReturnAnnotations(ctx context.Context, uppList []annotations.Annotation, writeLog *log.Entry, oldHash string, contentUUID string) (*annotations.Annotations, string, error) {
+	writeLog.Debug("Move to HasBrand annotations...")
+	uppList, err := h.annotationsAugmenter.AugmentAnnotations(ctx, uppList)
+	if err != nil {
+		return nil, "", err
+	}
+	uppList, err = switchToHasBrand(uppList)
+	if err != nil {
+		return nil, "", err
+	}
+	writeLog.Debug("Canonicalizing annotations...")
+	uppList = h.c14n.Canonicalize(uppList)
+	writeLog.Debug("Writing to annotations RW...")
+	newAnnotations := &annotations.Annotations{Annotations: uppList}
+	newHash, err := h.annotationsRW.Write(ctx, contentUUID, newAnnotations, oldHash)
+	if err != nil {
+		return nil, "", err
+	}
+	return newAnnotations, newHash, nil
+}
+
+func (h *Handler) readAnnotations(ctx context.Context, contentUUID string, showHasBrand bool, readLog *log.Entry) ([]annotations.Annotation, string, error) {
+	var (
+		result        []annotations.Annotation
+		hash          string
+		hasDraft      bool
+		err           error
+		rwAnnotations *annotations.Annotations
+	)
+	readLog.Info("Reading Annotations from Annotations R/W")
+	rwAnnotations, hash, hasDraft, err = h.annotationsRW.Read(ctx, contentUUID)
+
+	if err != nil {
+		return nil, hash, err
+	}
+
+	if hasDraft {
+		result = rwAnnotations.Annotations
+	} else {
+		readLog.Info("Annotations not found, retrieving annotations from UPP")
+		result, err = h.annotationsAPI.GetAll(ctx, contentUUID)
+		if err != nil {
+			return nil, hash, err
+		}
+	}
+	readLog.Info("Augmenting annotations with recent UPP data")
+	result, err = h.annotationsAugmenter.AugmentAnnotations(ctx, result)
+	if err != nil {
+		readLog.WithError(err).Error("Failed to augment annotations")
+		return nil, hash, err
+	}
+
+	if !showHasBrand {
+		result, err = switchToIsClassifiedBy(result)
+		if err != nil {
+			readLog.WithError(err).Error("Failed to hide hasBrand annotations")
+			return nil, hash, err
+		}
+	}
+
+	return result, hash, err
+}
+
+func handleReadErrors(err error, readLog *log.Entry, w http.ResponseWriter) {
+	if isTimeoutErr(err) {
+		readLog.WithError(err).Error("Timeout while reading annotations.")
+		writeMessage(w, "Timeout while reading annotations", http.StatusGatewayTimeout)
+		return
+	}
+
+	if uppErr, ok := err.(annotations.UPPError); ok {
+		if uppErr.UPPBody() != nil {
+			readLog.Info("UPP responded with a client error, forwarding UPP response back to client.")
+			w.WriteHeader(uppErr.Status())
+			w.Write(uppErr.UPPBody())
+			return
+		}
+		writeMessage(w, uppErr.Error(), uppErr.Status())
+		return
+	}
+	writeMessage(w, fmt.Sprintf("Failed to read annotations: %v", err), http.StatusInternalServerError)
+}
+
+func handleWriteErrors(msg string, err error, writeLog *log.Entry, w http.ResponseWriter, httpStatus int) {
+	msg = fmt.Sprintf(msg+": %v", err.Error())
+	if isTimeoutErr(err) {
+		msg = "Timeout while waiting to write draft annotations"
+		httpStatus = http.StatusGatewayTimeout
+	}
+
+	writeLog.WithError(err).Error(msg)
+	writeMessage(w, msg, httpStatus)
+}
+
+func readLogEntry(ctx context.Context, contentUUID string) *log.Entry {
+	tid, _ := tidutils.GetTransactionIDFromContext(ctx)
+	return log.WithField(tidutils.TransactionIDKey, tid).WithField("uuid", contentUUID)
+}
+
+func isTimeoutErr(err error) bool {
+	var e net.Error
+	if !errors.As(err, &e) {
+		return false
+	}
+	return e.Timeout()
+}
+
+func validateUUID(u string) error {
+	_, err := uuid.FromString(u)
+	return err
+}
+
+func validatePredicate(pr string) error {
+	var predicates = [...]string{
+		"http://www.ft.com/ontology/annotation/mentions",
+		"http://www.ft.com/ontology/annotation/about",
+		"http://www.ft.com/ontology/annotation/hasAuthor",
+		"http://www.ft.com/ontology/hasContributor",
+		"http://www.ft.com/ontology/hasDisplayTag",
+		"http://www.ft.com/ontology/classification/isClassifiedBy",
+		"http://www.ft.com/ontology/hasBrand",
+	}
+	for _, item := range predicates {
+		if pr == item {
+			return nil
+		}
+	}
+	return errors.New("invalid predicate")
+}
+
+func writeMessage(w http.ResponseWriter, msg string, status int) {
+	w.WriteHeader(status)
+
+	message := make(map[string]interface{})
+	message["message"] = msg
+	j, err := json.Marshal(&message)
+	if err != nil {
+		log.WithError(err).Error("Failed to parse provided message to json, this is a bug.")
+		return
+	}
+
+	_, err = w.Write(j)
+	if err != nil {
+		log.WithError(err).Error("Failed to parse response message.")
+	}
 }
 
 func switchToHasBrand(toChange []annotations.Annotation) ([]annotations.Annotation, error) {
