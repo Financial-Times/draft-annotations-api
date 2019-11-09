@@ -3,35 +3,39 @@ package mapper
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
 
-const PREDICATE_IS_CLASSIFIED_BY = "http://www.ft.com/ontology/classification/isClassifiedBy"
-const PREDICATE_IS_PRIMARILY_CLASSIFIED_BY = "http://www.ft.com/ontology/classification/isPrimarilyClassifiedBy"
-const PREDICATE_MAJOR_MENTIONS = "http://www.ft.com/ontology/annotation/majorMentions"
-const PREDICATE_ABOUT = "http://www.ft.com/ontology/annotation/about"
-const PredicateImplicitlyAbout = "http://www.ft.com/ontology/implicitlyAbout"
-const PredicateImplicitlyClassifiedBy = "http://www.ft.com/ontology/implicitlyClassifiedBy"
-const PredicateHasBrand = "http://www.ft.com/ontology/hasBrand"
-const CONCEPT_TYPE_BRAND = "http://www.ft.com/ontology/product/Brand"
-const CONCEPT_TYPE_GENRE = "http://www.ft.com/ontology/Genre"
-const CONCEPT_TYPE_TOPIC = "http://www.ft.com/ontology/Topic"
-const CONCEPT_TYPE_LOCATION = "http://www.ft.com/ontology/Location"
-const CONCEPT_TYPE_SPECIAL_REPORT = "http://www.ft.com/ontology/SpecialReport"
-const CONCEPT_TYPE_SUBJECT = "http://www.ft.com/ontology/Subject"
+const (
+	PredicateIsClassifiedBy          = "http://www.ft.com/ontology/classification/isClassifiedBy"
+	PredicateIsPrimarilyClassifiedBy = "http://www.ft.com/ontology/classification/isPrimarilyClassifiedBy"
+	PredicateMajorMentions           = "http://www.ft.com/ontology/annotation/majorMentions"
+	PredicateAbout                   = "http://www.ft.com/ontology/annotation/about"
+	PredicateImplicitlyAbout         = "http://www.ft.com/ontology/implicitlyAbout"
+	PredicateImplicitlyClassifiedBy  = "http://www.ft.com/ontology/implicitlyClassifiedBy"
+	PredicateHasBrand                = "http://www.ft.com/ontology/hasBrand"
+
+	ConceptTypeBrand         = "http://www.ft.com/ontology/product/Brand"
+	ConceptTypeGenre         = "http://www.ft.com/ontology/Genre"
+	ConceptTypeTopic         = "http://www.ft.com/ontology/Topic"
+	ConceptTypeLocation      = "http://www.ft.com/ontology/Location"
+	ConceptTypeSpecialReport = "http://www.ft.com/ontology/SpecialReport"
+	ConceptTypeSubject       = "http://www.ft.com/ontology/Subject"
+)
 
 func ConvertPredicates(body []byte) ([]byte, error) {
 	originalAnnotations := make([]map[string]interface{}, 0)
 	convertedAnnotations := make([]map[string]interface{}, 0)
 	err := json.Unmarshal(body, &originalAnnotations)
 	if err != nil {
-		return []byte{}, errors.New("could not unmarshal json body")
+		return nil, fmt.Errorf("could not unmarshal json body:%w", err)
 	}
 
-	for i := 0; i < len(originalAnnotations); i++ {
-		annoMap := originalAnnotations[i]
+	for _, annoMap := range originalAnnotations {
+
 		pred, ok := annoMap["predicate"]
 		if !ok {
 			log.Info("no predicate supplied for incoming annotation")
@@ -52,48 +56,51 @@ func ConvertPredicates(body []byte) ([]byte, error) {
 		annoMap["type"] = conceptType
 		delete(annoMap, "types")
 
-		if conceptType == CONCEPT_TYPE_SPECIAL_REPORT || conceptType == CONCEPT_TYPE_SUBJECT {
+		if conceptType == ConceptTypeSpecialReport || conceptType == ConceptTypeSubject {
 			continue
 		}
 
-		if predicate == PREDICATE_IS_CLASSIFIED_BY {
-			if conceptType == CONCEPT_TYPE_TOPIC || conceptType == CONCEPT_TYPE_LOCATION {
-				originalAnnotations[i]["predicate"] = PREDICATE_ABOUT
+		switch predicate {
+		case PredicateIsClassifiedBy:
+			if conceptType == ConceptTypeTopic || conceptType == ConceptTypeLocation {
+				annoMap["predicate"] = PredicateAbout
 			}
-		} else if predicate == PREDICATE_IS_PRIMARILY_CLASSIFIED_BY {
-			if conceptType == CONCEPT_TYPE_TOPIC || conceptType == CONCEPT_TYPE_LOCATION {
-				originalAnnotations[i]["predicate"] = PREDICATE_ABOUT
-			} else if conceptType == CONCEPT_TYPE_BRAND || conceptType == CONCEPT_TYPE_GENRE {
-				originalAnnotations[i]["predicate"] = PREDICATE_IS_CLASSIFIED_BY
-			} else {
+		case PredicateIsPrimarilyClassifiedBy:
+			switch conceptType {
+			case ConceptTypeTopic, ConceptTypeLocation:
+				annoMap["predicate"] = PredicateAbout
+			case ConceptTypeBrand, ConceptTypeGenre:
+				annoMap["predicate"] = PredicateIsClassifiedBy
+			default:
 				continue
 			}
-		} else if predicate == PREDICATE_MAJOR_MENTIONS {
-			originalAnnotations[i]["predicate"] = PREDICATE_ABOUT
-		} else if predicate == PredicateImplicitlyAbout || predicate == PredicateImplicitlyClassifiedBy {
+		case PredicateMajorMentions:
+			annoMap["predicate"] = PredicateAbout
+		case PredicateImplicitlyAbout, PredicateImplicitlyClassifiedBy:
 			continue
 		}
-		convertedAnnotations = append(convertedAnnotations, originalAnnotations[i])
+
+		convertedAnnotations = append(convertedAnnotations, annoMap)
 	}
 
 	if len(convertedAnnotations) == 0 {
 		return nil, nil
-	} else {
-		return json.Marshal(convertedAnnotations)
 	}
+
+	return json.Marshal(convertedAnnotations)
 }
 
 func toStringArray(val interface{}) ([]string, error) {
 	arrVal, ok := val.([]interface{})
 	if !ok {
 		log.Info("val is not an array")
-		return nil, errors.New("Unexpected types property")
+		return nil, errors.New("unexpected types property")
 	}
 	result := make([]string, 0)
 	for _, v := range arrVal {
 		s, ok := v.(string)
 		if !ok {
-			return nil, errors.New("Unexpected types property")
+			return nil, errors.New("unexpected types property")
 		}
 		result = append(result, s)
 	}

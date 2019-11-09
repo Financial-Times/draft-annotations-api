@@ -455,7 +455,7 @@ func switchToHasBrand(toChange []annotations.Annotation) ([]annotations.Annotati
 			return nil, fmt.Errorf("index %d : annotation missing concept type", idx)
 		}
 
-		if ann.Predicate == mapper.PREDICATE_IS_CLASSIFIED_BY && ann.Type == mapper.CONCEPT_TYPE_BRAND {
+		if ann.Predicate == mapper.PredicateIsClassifiedBy && ann.Type == mapper.ConceptTypeBrand {
 			ann.Predicate = mapper.PredicateHasBrand
 		}
 
@@ -469,7 +469,7 @@ func switchToIsClassifiedBy(toChange []annotations.Annotation) ([]annotations.An
 	changed := make([]annotations.Annotation, len(toChange))
 	for idx, ann := range toChange {
 		if ann.Predicate == mapper.PredicateHasBrand {
-			ann.Predicate = mapper.PREDICATE_IS_CLASSIFIED_BY
+			ann.Predicate = mapper.PredicateIsClassifiedBy
 		}
 		changed[idx] = ann
 	}
