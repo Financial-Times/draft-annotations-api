@@ -268,33 +268,28 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(annotations.DocumentHashHeader, newHash)
 }
 
-func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string, conceptID string) (ann []annotations.Annotation, httpStatus int, err error) {
-	httpStatus = http.StatusBadRequest
+func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string, conceptID string) ([]annotations.Annotation, int, error) {
 
-	if tmpErr := validateUUID(contentUUID); tmpErr != nil {
-		err = fmt.Errorf("invalid content ID : %w", tmpErr)
-		return
+	if err := validateUUID(contentUUID); err != nil {
+		return nil, http.StatusBadRequest, fmt.Errorf("invalid content ID : %w", err)
 	}
 
 	if conceptID != mapper.TransformConceptID(conceptID) {
-		err = errors.New("invalid concept ID URI")
-		return
+		return nil, http.StatusBadRequest, errors.New("invalid concept ID URI")
 	}
 	i := strings.LastIndex(conceptID, "/")
 	if i == -1 || i == len(conceptID)-1 {
-		err = errors.New("concept ID is empty")
-		return
+		return nil, http.StatusBadRequest, errors.New("concept ID is empty")
 	}
-	if tmpErr := validateUUID(conceptID[i+1:]); tmpErr != nil {
-		err = fmt.Errorf("invalid concept ID : %w", tmpErr)
-		return
+	if err := validateUUID(conceptID[i+1:]); err != nil {
+		return nil, http.StatusBadRequest, fmt.Errorf("invalid concept ID : %w", err)
 	}
 
-	ann, err = h.annotationsAPI.GetAllButV2(ctx, contentUUID)
+	ann, err := h.annotationsAPI.GetAllButV2(ctx, contentUUID)
 	if err != nil {
-		httpStatus = http.StatusInternalServerError
+		return nil, http.StatusInternalServerError, err
 	}
-	return
+	return ann, http.StatusOK, nil
 }
 
 func (h *Handler) saveAndReturnAnnotations(ctx context.Context, uppList []annotations.Annotation, writeLog *log.Entry, oldHash string, contentUUID string) (*annotations.Annotations, string, error) {
