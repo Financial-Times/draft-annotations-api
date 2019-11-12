@@ -151,7 +151,16 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Content-Type", "application/json")
 
-	showHasBrand, _ := strconv.ParseBool(r.URL.Query().Get("sendHasBrand"))
+	showHasBrand := false
+	var err error
+	queryParam := r.URL.Query().Get("sendHasBrand")
+	if queryParam != "" {
+		showHasBrand, err = strconv.ParseBool(queryParam)
+		if err != nil {
+			writeMessage(w, fmt.Sprintf("invalid param sendHasBrand: %s ", queryParam), http.StatusBadRequest)
+			return
+		}
+	}
 
 	result, hash, err := h.readAnnotations(ctx, contentUUID, showHasBrand, readLog)
 	if err != nil {
