@@ -354,11 +354,7 @@ func (h *Handler) readAnnotations(ctx context.Context, contentUUID string, showH
 	}
 
 	if !showHasBrand {
-		result, err = switchToIsClassifiedBy(result)
-		if err != nil {
-			readLog.WithError(err).Error("Failed to hide hasBrand annotations")
-			return nil, hash, err
-		}
+		result = switchToIsClassifiedBy(result)
 	}
 
 	return result, hash, err
@@ -469,7 +465,7 @@ func switchToHasBrand(toChange []annotations.Annotation) ([]annotations.Annotati
 	return changed, nil
 }
 
-func switchToIsClassifiedBy(toChange []annotations.Annotation) ([]annotations.Annotation, error) {
+func switchToIsClassifiedBy(toChange []annotations.Annotation) []annotations.Annotation {
 	changed := make([]annotations.Annotation, len(toChange))
 	for idx, ann := range toChange {
 		if ann.Predicate == mapper.PredicateHasBrand {
@@ -477,5 +473,5 @@ func switchToIsClassifiedBy(toChange []annotations.Annotation) ([]annotations.An
 		}
 		changed[idx] = ann
 	}
-	return changed, nil
+	return changed
 }
