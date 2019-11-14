@@ -61,7 +61,7 @@ paths:
           description: The UUID of the content
           required: true
           type: string
-          x-example: f368bbac-4bd9-11e7-919a-1e14ce4af89b
+          x-example: 8df16ae8-0dfd-4859-a5ff-eeb9644bed35
         - name: body
           in: body
           required: true

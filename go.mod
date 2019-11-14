@@ -1,6 +1,6 @@
 module github.com/Financial-Times/draft-annotations-api
 
-go 1.12
+go 1.13
 
 require (
 	github.com/Financial-Times/api-endpoint v0.0.0-20170612095945-d9f326a291cc
