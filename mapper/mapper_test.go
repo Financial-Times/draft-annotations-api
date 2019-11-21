@@ -17,6 +17,7 @@ func TestConvertPredicates(t *testing.T) {
 		{"IsMajorMentionsMappedCorrectly", "annotations_majorMentions"},
 		{"DefaultPassThrough", "annotations_defaults"},
 		{"ImplicitAnnotationsAreFiltered", "annotations_implicit"},
+		{"InvalidAnnotationsAreFiltered", "annotations_invalid"},
 	}
 
 	for _, test := range tests {

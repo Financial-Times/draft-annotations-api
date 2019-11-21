@@ -105,8 +105,8 @@ func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = validatePredicate(addedAnnotation.Predicate); err != nil {
-		handleWriteErrors("Invalid request", err, writeLog, w, http.StatusBadRequest)
+	if !mapper.IsValidPACPredicate(addedAnnotation.Predicate) {
+		handleWriteErrors("Invalid request", errors.New("invalid predicate"), writeLog, w, http.StatusBadRequest)
 		return
 	}
 
@@ -247,8 +247,8 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if addedAnnotation.Predicate != "" {
-		if err = validatePredicate(addedAnnotation.Predicate); err != nil {
-			handleWriteErrors("Invalid request", err, writeLog, w, http.StatusBadRequest)
+		if !mapper.IsValidPACPredicate(addedAnnotation.Predicate) {
+			handleWriteErrors("Invalid request", errors.New("invalid predicate"), writeLog, w, http.StatusBadRequest)
 			return
 		}
 	}
@@ -407,24 +407,6 @@ func isTimeoutErr(err error) bool {
 func validateUUID(u string) error {
 	_, err := uuid.FromString(u)
 	return err
-}
-
-func validatePredicate(pr string) error {
-	var predicates = [...]string{
-		"http://www.ft.com/ontology/annotation/mentions",
-		"http://www.ft.com/ontology/annotation/about",
-		"http://www.ft.com/ontology/annotation/hasAuthor",
-		"http://www.ft.com/ontology/hasContributor",
-		"http://www.ft.com/ontology/hasDisplayTag",
-		"http://www.ft.com/ontology/classification/isClassifiedBy",
-		"http://www.ft.com/ontology/hasBrand",
-	}
-	for _, item := range predicates {
-		if pr == item {
-			return nil
-		}
-	}
-	return errors.New("invalid predicate")
 }
 
 func writeMessage(w http.ResponseWriter, msg string, status int) {

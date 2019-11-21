@@ -1,0 +1,16 @@
+[
+  {
+    "predicate": "http://www.ft.com/ontology/classification/isClassifiedBy",
+    "id": "http://www.ft.com/thing/13006c72-7d1b-47a0-96fe-d1ad1f12de9f",
+    "apiUrl": "http://api.ft.com/brands/13006c72-7d1b-47a0-96fe-d1ad1f12de9f",
+    "type": "http://www.ft.com/ontology/product/Brand",
+    "prefLabel": "Material World"
+  },
+  {
+    "predicate": "http://www.ft.com/ontology/annotation/about",
+    "id": "http://www.ft.com/thing/29e67a92-a3b8-410c-9139-15abe9b47e12",
+    "apiUrl": "http://api.ft.com/things/29e67a92-a3b8-410c-9139-15abe9b47e12",
+    "type": "http://www.ft.com/ontology/Topic",
+    "prefLabel": "Global Economy"
+  }
+]
