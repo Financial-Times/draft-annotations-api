@@ -447,14 +447,9 @@ func writeMessage(w http.ResponseWriter, msg string, status int) {
 func switchToHasBrand(toChange []annotations.Annotation) ([]annotations.Annotation, error) {
 	changed := make([]annotations.Annotation, len(toChange))
 	for idx, ann := range toChange {
-		err := validatePredicate(ann.Predicate)
-		if err != nil {
-			return nil, fmt.Errorf("index %d : %w", idx, err)
-		}
-		if ann.Type == "" {
-			return nil, fmt.Errorf("index %d : annotation missing concept type", idx)
-		}
-
+		// We have removed Predicate and Type validation here.
+		// Validating not the user input but the saved annotations can (and did) cause unexpected client errors.
+		// To ensure we have only valid predicates we are adding filtering in the augmenter.
 		if ann.Predicate == mapper.PredicateIsClassifiedBy && ann.Type == mapper.ConceptTypeBrand {
 			ann.Predicate = mapper.PredicateHasBrand
 		}
