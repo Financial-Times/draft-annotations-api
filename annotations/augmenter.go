@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Financial-Times/draft-annotations-api/concept"
+	"github.com/Financial-Times/draft-annotations-api/mapper"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	log "github.com/sirupsen/logrus"
 )
@@ -33,6 +34,7 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, canonicalA
 	}
 
 	dedupedCanonical := dedupeCanonicalAnnotations(canonicalAnnotations)
+	dedupedCanonical = filterOutInvalidPredicates(dedupedCanonical)
 
 	uuids := getConceptUUIDs(dedupedCanonical)
 
@@ -78,6 +80,19 @@ func dedupeCanonicalAnnotations(annotations []Annotation) []Annotation {
 
 	}
 	return deduped
+}
+
+func filterOutInvalidPredicates(annotations []Annotation) []Annotation {
+	i := 0
+	for _, item := range annotations {
+		if !mapper.IsValidPACPredicate(item.Predicate) {
+			continue
+		}
+		annotations[i] = item
+		i++
+	}
+
+	return annotations[:i]
 }
 
 func getConceptUUIDs(canonicalAnnotations []Annotation) []string {
