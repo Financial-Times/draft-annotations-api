@@ -1,0 +1,18 @@
+[
+	{
+		"predicate":  "http://www.ft.com/ontology/annotation/about",
+		"id":  "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
+		"apiUrl":     "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
+		"type":       "http://www.ft.com/ontology/Subject",
+		"prefLabel":  "Economic Indicators",
+		"isFTAuthor": false
+	},
+	{
+		"predicate":  "http://www.ft.com/ontology/hasDisplayTag",
+		"id":         "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
+		"apiUrl":     "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
+		"type":       "http://www.ft.com/ontology/Subject",
+		"prefLabel":  "Economic Indicators",
+		"isFTAuthor": false
+	}
+]
