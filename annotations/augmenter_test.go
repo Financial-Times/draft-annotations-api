@@ -194,6 +194,7 @@ func TestAugmentAnnotationsMissingTransactionID(t *testing.T) {
 		Return(testConcepts, nil)
 	a := NewAugmenter(conceptRead)
 
+	// nolint errcheck
 	a.AugmentAnnotations(context.Background(), testCanonicalizedAnnotations)
 
 	var tid string

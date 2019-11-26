@@ -10,19 +10,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type Augmenter interface {
-	AugmentAnnotations(ctx context.Context, depletedAnnotations []Annotation) ([]Annotation, error)
-}
-
-type annotationAugmenter struct {
+type Augmenter struct {
 	conceptRead concept.ReadAPI
 }
 
-func NewAugmenter(api concept.ReadAPI) *annotationAugmenter {
-	return &annotationAugmenter{api}
+func NewAugmenter(api concept.ReadAPI) *Augmenter {
+	return &Augmenter{api}
 }
 
-func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations []Annotation) ([]Annotation, error) {
+func (a *Augmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations []Annotation) ([]Annotation, error) {
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 
 	if err != nil {

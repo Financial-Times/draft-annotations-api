@@ -25,17 +25,22 @@ type AnnotationsAPI interface {
 	GetAllButV2(context.Context, string) ([]annotations.Annotation, error)
 }
 
+// Interface for the annotations augmenter (currently only functionality in the annotations package)
+type Augmenter interface {
+	AugmentAnnotations(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error)
+}
+
 // Handler provides endpoints for reading annotations - draft or published, and writing draft annotations.
 type Handler struct {
 	annotationsRW        annotations.RW
 	annotationsAPI       AnnotationsAPI
 	c14n                 *annotations.Canonicalizer
-	annotationsAugmenter annotations.Augmenter
+	annotationsAugmenter Augmenter
 	timeout              time.Duration
 }
 
 // New initializes Handler.
-func New(rw annotations.RW, annotationsAPI AnnotationsAPI, c14n *annotations.Canonicalizer, augmenter annotations.Augmenter, httpTimeout time.Duration) *Handler {
+func New(rw annotations.RW, annotationsAPI AnnotationsAPI, c14n *annotations.Canonicalizer, augmenter Augmenter, httpTimeout time.Duration) *Handler {
 	return &Handler{
 		rw,
 		annotationsAPI,
