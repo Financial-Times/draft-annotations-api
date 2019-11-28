@@ -25,17 +25,22 @@ type AnnotationsAPI interface {
 	GetAllButV2(context.Context, string) ([]annotations.Annotation, error)
 }
 
+// Interface for the annotations augmenter (currently only functionality in the annotations package)
+type Augmenter interface {
+	AugmentAnnotations(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error)
+}
+
 // Handler provides endpoints for reading annotations - draft or published, and writing draft annotations.
 type Handler struct {
 	annotationsRW        annotations.RW
 	annotationsAPI       AnnotationsAPI
 	c14n                 *annotations.Canonicalizer
-	annotationsAugmenter annotations.Augmenter
+	annotationsAugmenter Augmenter
 	timeout              time.Duration
 }
 
 // New initializes Handler.
-func New(rw annotations.RW, annotationsAPI AnnotationsAPI, c14n *annotations.Canonicalizer, augmenter annotations.Augmenter, httpTimeout time.Duration) *Handler {
+func New(rw annotations.RW, annotationsAPI AnnotationsAPI, c14n *annotations.Canonicalizer, augmenter Augmenter, httpTimeout time.Duration) *Handler {
 	return &Handler{
 		rw,
 		annotationsAPI,
@@ -105,8 +110,8 @@ func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = validatePredicate(addedAnnotation.Predicate); err != nil {
-		handleWriteErrors("Invalid request", err, writeLog, w, http.StatusBadRequest)
+	if !mapper.IsValidPACPredicate(addedAnnotation.Predicate) {
+		handleWriteErrors("Invalid request", errors.New("invalid predicate"), writeLog, w, http.StatusBadRequest)
 		return
 	}
 
@@ -247,8 +252,8 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if addedAnnotation.Predicate != "" {
-		if err = validatePredicate(addedAnnotation.Predicate); err != nil {
-			handleWriteErrors("Invalid request", err, writeLog, w, http.StatusBadRequest)
+		if !mapper.IsValidPACPredicate(addedAnnotation.Predicate) {
+			handleWriteErrors("Invalid request", errors.New("invalid predicate"), writeLog, w, http.StatusBadRequest)
 			return
 		}
 	}
@@ -409,24 +414,6 @@ func validateUUID(u string) error {
 	return err
 }
 
-func validatePredicate(pr string) error {
-	var predicates = [...]string{
-		"http://www.ft.com/ontology/annotation/mentions",
-		"http://www.ft.com/ontology/annotation/about",
-		"http://www.ft.com/ontology/annotation/hasAuthor",
-		"http://www.ft.com/ontology/hasContributor",
-		"http://www.ft.com/ontology/hasDisplayTag",
-		"http://www.ft.com/ontology/classification/isClassifiedBy",
-		"http://www.ft.com/ontology/hasBrand",
-	}
-	for _, item := range predicates {
-		if pr == item {
-			return nil
-		}
-	}
-	return errors.New("invalid predicate")
-}
-
 func writeMessage(w http.ResponseWriter, msg string, status int) {
 	w.WriteHeader(status)
 
@@ -447,14 +434,9 @@ func writeMessage(w http.ResponseWriter, msg string, status int) {
 func switchToHasBrand(toChange []annotations.Annotation) ([]annotations.Annotation, error) {
 	changed := make([]annotations.Annotation, len(toChange))
 	for idx, ann := range toChange {
-		err := validatePredicate(ann.Predicate)
-		if err != nil {
-			return nil, fmt.Errorf("index %d : %w", idx, err)
-		}
-		if ann.Type == "" {
-			return nil, fmt.Errorf("index %d : annotation missing concept type", idx)
-		}
-
+		// We have removed Predicate and Type validation here.
+		// Validating not the user input but the saved annotations can (and did) cause unexpected client errors.
+		// To ensure we have only valid predicates we are adding filtering in the augmenter.
 		if ann.Predicate == mapper.PredicateIsClassifiedBy && ann.Type == mapper.ConceptTypeBrand {
 			ann.Predicate = mapper.PredicateHasBrand
 		}

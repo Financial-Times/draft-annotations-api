@@ -2,7 +2,9 @@ package annotations
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"testing"
 
 	"github.com/Financial-Times/draft-annotations-api/concept"
@@ -94,38 +96,6 @@ var expectedAugmentedAnnotations = []Annotation{
 	},
 }
 
-var testMultiCanonicalizedAnnotations = []Annotation{
-
-	{
-		Predicate: "http://www.ft.com/ontology/annotation/about",
-		ConceptId: "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
-	},
-	{
-		Predicate: "http://www.ft.com/ontology/hasDisplayTag",
-		ConceptId: "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
-	},
-}
-
-var expectedMultiPredicateAugmentedAnnotations = []Annotation{
-	{
-		Predicate:  "http://www.ft.com/ontology/hasDisplayTag",
-		ConceptId:  "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
-		ApiUrl:     "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
-		Type:       "http://www.ft.com/ontology/Subject",
-		PrefLabel:  "Economic Indicators",
-		IsFTAuthor: false,
-	},
-
-	{
-		Predicate:  "http://www.ft.com/ontology/annotation/about",
-		ConceptId:  "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
-		ApiUrl:     "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
-		Type:       "http://www.ft.com/ontology/Subject",
-		PrefLabel:  "Economic Indicators",
-		IsFTAuthor: false,
-	},
-}
-
 var testReturnSingleConceptID = []string{
 	"b224ad07-c818-3ad6-94af-a4d351dbb619",
 }
@@ -136,30 +106,6 @@ var testReturnSingleConcept = map[string]concept.Concept{
 		ApiUrl:    "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
 		Type:      "http://www.ft.com/ontology/Subject",
 		PrefLabel: "Economic Indicators",
-	},
-}
-
-var testduplicateCanonicalizedAnnotations = []Annotation{
-
-	{
-		Predicate: "http://www.ft.com/ontology/annotation/about",
-		ConceptId: "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
-	},
-	{
-		Predicate: "http://www.ft.com/ontology/annotation/about",
-		ConceptId: "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
-	},
-}
-
-var expectedDedupedAugmentedAnnotations = []Annotation{
-
-	{
-		Predicate:  "http://www.ft.com/ontology/annotation/about",
-		ConceptId:  "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
-		ApiUrl:     "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
-		Type:       "http://www.ft.com/ontology/Subject",
-		PrefLabel:  "Economic Indicators",
-		IsFTAuthor: false,
 	},
 }
 
@@ -183,44 +129,39 @@ func TestAugmentAnnotations(t *testing.T) {
 	conceptRead.AssertExpectations(t)
 }
 
-func TestAugmentAnnotationsMultiPredicatePerConcept(t *testing.T) {
-	matcher := mock.MatchedBy(func(l1 []string) bool {
-		return assert.ElementsMatch(t, l1, testReturnSingleConceptID)
-	})
+func TestAugmentAnnotationsFixtures(t *testing.T) {
+	tests := []struct {
+		name            string
+		fixtureBaseName string
+	}{
+		{"MultiPredicatePerConcept", "multiple-predicates-per-concept"},
+		{"ShouldFilterDuplicatedAnnotations", "filter-duplicate-annotations"},
+		{"ShouldFilterAnnotationsWithInvalidPredicate", "filter-invalid-predicates"},
+	}
 
-	conceptRead := new(ConceptReadAPIMock)
-	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
-	conceptRead.
-		On("GetConceptsByIDs", ctx, matcher).
-		Return(testReturnSingleConcept, nil)
-	a := NewAugmenter(conceptRead)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			matcher := mock.MatchedBy(func(l1 []string) bool {
+				return assert.ElementsMatch(t, l1, testReturnSingleConceptID)
+			})
 
-	annotations, err := a.AugmentAnnotations(ctx, testMultiCanonicalizedAnnotations)
+			conceptRead := new(ConceptReadAPIMock)
+			ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
+			conceptRead.
+				On("GetConceptsByIDs", ctx, matcher).
+				Return(testReturnSingleConcept, nil)
+			a := NewAugmenter(conceptRead)
 
-	assert.NoError(t, err)
-	assert.Equal(t, len(expectedMultiPredicateAugmentedAnnotations), len(annotations))
-	assert.ElementsMatch(t, annotations, expectedMultiPredicateAugmentedAnnotations)
-	conceptRead.AssertExpectations(t)
-}
+			originalAnnotations := helperGetAnnotationsFromFixture(t, "augmenter-input-"+test.fixtureBaseName)
+			annotations, err := a.AugmentAnnotations(ctx, originalAnnotations)
+			assert.NoError(t, err)
 
-func TestAugmentAnnotationsShouldFilterDuplicatedAnnotations(t *testing.T) {
-	matcher := mock.MatchedBy(func(l1 []string) bool {
-		return assert.ElementsMatch(t, l1, testReturnSingleConceptID)
-	})
+			expectedAnnotations := helperGetAnnotationsFromFixture(t, "augmenter-expected-"+test.fixtureBaseName)
 
-	conceptRead := new(ConceptReadAPIMock)
-	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
-	conceptRead.
-		On("GetConceptsByIDs", ctx, matcher).
-		Return(testReturnSingleConcept, nil)
-	a := NewAugmenter(conceptRead)
-
-	annotations, err := a.AugmentAnnotations(ctx, testduplicateCanonicalizedAnnotations)
-
-	assert.NoError(t, err)
-	assert.Equal(t, len(expectedDedupedAugmentedAnnotations), len(annotations))
-	assert.Equal(t, annotations[0], expectedDedupedAugmentedAnnotations[0])
-	conceptRead.AssertExpectations(t)
+			assert.Equal(t, annotations, expectedAnnotations)
+			conceptRead.AssertExpectations(t)
+		})
+	}
 }
 
 func TestAugmentAnnotationsArrayShouldNotBeNull(t *testing.T) {
@@ -253,6 +194,7 @@ func TestAugmentAnnotationsMissingTransactionID(t *testing.T) {
 		Return(testConcepts, nil)
 	a := NewAugmenter(conceptRead)
 
+	// nolint errcheck
 	a.AugmentAnnotations(context.Background(), testCanonicalizedAnnotations)
 
 	var tid string
@@ -328,4 +270,18 @@ func (m *ConceptReadAPIMock) GTG() error {
 func (m *ConceptReadAPIMock) Endpoint() string {
 	args := m.Called()
 	return args.String(0)
+}
+
+func helperGetAnnotationsFromFixture(t *testing.T, fixtureName string) []Annotation {
+	j, err := ioutil.ReadFile("testdata/" + fixtureName + ".json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var a []Annotation
+	err = json.Unmarshal(j, &a)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return a
 }

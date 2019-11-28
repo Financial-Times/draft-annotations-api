@@ -12,11 +12,15 @@ import (
 const (
 	PredicateIsClassifiedBy          = "http://www.ft.com/ontology/classification/isClassifiedBy"
 	PredicateIsPrimarilyClassifiedBy = "http://www.ft.com/ontology/classification/isPrimarilyClassifiedBy"
+	PredicateMentions                = "http://www.ft.com/ontology/annotation/mentions"
 	PredicateMajorMentions           = "http://www.ft.com/ontology/annotation/majorMentions"
 	PredicateAbout                   = "http://www.ft.com/ontology/annotation/about"
 	PredicateImplicitlyAbout         = "http://www.ft.com/ontology/implicitlyAbout"
 	PredicateImplicitlyClassifiedBy  = "http://www.ft.com/ontology/implicitlyClassifiedBy"
+	PredicateHasAuthor               = "http://www.ft.com/ontology/annotation/hasAuthor"
 	PredicateHasBrand                = "http://www.ft.com/ontology/hasBrand"
+	PredicateHasContributor          = "http://www.ft.com/ontology/hasContributor"
+	PredicateHasDisplayTag           = "http://www.ft.com/ontology/hasDisplayTag"
 
 	ConceptTypeBrand         = "http://www.ft.com/ontology/product/Brand"
 	ConceptTypeGenre         = "http://www.ft.com/ontology/Genre"
@@ -78,6 +82,11 @@ func ConvertPredicates(body []byte) ([]byte, error) {
 			annoMap["predicate"] = PredicateAbout
 		case PredicateImplicitlyAbout, PredicateImplicitlyClassifiedBy:
 			continue
+		default:
+			if !IsValidPACPredicate(predicate) {
+				log.Infof("Invalid PAC predicated not mapped: %s", predicate)
+				continue
+			}
 		}
 
 		convertedAnnotations = append(convertedAnnotations, annoMap)
@@ -109,6 +118,25 @@ func toStringArray(val interface{}) ([]string, error) {
 
 func getLeafType(listOfTypes []string) string {
 	return listOfTypes[len(listOfTypes)-1]
+}
+
+func IsValidPACPredicate(pr string) bool {
+	var predicates = [...]string{
+		PredicateAbout,
+		PredicateHasAuthor,
+		PredicateHasBrand,
+		PredicateHasContributor,
+		PredicateHasDisplayTag,
+		PredicateIsClassifiedBy,
+		PredicateMentions,
+	}
+	for _, item := range predicates {
+		if pr == item {
+			return true
+		}
+	}
+
+	return false
 }
 
 func TransformConceptID(id string) string {

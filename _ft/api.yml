@@ -257,9 +257,9 @@ paths:
           examples:
             application/json:
               schemaVersion: 1
-              systemCode: dewey-system-code
-              name: app-name
-              description: A descriptive description
+              systemCode: draft-annotations-api
+              name: draft-annotations-api
+              description: PAC Draft Annotations API
               checks:
                 - id: check-api-health
                   name: Check API Health

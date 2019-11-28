@@ -17,15 +17,16 @@ func TestConvertPredicates(t *testing.T) {
 		{"IsMajorMentionsMappedCorrectly", "annotations_majorMentions"},
 		{"DefaultPassThrough", "annotations_defaults"},
 		{"ImplicitAnnotationsAreFiltered", "annotations_implicit"},
+		{"InvalidAnnotationsAreFiltered", "annotations_invalid"},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			originalBody, err := ioutil.ReadFile("test_resources/" + test.fixtureBaseName + "_v2.json")
+			originalBody, err := ioutil.ReadFile("testdata/" + test.fixtureBaseName + "_v2.json")
 			if err != nil {
 				t.Fatal(err)
 			}
-			expectedBody, err := ioutil.ReadFile("test_resources/" + test.fixtureBaseName + "_PAC.json")
+			expectedBody, err := ioutil.ReadFile("testdata/" + test.fixtureBaseName + "_PAC.json")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -37,7 +38,7 @@ func TestConvertPredicates(t *testing.T) {
 }
 
 func TestDiscardedAndEmpty(t *testing.T) {
-	originalBody, err := ioutil.ReadFile("test_resources/annotations_discard.json")
+	originalBody, err := ioutil.ReadFile("testdata/annotations_discard.json")
 	if err != nil {
 		t.Fatal(err)
 	}

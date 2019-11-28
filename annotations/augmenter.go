@@ -5,23 +5,20 @@ import (
 	"strings"
 
 	"github.com/Financial-Times/draft-annotations-api/concept"
+	"github.com/Financial-Times/draft-annotations-api/mapper"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	log "github.com/sirupsen/logrus"
 )
 
-type Augmenter interface {
-	AugmentAnnotations(ctx context.Context, depletedAnnotations []Annotation) ([]Annotation, error)
-}
-
-type annotationAugmenter struct {
+type Augmenter struct {
 	conceptRead concept.ReadAPI
 }
 
-func NewAugmenter(api concept.ReadAPI) *annotationAugmenter {
-	return &annotationAugmenter{api}
+func NewAugmenter(api concept.ReadAPI) *Augmenter {
+	return &Augmenter{api}
 }
 
-func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations []Annotation) ([]Annotation, error) {
+func (a *Augmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations []Annotation) ([]Annotation, error) {
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 
 	if err != nil {
@@ -33,6 +30,7 @@ func (a *annotationAugmenter) AugmentAnnotations(ctx context.Context, canonicalA
 	}
 
 	dedupedCanonical := dedupeCanonicalAnnotations(canonicalAnnotations)
+	dedupedCanonical = filterOutInvalidPredicates(dedupedCanonical)
 
 	uuids := getConceptUUIDs(dedupedCanonical)
 
@@ -78,6 +76,19 @@ func dedupeCanonicalAnnotations(annotations []Annotation) []Annotation {
 
 	}
 	return deduped
+}
+
+func filterOutInvalidPredicates(annotations []Annotation) []Annotation {
+	i := 0
+	for _, item := range annotations {
+		if !mapper.IsValidPACPredicate(item.Predicate) {
+			continue
+		}
+		annotations[i] = item
+		i++
+	}
+
+	return annotations[:i]
 }
 
 func getConceptUUIDs(canonicalAnnotations []Annotation) []string {

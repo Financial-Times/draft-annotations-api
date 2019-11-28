@@ -26,7 +26,7 @@
     "prefLabel": "Emily Cadman"
   },
   {
-    "predicate": "http://www.ft.com/ontology/annotation/hasContributor",
+    "predicate": "http://www.ft.com/ontology/hasContributor",
     "id": "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
     "apiUrl": "http://api.ft.com/people/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
     "types": [
@@ -49,7 +49,7 @@
     "prefLabel": "Global economic growth"
   },
   {
-    "predicate": "http://www.ft.com/ontology/annotation/hasDisplayTag",
+    "predicate": "http://www.ft.com/ontology/hasDisplayTag",
     "id": "http://www.ft.com/thing/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
     "apiUrl": "http://api.ft.com/things/d7de27f8-1633-3fcc-b308-c95a2ad7d1cd",
     "types": [

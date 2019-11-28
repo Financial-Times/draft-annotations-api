@@ -8,7 +8,6 @@ jobs:
           GOPATH: /go
           CIRCLE_TEST_REPORTS: /tmp/test-results
           CIRCLE_COVERAGE_REPORT: /tmp/coverage-results
-          GO111MODULE: "on"
     steps:
       - checkout
       - run:
@@ -16,7 +15,8 @@ jobs:
           command: |
            GO111MODULE=off go get -u github.com/mattn/goveralls
            GO111MODULE=off go get -u github.com/jstemmer/go-junit-report
-
+           curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $(go env GOPATH)/bin v1.18.0
+           wget https://raw.githubusercontent.com/Financial-Times/upp-coding-standard/v1.0.0/golangci-config/.golangci.yml
       - run:
           name: Test Results
           command: |
@@ -25,6 +25,9 @@ jobs:
       - run:
           name: Go Build
           command: go build -mod=readonly -v
+      - run:
+          name: Run linters
+          command: golangci-lint run --new-from-rev=master --config .golangci.yml
       - run:
           name: Run Tests
           command: |
@@ -37,7 +40,7 @@ jobs:
   dockerfile:
     working_directory: /draft-content-api
     docker:
-      - image: docker:18.01.0-ce-git
+      - image: docker:18
     steps:
       - checkout
       - setup_docker_engine
@@ -54,13 +57,12 @@ jobs:
           ANNOTATIONS_RW_ENDPOINT: http://localhost:9000
           ANNOTATIONS_ENDPOINT: http://localhost:9000/content/%v/annotations
           INTERNAL_CONCORDANCES_ENDPOINT: http://localhost:9000/internalconcordances
-          GO111MODULE: "on"
       - image: peteclarkft/ersatz:stable
     steps:
       - checkout
       - run:
           name: Go Build
-          command: go build -v
+          command: go build -mod=readonly -v
       - run:
           name: Load ersatz-fixtures.yml to ersatz image
           command: "curl -X POST --data-binary @_ft/ersatz-fixtures.yml -H \"Content-type: text/x-yaml\" http://localhost:9000/__configure"
