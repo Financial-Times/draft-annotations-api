@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/Pallinder/go-randomdata"
 	"github.com/husobee/vestigo"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 	logTest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -93,7 +94,8 @@ func TestGetConceptsByIDsBuildingHTTPRequestError(t *testing.T) {
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
-	assert.EqualError(t, err, "parse :: missing protocol scheme")
+	assert.Equal(t, err, err.(*url.Error))
+	assert.Equal(t, err.(*url.Error).Op, "parse")
 }
 
 func TestGetConceptsByIDsHTTPCallError(t *testing.T) {
@@ -105,7 +107,8 @@ func TestGetConceptsByIDsHTTPCallError(t *testing.T) {
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
-	assert.EqualError(t, err, "Get ?ids=an-id: unsupported protocol scheme \"\"")
+	assert.Equal(t, err, err.(*url.Error))
+	assert.Equal(t, err.(*url.Error).Op, "Get")
 }
 
 func TestGetConceptsByIDsNon200HTTPStatus(t *testing.T) {
@@ -119,7 +122,7 @@ func TestGetConceptsByIDsNon200HTTPStatus(t *testing.T) {
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
-	assert.EqualError(t, err, "concept search API returned a non-200 HTTP status code: 503")
+	assert.Error(t, err)
 }
 
 func TestGetConceptsByIDsUnmarshallingPayloadError(t *testing.T) {
@@ -133,7 +136,7 @@ func TestGetConceptsByIDsUnmarshallingPayloadError(t *testing.T) {
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
-	assert.EqualError(t, err, "invalid character '}' looking for beginning of value")
+	assert.Error(t, err)
 }
 
 func TestHappyGTG(t *testing.T) {
@@ -177,7 +180,7 @@ func TestUnhappyGTG(t *testing.T) {
 	csAPI := NewReadAPI(testClient, s.URL, apiKey, batchSize)
 
 	err := csAPI.GTG()
-	assert.EqualError(t, err, "concept search API returned a non-200 HTTP status code: 503")
+	assert.Error(t, err)
 }
 
 func generateConcepts(n int) map[string]Concept {
