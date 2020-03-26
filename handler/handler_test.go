@@ -688,8 +688,7 @@ func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 	assert.NoError(t, err)
-	assert.JSONEq(t, "{\"message\":\"Failed to read annotations: parse :: missing protocol scheme\"}", string(body))
-
+	assert.Contains(t, string(body), "Failed to read annotations")
 	rw.AssertExpectations(t)
 	aug.AssertExpectations(t)
 }
