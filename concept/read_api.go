@@ -3,7 +3,9 @@ package concept
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
@@ -31,6 +33,8 @@ func NewReadAPI(client *http.Client, endpoint string, apiKey string, batchSize i
 		batchSize:  batchSize,
 	}
 }
+
+var ErrUnexpectedResponse = errors.New("concept search API returned a non-200 HTTP status code")
 
 func (search *internalConcordancesAPI) GetConceptsByIDs(ctx context.Context, conceptIDs []string) (map[string]Concept, error) {
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
@@ -92,7 +96,12 @@ func (search *internalConcordancesAPI) searchConceptBatch(ctx context.Context, c
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		err = fmt.Errorf("concept search API returned a non-200 HTTP status code: %v", resp.StatusCode)
+		body, e := ioutil.ReadAll(resp.Body)
+		if e != nil {
+			err = fmt.Errorf("status %v: %w", resp.StatusCode, ErrUnexpectedResponse)
+		} else {
+			err = fmt.Errorf("status %v %s: %w", resp.StatusCode, string(body), ErrUnexpectedResponse)
+		}
 		batchConceptsLog.WithError(err).Error("Error received from concept search API")
 		return nil, err
 	}

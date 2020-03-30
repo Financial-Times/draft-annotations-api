@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/exp/errors"
+
 	"github.com/Financial-Times/go-ft-http/fthttp"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/Pallinder/go-randomdata"
@@ -94,7 +96,8 @@ func TestGetConceptsByIDsBuildingHTTPRequestError(t *testing.T) {
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
-	assert.Equal(t, err, err.(*url.Error))
+	var urlError *url.Error
+	assert.True(t, errors.As(err, &urlError))
 	assert.Equal(t, err.(*url.Error).Op, "parse")
 }
 
@@ -107,7 +110,8 @@ func TestGetConceptsByIDsHTTPCallError(t *testing.T) {
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
-	assert.Equal(t, err, err.(*url.Error))
+	var urlError *url.Error
+	assert.True(t, errors.As(err, &urlError))
 	assert.Equal(t, err.(*url.Error).Op, "Get")
 }
 
@@ -122,7 +126,7 @@ func TestGetConceptsByIDsNon200HTTPStatus(t *testing.T) {
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
-	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrUnexpectedResponse))
 }
 
 func TestGetConceptsByIDsUnmarshallingPayloadError(t *testing.T) {

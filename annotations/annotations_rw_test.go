@@ -2,6 +2,7 @@ package annotations
 
 import (
 	"context"
+	"encoding/json"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -9,6 +10,8 @@ import (
 	"net/url"
 	"testing"
 	"time"
+
+	"golang.org/x/exp/errors"
 
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/Pallinder/go-randomdata"
@@ -46,6 +49,8 @@ var expectedCanonicalizedAnnotations = Annotations{
 	},
 }
 
+var urlError *url.Error
+
 func TestHappyRead(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
 	expectedHash := randomdata.RandStringRunes(56)
@@ -73,7 +78,7 @@ func TestReadAnnotationsNotFound(t *testing.T) {
 	assert.False(t, found)
 }
 
-func TestRead500Error(t *testing.T) {
+func TestUnhappyReadStatus500(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
 	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusInternalServerError, "", "", "", tid)
 	defer s.Close()
@@ -81,7 +86,7 @@ func TestRead500Error(t *testing.T) {
 	rw := NewRW(testClient, s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, _, found, err := rw.Read(ctx, testContentUUID)
-	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrUnexpectedStatusRead))
 	assert.False(t, found)
 }
 
@@ -91,7 +96,7 @@ func TestReadHTTPRequestError(t *testing.T) {
 	rw := NewRW(testClient, ":#")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, _, found, err := rw.Read(ctx, testContentUUID)
-	assert.Error(t, err.(*url.Error))
+	assert.True(t, errors.As(err, &urlError))
 	assert.Equal(t, err.(*url.Error).Op, "parse")
 	assert.False(t, found)
 }
@@ -102,7 +107,7 @@ func TestReadHTTPCallError(t *testing.T) {
 	rw := NewRW(testClient, "")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, _, found, err := rw.Read(ctx, testContentUUID)
-	assert.Error(t, err.(*url.Error))
+	assert.True(t, errors.As(err, &urlError))
 	assert.Equal(t, err.(*url.Error).Op, "Get")
 	assert.False(t, found)
 }
@@ -115,6 +120,8 @@ func TestReadInvalidBodyError(t *testing.T) {
 	rw := NewRW(testClient, s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, _, found, err := rw.Read(ctx, testContentUUID)
+	var jsonErr *json.SyntaxError
+	assert.True(t, errors.As(err, &jsonErr))
 	assert.Error(t, err)
 	assert.False(t, found)
 }
@@ -174,7 +181,7 @@ func TestUnhappyWriteStatus500(t *testing.T) {
 	rw := NewRW(testClient, s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
-	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrUnexpectedStatusWrite))
 }
 
 func TestWriteHTTPRequestError(t *testing.T) {
@@ -183,7 +190,7 @@ func TestWriteHTTPRequestError(t *testing.T) {
 	rw := NewRW(testClient, ":#")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
-	assert.Equal(t, err, err.(*url.Error))
+	assert.True(t, errors.As(err, &urlError))
 	assert.Equal(t, err.(*url.Error).Op, "parse")
 }
 
@@ -193,7 +200,7 @@ func TestWriteHTTPCallError(t *testing.T) {
 	rw := NewRW(testClient, "")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
-	assert.Equal(t, err, err.(*url.Error))
+	assert.True(t, errors.As(err, &urlError))
 	assert.Equal(t, err.(*url.Error).Op, "Put")
 }
 
@@ -269,13 +276,13 @@ func TestRWHappyGTG(t *testing.T) {
 func TestRWHTTPRequestErrorGTG(t *testing.T) {
 	rw := NewRW(testClient, ":#")
 	err := rw.GTG()
-	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrGTGRequest))
 }
 
 func TestRWHTTPCallErrorGTG(t *testing.T) {
 	rw := NewRW(testClient, "")
 	err := rw.GTG()
-	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrGTGCall))
 }
 
 func TestRW503GTG(t *testing.T) {
@@ -283,7 +290,7 @@ func TestRW503GTG(t *testing.T) {
 	defer s.Close()
 	rw := NewRW(testClient, s.URL)
 	err := rw.GTG()
-	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrGTGUnexpectedStatus))
 }
 
 func newAnnotationsRWGTGServerMock(t *testing.T, status int, body string) *httptest.Server {
