@@ -13,3 +13,5 @@ resources:
     memory: 10Mi
   limits:
     memory: 128Mi
+
+eksCluster: false
