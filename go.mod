@@ -22,7 +22,6 @@ require (
 	github.com/sirupsen/logrus v0.0.0-20170713114250-a3f95b5c4235
 	github.com/stretchr/objx v0.1.1 // indirect
 	github.com/stretchr/testify v0.0.0-20180319223459-c679ae2cc0cb
-	golang.org/x/exp/errors v0.0.0-20200320212757-167ffe94c325
 	golang.org/x/net v0.0.0-20170719084000-02ac38e2528f // indirect
 	golang.org/x/sys v0.0.0-20170718161335-cd2c276457ed // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect

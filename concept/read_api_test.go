@@ -3,6 +3,7 @@ package concept
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -94,8 +95,9 @@ func TestGetConceptsByIDsBuildingHTTPRequestError(t *testing.T) {
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
-	assert.Equal(t, err, err.(*url.Error))
-	assert.Equal(t, err.(*url.Error).Op, "parse")
+	var urlError *url.Error
+	assert.True(t, errors.As(err, &urlError))
+	assert.Equal(t, urlError.Op, "parse")
 }
 
 func TestGetConceptsByIDsHTTPCallError(t *testing.T) {
@@ -107,8 +109,9 @@ func TestGetConceptsByIDsHTTPCallError(t *testing.T) {
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
-	assert.Equal(t, err, err.(*url.Error))
-	assert.Equal(t, err.(*url.Error).Op, "Get")
+	var urlError *url.Error
+	assert.True(t, errors.As(err, &urlError))
+	assert.Equal(t, urlError.Op, "Get")
 }
 
 func TestGetConceptsByIDsNon200HTTPStatus(t *testing.T) {
@@ -122,7 +125,7 @@ func TestGetConceptsByIDsNon200HTTPStatus(t *testing.T) {
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
-	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrUnexpectedResponse))
 }
 
 func TestGetConceptsByIDsUnmarshallingPayloadError(t *testing.T) {
@@ -136,7 +139,8 @@ func TestGetConceptsByIDsUnmarshallingPayloadError(t *testing.T) {
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
-	assert.Error(t, err)
+	var jsonErr *json.SyntaxError
+	assert.True(t, errors.As(err, &jsonErr))
 }
 
 func TestHappyGTG(t *testing.T) {
@@ -180,7 +184,7 @@ func TestUnhappyGTG(t *testing.T) {
 	csAPI := NewReadAPI(testClient, s.URL, apiKey, batchSize)
 
 	err := csAPI.GTG()
-	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrUnexpectedResponse))
 }
 
 func generateConcepts(n int) map[string]Concept {

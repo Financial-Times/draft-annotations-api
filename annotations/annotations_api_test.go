@@ -2,9 +2,11 @@ package annotations
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -34,7 +36,7 @@ func TestUnhappyAnnotationsAPIGTG(t *testing.T) {
 
 	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
 	err := annotationsAPI.GTG()
-	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrGTGNotOK))
 }
 
 func TestAnnotationsAPIGTGWrongAPIKey(t *testing.T) {
@@ -43,13 +45,15 @@ func TestAnnotationsAPIGTGWrongAPIKey(t *testing.T) {
 
 	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", "a-non-existing-key")
 	err := annotationsAPI.GTG()
-	assert.Error(t, err)
+	assert.True(t, errors.Is(err, ErrGTGNotOK))
 }
 
 func TestAnnotationsAPIGTGInvalidURL(t *testing.T) {
 	annotationsAPI := NewUPPAnnotationsAPI(testClient, ":#", testAPIKey)
 	err := annotationsAPI.GTG()
-	assert.Error(t, err)
+	var urlErr *url.Error
+	assert.True(t, errors.As(err, &urlErr))
+	assert.Equal(t, urlErr.Op, "parse")
 }
 
 func TestAnnotationsAPIGTGConnectionError(t *testing.T) {
