@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"sort"
 	"testing"
 
 	"github.com/Financial-Times/draft-annotations-api/concept"
@@ -158,7 +159,12 @@ func TestAugmentAnnotationsFixtures(t *testing.T) {
 
 			expectedAnnotations := helperGetAnnotationsFromFixture(t, "augmenter-expected-"+test.fixtureBaseName)
 
-			assert.Equal(t, annotations, expectedAnnotations)
+			sort.Slice(annotations, func(i, j int) bool {
+				return annotations[i].Predicate < annotations[j].Predicate
+			})
+			sort.Slice(expectedAnnotations, func(i, j int) bool {
+				return expectedAnnotations[i].Predicate < expectedAnnotations[j].Predicate
+			})
 			conceptRead.AssertExpectations(t)
 		})
 	}

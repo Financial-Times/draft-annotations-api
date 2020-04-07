@@ -4,6 +4,10 @@
 		"id": "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619"
 	},
 	{
+		"predicate": "http://www.ft.com/ontology/mentions",
+		"id": "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619"
+	},
+	{
 		"predicate": "http://www.ft.com/ontology/hasDisplayTag",
 		"id": "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619"
 	}

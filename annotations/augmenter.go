@@ -73,7 +73,6 @@ func dedupeCanonicalAnnotations(annotations []Annotation) []Annotation {
 	}
 	for k := range dedupedMap {
 		deduped = append(deduped, k)
-
 	}
 	return deduped
 }
