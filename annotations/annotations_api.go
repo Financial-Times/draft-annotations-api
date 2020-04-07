@@ -167,23 +167,23 @@ func (api *UPPAnnotationsAPI) GTG() error {
 	apiReqURI := fmt.Sprintf(api.endpointTemplate, syntheticContentUUID)
 	apiReq, err := http.NewRequest("GET", apiReqURI, nil)
 	if err != nil {
-		return fmt.Errorf("gtg request error: %v", err.Error())
+		return fmt.Errorf("GTG: %w", err)
 	}
 
 	apiReq.Header.Set(apiKeyHeader, api.apiKey)
 
 	apiResp, err := api.httpClient.Do(apiReq)
 	if err != nil {
-		return fmt.Errorf("gtg call error: %v", err.Error())
+		return fmt.Errorf("GTG: %w", err)
 	}
 	defer apiResp.Body.Close()
 
 	if apiResp.StatusCode != http.StatusOK {
 		errMsgBody, err := ioutil.ReadAll(apiResp.Body)
 		if err != nil {
-			return fmt.Errorf("gtg returned a non-200 HTTP status [%v]", apiResp.StatusCode)
+			return fmt.Errorf("status %d: %w", apiResp.StatusCode, ErrGTGNotOK)
 		}
-		return fmt.Errorf("gtg returned a non-200 HTTP status [%v]: %v", apiResp.StatusCode, string(errMsgBody))
+		return fmt.Errorf("status %d %s: %w", apiResp.StatusCode, string(errMsgBody), ErrGTGNotOK)
 	}
 	return nil
 }

@@ -2,10 +2,13 @@ package annotations
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -72,7 +75,7 @@ func TestReadAnnotationsNotFound(t *testing.T) {
 	assert.False(t, found)
 }
 
-func TestRead500Error(t *testing.T) {
+func TestUnhappyReadStatus500(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
 	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusInternalServerError, "", "", "", tid)
 	defer s.Close()
@@ -80,7 +83,7 @@ func TestRead500Error(t *testing.T) {
 	rw := NewRW(testClient, s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, _, found, err := rw.Read(ctx, testContentUUID)
-	assert.EqualError(t, err, "annotations RW returned an unexpected HTTP status code in read operation: 500")
+	assert.True(t, errors.Is(err, ErrUnexpectedStatusRead))
 	assert.False(t, found)
 }
 
@@ -90,7 +93,10 @@ func TestReadHTTPRequestError(t *testing.T) {
 	rw := NewRW(testClient, ":#")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, _, found, err := rw.Read(ctx, testContentUUID)
-	assert.EqualError(t, err, "parse :: missing protocol scheme")
+
+	var urlError *url.Error
+	assert.True(t, errors.As(err, &urlError))
+	assert.Equal(t, urlError.Op, "parse")
 	assert.False(t, found)
 }
 
@@ -100,7 +106,10 @@ func TestReadHTTPCallError(t *testing.T) {
 	rw := NewRW(testClient, "")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, _, found, err := rw.Read(ctx, testContentUUID)
-	assert.EqualError(t, err, "Get /drafts/content/db4daee0-2b84-465a-addb-fc8938a608db/annotations: unsupported protocol scheme \"\"")
+
+	var urlError *url.Error
+	assert.True(t, errors.As(err, &urlError))
+	assert.Equal(t, urlError.Op, "Get")
 	assert.False(t, found)
 }
 
@@ -112,7 +121,10 @@ func TestReadInvalidBodyError(t *testing.T) {
 	rw := NewRW(testClient, s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, _, found, err := rw.Read(ctx, testContentUUID)
-	assert.EqualError(t, err, "invalid character 'i' looking for beginning of object key string")
+	var jsonErr *json.SyntaxError
+	if assert.Error(t, err) {
+		assert.True(t, errors.As(err, &jsonErr))
+	}
 	assert.False(t, found)
 }
 
@@ -171,7 +183,7 @@ func TestUnhappyWriteStatus500(t *testing.T) {
 	rw := NewRW(testClient, s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
-	assert.EqualError(t, err, "annotations RW returned an unexpected HTTP status code in write operation: 500")
+	assert.True(t, errors.Is(err, ErrUnexpectedStatusWrite))
 }
 
 func TestWriteHTTPRequestError(t *testing.T) {
@@ -180,7 +192,10 @@ func TestWriteHTTPRequestError(t *testing.T) {
 	rw := NewRW(testClient, ":#")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
-	assert.EqualError(t, err, "parse :: missing protocol scheme")
+
+	var urlError *url.Error
+	assert.True(t, errors.As(err, &urlError))
+	assert.Equal(t, urlError.Op, "parse")
 }
 
 func TestWriteHTTPCallError(t *testing.T) {
@@ -189,7 +204,10 @@ func TestWriteHTTPCallError(t *testing.T) {
 	rw := NewRW(testClient, "")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
-	assert.EqualError(t, err, "Put /drafts/content/db4daee0-2b84-465a-addb-fc8938a608db/annotations: unsupported protocol scheme \"\"")
+
+	var urlError *url.Error
+	assert.True(t, errors.As(err, &urlError))
+	assert.Equal(t, urlError.Op, "Put")
 }
 
 func TestWriteMissingTID(t *testing.T) {
@@ -264,13 +282,17 @@ func TestRWHappyGTG(t *testing.T) {
 func TestRWHTTPRequestErrorGTG(t *testing.T) {
 	rw := NewRW(testClient, ":#")
 	err := rw.GTG()
-	assert.EqualError(t, err, "gtg HTTP request error: parse :: missing protocol scheme")
+	var urlError *url.Error
+	assert.True(t, errors.As(err, &urlError))
+	assert.Equal(t, urlError.Op, "parse")
 }
 
 func TestRWHTTPCallErrorGTG(t *testing.T) {
 	rw := NewRW(testClient, "")
 	err := rw.GTG()
-	assert.EqualError(t, err, "gtg HTTP call error: Get /__gtg: unsupported protocol scheme \"\"")
+	var urlError *url.Error
+	assert.True(t, errors.As(err, &urlError))
+	assert.Equal(t, urlError.Op, "Get")
 }
 
 func TestRW503GTG(t *testing.T) {
@@ -278,7 +300,7 @@ func TestRW503GTG(t *testing.T) {
 	defer s.Close()
 	rw := NewRW(testClient, s.URL)
 	err := rw.GTG()
-	assert.EqualError(t, err, "gtg returned unexpected status 503: service unavailable")
+	assert.True(t, errors.Is(err, ErrGTGNotOK))
 }
 
 func newAnnotationsRWGTGServerMock(t *testing.T, status int, body string) *httptest.Server {

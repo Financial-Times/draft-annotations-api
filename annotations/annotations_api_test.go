@@ -2,16 +2,18 @@ package annotations
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
 	"github.com/Financial-Times/go-ft-http/fthttp"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/husobee/vestigo"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -34,7 +36,7 @@ func TestUnhappyAnnotationsAPIGTG(t *testing.T) {
 
 	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
 	err := annotationsAPI.GTG()
-	assert.EqualError(t, err, "gtg returned a non-200 HTTP status [503]: I am not happy!")
+	assert.True(t, errors.Is(err, ErrGTGNotOK))
 }
 
 func TestAnnotationsAPIGTGWrongAPIKey(t *testing.T) {
@@ -43,13 +45,15 @@ func TestAnnotationsAPIGTGWrongAPIKey(t *testing.T) {
 
 	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", "a-non-existing-key")
 	err := annotationsAPI.GTG()
-	assert.EqualError(t, err, "gtg returned a non-200 HTTP status [401]: unauthorized")
+	assert.True(t, errors.Is(err, ErrGTGNotOK))
 }
 
 func TestAnnotationsAPIGTGInvalidURL(t *testing.T) {
 	annotationsAPI := NewUPPAnnotationsAPI(testClient, ":#", testAPIKey)
 	err := annotationsAPI.GTG()
-	assert.EqualError(t, err, "gtg request error: parse :: missing protocol scheme")
+	var urlErr *url.Error
+	assert.True(t, errors.As(err, &urlErr))
+	assert.Equal(t, urlErr.Op, "parse")
 }
 
 func TestAnnotationsAPIGTGConnectionError(t *testing.T) {

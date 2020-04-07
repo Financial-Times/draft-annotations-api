@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -31,6 +32,10 @@ type annotationsRW struct {
 func NewRW(client *http.Client, endpoint string) RW {
 	return &annotationsRW{endpoint, client}
 }
+
+var ErrUnexpectedStatusRead = errors.New("annotations RW returned an unexpected HTTP status code in read operation")
+var ErrUnexpectedStatusWrite = errors.New("annotations RW returned an unexpected HTTP status code in write operation")
+var ErrGTGNotOK = errors.New("gtg returned a non-200 HTTP status")
 
 func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) (*Annotations, string, bool, error) {
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
@@ -72,7 +77,7 @@ func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) (*Annotat
 	case http.StatusNotFound:
 		return nil, "", false, nil
 	default:
-		return nil, "", false, fmt.Errorf("annotations RW returned an unexpected HTTP status code in read operation: %v", resp.StatusCode)
+		return nil, "", false, fmt.Errorf("status %d: %w", resp.StatusCode, ErrUnexpectedStatusRead)
 	}
 }
 
@@ -116,7 +121,7 @@ func (rw *annotationsRW) Write(ctx context.Context, contentUUID string, annotati
 		newHash := resp.Header.Get(DocumentHashHeader)
 		return newHash, nil
 	default:
-		return "", fmt.Errorf("annotations RW returned an unexpected HTTP status code in write operation: %v", resp.StatusCode)
+		return "", fmt.Errorf("status %d: %w", resp.StatusCode, ErrUnexpectedStatusWrite)
 	}
 }
 
@@ -128,19 +133,22 @@ func (rw *annotationsRW) GTG() error {
 	req, err := http.NewRequest("GET", rw.endpoint+"/__gtg", nil)
 	if err != nil {
 		log.WithError(err).Error("Error in creating the HTTP request to annotations RW GTG")
-		return fmt.Errorf("gtg HTTP request error: %v", err)
+		return fmt.Errorf("GTG: %w", err)
 	}
 
 	resp, err := rw.httpClient.Do(req)
 	if err != nil {
 		log.WithError(err).Error("Error making the HTTP request to annotations RW GTG")
-		return fmt.Errorf("gtg HTTP call error: %v", err)
+		return fmt.Errorf("GTG: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := ioutil.ReadAll(resp.Body)
-		return fmt.Errorf("gtg returned unexpected status %v: %v", resp.StatusCode, string(body))
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("status %d: %w", resp.StatusCode, ErrGTGNotOK)
+		}
+		return fmt.Errorf("status %d %s: %w", resp.StatusCode, string(body), ErrGTGNotOK)
 	}
 
 	return nil
