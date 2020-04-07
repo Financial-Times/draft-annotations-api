@@ -67,7 +67,7 @@ func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
 	writeLog.Debug("Validating input and reading annotations from UPP...")
 	uppList, httpStatus, err := h.prepareUPPAnnotations(ctx, contentUUID, conceptID)
 	if err != nil {
-		handleWriteErrors("Invalid request", err, writeLog, w, httpStatus)
+		handleWriteErrors("Error while preparing annotations", err, writeLog, w, httpStatus)
 		return
 	}
 
@@ -301,6 +301,9 @@ func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string,
 
 	ann, err := h.annotationsAPI.GetAllButV2(ctx, contentUUID)
 	if err != nil {
+		if err.Error() == annotations.UPPNotFoundMsg {
+			return nil, http.StatusNotFound, err
+		}
 		return nil, http.StatusInternalServerError, err
 	}
 	return ann, http.StatusOK, nil
