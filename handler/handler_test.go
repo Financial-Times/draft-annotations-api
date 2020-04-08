@@ -1525,6 +1525,7 @@ func TestUnHappyDeleteAnnotationsWhenNoAnnotationsFound(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
@@ -1943,6 +1944,8 @@ func TestUnhappyAddAnnotationWhenNoAnnotationsFound(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer resp.Body.Close()
+
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
@@ -2349,6 +2352,8 @@ func TestUnhappyReplaceAnnotationWhenNoAnnotationsFound(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer resp.Body.Close()
+
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
