@@ -157,7 +157,7 @@ func TestAugmentAnnotationsFixtures(t *testing.T) {
 			assert.NoError(t, err)
 
 			expectedAnnotations := helperGetAnnotationsFromFixture(t, "augmenter-expected-"+test.fixtureBaseName)
-			
+
 			jsonAnnotations, err := json.Marshal(annotations)
 			if err != nil {
 				t.Fatal()
