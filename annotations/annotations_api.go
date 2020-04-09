@@ -43,6 +43,11 @@ type UPPError struct {
 	uppBody []byte
 }
 
+// NewUPPError initializes UPPError
+func NewUPPError(msg string, status int, uppBody []byte) UPPError {
+	return UPPError{msg: msg, status: status, uppBody: uppBody}
+}
+
 // Error returns the error message.
 func (ue UPPError) Error() string {
 	return ue.msg
