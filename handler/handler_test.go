@@ -1508,8 +1508,11 @@ func TestUnHappyDeleteAnnotationsWhenRetrievingAnnotationsFails(t *testing.T) {
 func TestUnHappyDeleteAnnotationsWhenNoAnnotationsFound(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
+
+	uppErr := annotations.NewUPPError(annotations.UPPNotFoundMsg, http.StatusNotFound, nil)
+
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").
-		Return([]annotations.Annotation{}, errors.New(annotations.UPPNotFoundMsg))
+		Return([]annotations.Annotation{}, uppErr)
 	aug := new(AugmenterMock)
 
 	h := handler.New(rw, annAPI, nil, aug, time.Second)
@@ -1920,8 +1923,10 @@ func TestUnhappyAddAnnotationWhenNoAnnotationsFound(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
+	uppErr := annotations.NewUPPError(annotations.UPPNotFoundMsg, http.StatusNotFound, nil)
+
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
-	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, errors.New(annotations.UPPNotFoundMsg))
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, uppErr)
 
 	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	r := vestigo.NewRouter()
@@ -2330,8 +2335,10 @@ func TestUnhappyReplaceAnnotationWhenNoAnnotationsFound(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
+	uppErr := annotations.NewUPPError(annotations.UPPNotFoundMsg, http.StatusNotFound, nil)
+
 	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
-	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, errors.New(annotations.UPPNotFoundMsg))
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, uppErr)
 
 	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	r := vestigo.NewRouter()
