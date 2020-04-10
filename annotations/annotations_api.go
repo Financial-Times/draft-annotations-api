@@ -141,14 +141,12 @@ func (api *UPPAnnotationsAPI) getUPPAnnotationsResponse(ctx context.Context, con
 		apiReqURI = baseURL.String()
 	}
 
-	logEntry := log.WithField("url", apiReqURI).WithField("uuid", contentUUID)
-
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 	if err != nil {
 		tid = "not_found"
 	}
 
-	logEntry = logEntry.WithField(tidUtils.TransactionIDKey, tid)
+	logEntry := log.WithField(tidUtils.TransactionIDKey, tid).WithField("url", apiReqURI).WithField("uuid", contentUUID)
 
 	apiReq, err := http.NewRequest("GET", apiReqURI, nil)
 	if err != nil {
