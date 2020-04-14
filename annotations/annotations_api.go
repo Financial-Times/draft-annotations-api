@@ -36,11 +36,16 @@ const (
 	nextVideoAnnotationLifecycle = "next-video"
 )
 
-// UPPError encapsulate error information for errors originating from calls to UPP annotations endpoint.
+// UPPError encapsulates error information for errors originating from calls to UPP annotations endpoint.
 type UPPError struct {
 	msg     string
 	status  int
 	uppBody []byte
+}
+
+// NewUPPError initializes UPPError
+func NewUPPError(msg string, status int, uppBody []byte) UPPError {
+	return UPPError{msg: msg, status: status, uppBody: uppBody}
 }
 
 // Error returns the error message.
@@ -141,23 +146,21 @@ func (api *UPPAnnotationsAPI) getUPPAnnotationsResponse(ctx context.Context, con
 		apiReqURI = baseURL.String()
 	}
 
-	getAnnotationsLog := log.WithField("url", apiReqURI).WithField("uuid", contentUUID)
-
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 	if err != nil {
 		tid = "not_found"
 	}
 
-	getAnnotationsLog = getAnnotationsLog.WithField(tidUtils.TransactionIDKey, tid)
+	logEntry := log.WithField(tidUtils.TransactionIDKey, tid).WithField("url", apiReqURI).WithField("uuid", contentUUID)
 
 	apiReq, err := http.NewRequest("GET", apiReqURI, nil)
 	if err != nil {
-		getAnnotationsLog.WithError(err).Error("Error in creating the http request")
+		logEntry.WithError(err).Error("Error in creating the http request")
 		return nil, err
 	}
 
 	apiReq.Header.Set(apiKeyHeader, api.apiKey)
-	getAnnotationsLog.Info("Calling UPP Public Annotations API")
+	logEntry.Info("Calling UPP Public Annotations API")
 
 	return api.httpClient.Do(apiReq.WithContext(ctx))
 }
