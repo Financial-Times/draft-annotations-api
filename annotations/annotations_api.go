@@ -66,14 +66,20 @@ func (ue UPPError) UPPBody() []byte {
 // UPPAnnotationsAPI retrieves published annotations from UPP.
 type UPPAnnotationsAPI struct {
 	endpointTemplate string
-	apiKey           string
+	user             string
+	pass             string
 	httpClient       *http.Client
 }
 
 // NewUPPAnnotationsAPI initializes UPPAnnotationsAPI by given http client,
 // the url of the UPP public endpoint for getting published annotations and UPP API key.
-func NewUPPAnnotationsAPI(client *http.Client, endpoint string, apiKey string) *UPPAnnotationsAPI {
-	return &UPPAnnotationsAPI{endpointTemplate: endpoint, apiKey: apiKey, httpClient: client}
+func NewUPPAnnotationsAPI(client *http.Client, endpoint, user, pass string) *UPPAnnotationsAPI {
+	return &UPPAnnotationsAPI{
+		endpointTemplate: endpoint,
+		user:             user,
+		pass:             pass,
+		httpClient:       client,
+	}
 }
 
 // GetAll retrieves the list of published annotations for given contentUUID.
@@ -159,7 +165,7 @@ func (api *UPPAnnotationsAPI) getUPPAnnotationsResponse(ctx context.Context, con
 		return nil, err
 	}
 
-	apiReq.Header.Set(apiKeyHeader, api.apiKey)
+	apiReq.SetBasicAuth(api.user, api.pass)
 	logEntry.Info("Calling UPP Public Annotations API")
 
 	return api.httpClient.Do(apiReq.WithContext(ctx))
@@ -173,7 +179,7 @@ func (api *UPPAnnotationsAPI) GTG() error {
 		return fmt.Errorf("GTG: %w", err)
 	}
 
-	apiReq.Header.Set(apiKeyHeader, api.apiKey)
+	apiReq.SetBasicAuth(api.user, api.pass)
 
 	apiResp, err := api.httpClient.Do(apiReq)
 	if err != nil {

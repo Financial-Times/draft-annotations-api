@@ -20,15 +20,17 @@ type ReadAPI interface {
 
 type internalConcordancesAPI struct {
 	endpoint   string
-	apiKey     string
+	user       string
+	pass       string
 	httpClient *http.Client
 	batchSize  int
 }
 
-func NewReadAPI(client *http.Client, endpoint string, apiKey string, batchSize int) ReadAPI {
+func NewReadAPI(client *http.Client, endpoint string, user, pass string, batchSize int) ReadAPI {
 	return &internalConcordancesAPI{
 		endpoint:   endpoint,
-		apiKey:     apiKey,
+		user:       user,
+		pass:       pass,
 		httpClient: client,
 		batchSize:  batchSize,
 	}
@@ -69,8 +71,6 @@ func (search *internalConcordancesAPI) GetConceptsByIDs(ctx context.Context, con
 	return combinedResult, nil
 }
 
-const apiKeyHeader = "X-Api-Key"
-
 func (search *internalConcordancesAPI) searchConceptBatch(ctx context.Context, conceptIDs []string) (map[string]Concept, error) {
 	tid, _ := tidUtils.GetTransactionIDFromContext(ctx)
 	batchConceptsLog := log.WithField(tidUtils.TransactionIDKey, tid)
@@ -80,7 +80,7 @@ func (search *internalConcordancesAPI) searchConceptBatch(ctx context.Context, c
 		batchConceptsLog.WithError(err).Error("Error in creating the HTTP request to concept search API")
 		return nil, err
 	}
-	req.Header.Set(apiKeyHeader, search.apiKey)
+	req.SetBasicAuth(search.user, search.pass)
 
 	q := req.URL.Query()
 	for _, id := range conceptIDs {

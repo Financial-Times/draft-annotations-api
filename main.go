@@ -113,9 +113,11 @@ func main() {
 		client := fthttp.NewClientWithDefaultTimeout("PAC", *appSystemCode)
 
 		rw := annotations.NewRW(client, *annotationsRWEndpoint)
-		annotationsAPI := annotations.NewUPPAnnotationsAPI(client, *annotationsAPIEndpoint, *uppAPIKey)
+		// this won't work, but that's okay
+		annotationsAPI := annotations.NewUPPAnnotationsAPI(client, *annotationsAPIEndpoint, "", "")
 		c14n := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
-		conceptRead := concept.NewReadAPI(client, *internalConcordancesEndpoint, *uppAPIKey, *internalConcordancesBatchSize)
+		// this won't work, but that's okay
+		conceptRead := concept.NewReadAPI(client, *internalConcordancesEndpoint, "", "", *internalConcordancesBatchSize)
 		augmenter := annotations.NewAugmenter(conceptRead)
 		annotationsHandler := handler.New(rw, annotationsAPI, c14n, augmenter, time.Millisecond*httpTimeout)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, rw, annotationsAPI, conceptRead)
