@@ -378,7 +378,7 @@ func handleReadErrors(err error, readLog *log.Entry, w http.ResponseWriter) {
 	var uppErr annotations.UPPError
 	if errors.As(err, &uppErr) {
 		if uppErr.UPPBody() != nil {
-			readLog.Info("UPP responded with a client error, forwarding UPP response back to client.")
+			readLog.WithError(err).Error("UPP responded with a client error, forwarding UPP response back to client.")
 			w.WriteHeader(uppErr.Status())
 			w.Write(uppErr.UPPBody())
 			return
