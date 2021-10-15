@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -1192,7 +1193,7 @@ func TestSaveAnnotationsInvalidContentUUID(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	body, err := ioutil.ReadAll(resp.Body)
 	assert.NoError(t, err)
-	assert.JSONEq(t, `{"message":"Invalid content UUID: uuid: UUID string too short: not-a-valid-uuid"}`, string(body))
+	assert.JSONEq(t, fmt.Sprintf(`{"message":"Invalid content UUID: invalid UUID length: %d"}`, len("not-a-valid-uuid")), string(body))
 
 	rw.AssertExpectations(t)
 	aug.AssertExpectations(t)

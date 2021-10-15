@@ -14,8 +14,8 @@ import (
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/Financial-Times/draft-annotations-api/mapper"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
+	"github.com/google/uuid"
 	"github.com/husobee/vestigo"
-	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -414,7 +414,7 @@ func isTimeoutErr(err error) bool {
 }
 
 func validateUUID(u string) error {
-	_, err := uuid.FromString(u)
+	_, err := uuid.Parse(u)
 	return err
 }
 
