@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,8 +19,8 @@ const (
 
 func TestCanonicalAnnotationSorterOrderByPredicate(t *testing.T) {
 	conceptUuid := []string{
-		uuid.NewV4().String(),
-		uuid.NewV4().String(),
+		uuid.New().String(),
+		uuid.New().String(),
 	}
 
 	// not in order
@@ -66,8 +66,8 @@ func TestCanonicalAnnotationSorterOrderByPredicate(t *testing.T) {
 
 func TestCanonicalAnnotationSorterEqualPredicateOrderByUUID(t *testing.T) {
 	conceptUuid := []string{
-		uuid.NewV4().String(),
-		uuid.NewV4().String(),
+		uuid.New().String(),
+		uuid.New().String(),
 	}
 
 	if strings.Compare(conceptUuid[0], conceptUuid[1]) == -1 {
@@ -119,8 +119,8 @@ func TestCanonicalAnnotationSorterEqualPredicateOrderByUUID(t *testing.T) {
 
 func TestCanonicalizer(t *testing.T) {
 	conceptUuid := []string{
-		uuid.NewV4().String(),
-		uuid.NewV4().String(),
+		uuid.New().String(),
+		uuid.New().String(),
 	}
 
 	apiUrl := make([]string, len(conceptUuid))
@@ -183,8 +183,8 @@ func TestCanonicalizer(t *testing.T) {
 
 func TestCanonicalizerHash(t *testing.T) {
 	conceptUuid := []string{
-		uuid.NewV4().String(),
-		uuid.NewV4().String(),
+		uuid.New().String(),
+		uuid.New().String(),
 	}
 
 	apiUrl := make([]string, len(conceptUuid))

@@ -12,8 +12,8 @@ import (
 
 	"github.com/Financial-Times/go-ft-http/fthttp"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
+	"github.com/google/uuid"
 	"github.com/husobee/vestigo"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -66,7 +66,7 @@ func TestAnnotationsAPIGTGConnectionError(t *testing.T) {
 }
 
 func TestHappyAnnotationsAPI(t *testing.T) {
-	uuid := uuid.NewV4().String()
+	uuid := uuid.New().String()
 	tid := "tid_all-good"
 	ctx := tidUtils.TransactionAwareContext(context.TODO(), tid)
 
@@ -80,7 +80,7 @@ func TestHappyAnnotationsAPI(t *testing.T) {
 }
 
 func TestHappyAnnotationsAPIWithLifecycles(t *testing.T) {
-	uuid := uuid.NewV4().String()
+	uuid := uuid.New().String()
 	tid := "tid_all-good"
 	ctx := tidUtils.TransactionAwareContext(context.TODO(), tid)
 
@@ -94,7 +94,7 @@ func TestHappyAnnotationsAPIWithLifecycles(t *testing.T) {
 }
 
 func TestUnhappyAnnotationsAPI(t *testing.T) {
-	uuid := uuid.NewV4().String()
+	uuid := uuid.New().String()
 	tid := "tid_all-good?"
 	ctx := tidUtils.TransactionAwareContext(context.TODO(), tid)
 
@@ -108,7 +108,7 @@ func TestUnhappyAnnotationsAPI(t *testing.T) {
 }
 
 func TestNoTIDAnnotationsAPI(t *testing.T) {
-	uuid := uuid.NewV4().String()
+	uuid := uuid.New().String()
 	annotationsServerMock := newAnnotationsAPIServerMock(t, "", uuid, "", http.StatusServiceUnavailable, "I am definitely not happy!")
 	defer annotationsServerMock.Close()
 
@@ -242,7 +242,7 @@ func TestGetAnnotationsHappy(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			uuid := uuid.NewV4().String()
+			uuid := uuid.New().String()
 			tid := "tid_all-good"
 			ctx := tidUtils.TransactionAwareContext(context.TODO(), tid)
 

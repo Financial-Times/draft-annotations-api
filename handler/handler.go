@@ -14,8 +14,8 @@ import (
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/Financial-Times/draft-annotations-api/mapper"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
+	"github.com/google/uuid"
 	"github.com/husobee/vestigo"
-	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -378,7 +378,7 @@ func handleReadErrors(err error, readLog *log.Entry, w http.ResponseWriter) {
 	var uppErr annotations.UPPError
 	if errors.As(err, &uppErr) {
 		if uppErr.UPPBody() != nil {
-			readLog.Info("UPP responded with a client error, forwarding UPP response back to client.")
+			readLog.WithError(err).Error("UPP responded with a client error, forwarding UPP response back to client.")
 			w.WriteHeader(uppErr.Status())
 			w.Write(uppErr.UPPBody())
 			return
@@ -414,7 +414,7 @@ func isTimeoutErr(err error) bool {
 }
 
 func validateUUID(u string) error {
-	_, err := uuid.FromString(u)
+	_, err := uuid.Parse(u)
 	return err
 }
 

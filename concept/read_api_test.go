@@ -15,8 +15,8 @@ import (
 	"github.com/Financial-Times/go-ft-http/fthttp"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/Pallinder/go-randomdata"
+	"github.com/google/uuid"
 	"github.com/husobee/vestigo"
-	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 	logTest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -190,7 +190,7 @@ func TestUnhappyGTG(t *testing.T) {
 func generateConcepts(n int) map[string]Concept {
 	concepts := make(map[string]Concept)
 	for i := 0; i < n; i++ {
-		id := uuid.NewV4().String()
+		id := uuid.New().String()
 		concepts[id] = generateConcept(id)
 	}
 	return concepts

@@ -1,6 +1,6 @@
 module github.com/Financial-Times/draft-annotations-api
 
-go 1.13
+go 1.17
 
 require (
 	github.com/Financial-Times/api-endpoint v0.0.0-20170612095945-d9f326a291cc
@@ -11,6 +11,7 @@ require (
 	github.com/Financial-Times/transactionid-utils-go v0.2.0
 	github.com/Pallinder/go-randomdata v0.0.0-20170410161340-8c3362a5e678
 	github.com/davecgh/go-spew v1.1.0 // indirect
+	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-version v0.0.0-20170202080759-03c5bf6be031 // indirect
 	github.com/husobee/vestigo v1.0.2
 	github.com/jawher/mow.cli v0.0.0-20170712113824-a6088643acff
@@ -18,12 +19,11 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20161128210544-1f30fe9094a5
-	github.com/satori/go.uuid v1.1.0
 	github.com/sirupsen/logrus v0.0.0-20170713114250-a3f95b5c4235
 	github.com/stretchr/objx v0.1.1 // indirect
 	github.com/stretchr/testify v0.0.0-20180319223459-c679ae2cc0cb
 	golang.org/x/net v0.0.0-20170719084000-02ac38e2528f // indirect
-	golang.org/x/sys v0.0.0-20170718161335-cd2c276457ed // indirect
+	golang.org/x/sys v0.0.0-20211013075003-97ac67df715c // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/yaml.v2 v2.0.0-20170721122051-25c4ec802a7d // indirect
 )
