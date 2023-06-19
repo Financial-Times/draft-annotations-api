@@ -55,8 +55,8 @@ spec:
         - name: UPP_APIKEY
           valueFrom:
             secretKeyRef:
-              name: draft-annotations-api
-              key: upp-api-key
+              name: doppler-global-secrets
+              key: DRAFT_ANNOTATIONS_API_UPP_API_KEY
         ports:
         - containerPort: 8080
         livenessProbe:
