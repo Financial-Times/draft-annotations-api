@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -264,7 +264,7 @@ func newAnnotationsRWServerMock(t *testing.T, method string, status int, body st
 			w.Write([]byte(body))
 		case http.MethodPut:
 			assert.Equal(t, hashIn, r.Header.Get(PreviousDocumentHashHeader))
-			rBody, _ := ioutil.ReadAll(r.Body)
+			rBody, _ := io.ReadAll(r.Body)
 			assert.JSONEq(t, body, string(rBody))
 		}
 	}))

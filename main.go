@@ -7,6 +7,7 @@ import (
 
 	api "github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/draft-annotations-api/annotations"
+	"github.com/Financial-Times/draft-annotations-api/basicauth"
 	"github.com/Financial-Times/draft-annotations-api/concept"
 	"github.com/Financial-Times/draft-annotations-api/handler"
 	"github.com/Financial-Times/draft-annotations-api/health"
@@ -50,13 +51,13 @@ func main() {
 	})
 	annotationsAPIEndpoint := app.String(cli.StringOpt{
 		Name:   "upp-annotations-endpoint",
-		Value:  "http://test.api.ft.com/content/%v/annotations",
+		Value:  "https://upp-staging-delivery-glb.upp.ft.com/content/%v/annotations",
 		Desc:   "Public Annotations API endpoint",
 		EnvVar: "ANNOTATIONS_ENDPOINT",
 	})
 	internalConcordancesEndpoint := app.String(cli.StringOpt{
 		Name:   "internal-concordances-endpoint",
-		Value:  "http://test.api.ft.com/internalconcordances",
+		Value:  "https://upp-staging-delivery-glb.upp.ft.com/internalconcordances",
 		Desc:   "Endpoint to get concepts from UPP",
 		EnvVar: "INTERNAL_CONCORDANCES_ENDPOINT",
 	})
@@ -66,11 +67,11 @@ func main() {
 		Desc:   "Concept IDs maximum batch size to use when querying the UPP Internal Concordances API",
 		EnvVar: "INTERNAL_CONCORDANCES_BATCH_SIZE",
 	})
-	uppAPIKey := app.String(cli.StringOpt{
-		Name:   "upp-api-key",
-		Value:  "",
-		Desc:   "API key to access UPP",
-		EnvVar: "UPP_APIKEY",
+	deliveryBasicAuth := app.String(cli.StringOpt{
+		Name:   "delivery-basic-auth",
+		Value:  "username:password",
+		Desc:   "Basic auth for access to the delivery UPP clusters",
+		EnvVar: "DELIVERY_BASIC_AUTH",
 	})
 	apiYml := app.String(cli.StringOpt{
 		Name:   "api-yml",
@@ -112,10 +113,15 @@ func main() {
 
 		client := fthttp.NewClientWithDefaultTimeout("PAC", *appSystemCode)
 
+		basicAuthCredentials, err := basicauth.GetBasicAuth(*deliveryBasicAuth)
+		if err != nil {
+			log.WithError(err).Fatal("error while resolving basic auth")
+		}
+
 		rw := annotations.NewRW(client, *annotationsRWEndpoint)
-		annotationsAPI := annotations.NewUPPAnnotationsAPI(client, *annotationsAPIEndpoint, *uppAPIKey)
+		annotationsAPI := annotations.NewUPPAnnotationsAPI(client, *annotationsAPIEndpoint, basicAuthCredentials[0], basicAuthCredentials[1])
 		c14n := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
-		conceptRead := concept.NewReadAPI(client, *internalConcordancesEndpoint, *uppAPIKey, *internalConcordancesBatchSize)
+		conceptRead := concept.NewReadAPI(client, *internalConcordancesEndpoint, basicAuthCredentials[0], basicAuthCredentials[1], *internalConcordancesBatchSize)
 		augmenter := annotations.NewAugmenter(conceptRead)
 		annotationsHandler := handler.New(rw, annotationsAPI, c14n, augmenter, time.Millisecond*httpTimeout)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, rw, annotationsAPI, conceptRead)

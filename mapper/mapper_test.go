@@ -1,7 +1,7 @@
 package mapper
 
 import (
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -22,11 +22,11 @@ func TestConvertPredicates(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			originalBody, err := ioutil.ReadFile("testdata/" + test.fixtureBaseName + "_v2.json")
+			originalBody, err := os.ReadFile("testdata/" + test.fixtureBaseName + "_v2.json")
 			if err != nil {
 				t.Fatal(err)
 			}
-			expectedBody, err := ioutil.ReadFile("testdata/" + test.fixtureBaseName + "_PAC.json")
+			expectedBody, err := os.ReadFile("testdata/" + test.fixtureBaseName + "_PAC.json")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -38,7 +38,7 @@ func TestConvertPredicates(t *testing.T) {
 }
 
 func TestDiscardedAndEmpty(t *testing.T) {
-	originalBody, err := ioutil.ReadFile("testdata/annotations_discard.json")
+	originalBody, err := os.ReadFile("testdata/annotations_discard.json")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/Financial-Times/draft-annotations-api/annotations"
+	"github.com/Financial-Times/draft-annotations-api/basicauth"
 	"github.com/Financial-Times/draft-annotations-api/handler"
 	"github.com/Financial-Times/go-ft-http/fthttp"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
@@ -26,10 +27,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-const testAPIKey = "testAPIKey"
 const testTID = "test_tid"
-
-const apiKeyHeader = "X-Api-Key"
 
 var testClient = fthttp.NewClientWithDefaultTimeout("PAC", "draft-annotations-api")
 
@@ -506,7 +504,7 @@ func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 	assert.NoError(t, err)
@@ -535,7 +533,7 @@ func TestUnHappyAugmenter(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 	assert.NoError(t, err)
@@ -558,7 +556,7 @@ func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, annotationsAPIBody)
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword)
 	assert.Equal(t, annotationsAPIServerMock.URL+"/content/%v/annotations", annotationsAPI.Endpoint())
 
 	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
@@ -592,7 +590,7 @@ func TestFetchFromAnnotationsAPI404(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusNotFound, "not found")
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword)
 	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -603,7 +601,7 @@ func TestFetchFromAnnotationsAPI404(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	assert.NoError(t, err)
@@ -621,7 +619,7 @@ func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, bannedAnnotationsAPIBody)
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword)
 	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -632,7 +630,7 @@ func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	assert.NoError(t, err)
@@ -649,7 +647,7 @@ func TestFetchFromAnnotationsAPI500(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusInternalServerError, "fire!")
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword)
 	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -660,7 +658,7 @@ func TestFetchFromAnnotationsAPI500(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 	assert.NoError(t, err)
@@ -674,7 +672,7 @@ func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 	aug := new(AugmenterMock)
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, ":#", testAPIKey)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, ":#", basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword)
 	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -685,7 +683,7 @@ func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 	assert.NoError(t, err)
@@ -701,7 +699,7 @@ func TestFetchFromAnnotationsAPIWithConnectionError(t *testing.T) {
 	annotationsAPIServerMock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL, testAPIKey)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL, basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword)
 	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -712,7 +710,7 @@ func TestFetchFromAnnotationsAPIWithConnectionError(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
-	_, err := ioutil.ReadAll(resp.Body)
+	_, err := io.ReadAll(resp.Body)
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 	assert.NoError(t, err)
@@ -723,7 +721,7 @@ func TestFetchFromAnnotationsAPIWithConnectionError(t *testing.T) {
 
 func newAnnotationsAPIServerMock(t *testing.T, status int, body string) *httptest.Server {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if apiKey := r.Header.Get(apiKeyHeader); apiKey != testAPIKey {
+		if basicAuth := r.Header.Get(basicauth.AuthorizationHeader); basicAuth != basicauth.EncodeBasicAuthForTests(t) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -1191,7 +1189,7 @@ func TestSaveAnnotationsInvalidContentUUID(t *testing.T) {
 	r.ServeHTTP(w, req)
 	resp := w.Result()
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	assert.NoError(t, err)
 	assert.JSONEq(t, fmt.Sprintf(`{"message":"Invalid content UUID: invalid UUID length: %d"}`, len("not-a-valid-uuid")), string(body))
 
@@ -1222,7 +1220,7 @@ func TestSaveAnnotationsInvalidAnnotationsBody(t *testing.T) {
 	r.ServeHTTP(w, req)
 	resp := w.Result()
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	assert.NoError(t, err)
 	assert.JSONEq(t, `{"message":"Unable to unmarshal annotations body: invalid character 'i' looking for beginning of object key string"}`, string(body))
 
@@ -1268,7 +1266,7 @@ func TestSaveAnnotationsErrorFromRW(t *testing.T) {
 	r.ServeHTTP(w, req)
 	resp := w.Result()
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	assert.NoError(t, err)
 	assert.JSONEq(t, `{"message":"Error writing draft annotations: computer says no"}`, string(body))
 
@@ -1386,7 +1384,7 @@ func TestAnnotationsWriteTimeout(t *testing.T) {
 	resp := w.Result()
 	assert.Equal(t, http.StatusGatewayTimeout, resp.StatusCode)
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	assert.NoError(t, err)
 	assert.JSONEq(t, `{"message":"Timeout while waiting to write draft annotations"}`, string(body))
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"os"
 	"sort"
 	"testing"
 
@@ -280,7 +280,7 @@ func (m *ConceptReadAPIMock) Endpoint() string {
 }
 
 func helperGetAnnotationsFromFixture(t *testing.T, fixtureName string) []Annotation {
-	j, err := ioutil.ReadFile("testdata/" + fixtureName + ".json")
+	j, err := os.ReadFile("testdata/" + fixtureName + ".json")
 	if err != nil {
 		t.Fatal(err)
 	}

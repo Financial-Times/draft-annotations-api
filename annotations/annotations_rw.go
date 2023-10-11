@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
@@ -144,7 +144,7 @@ func (rw *annotationsRW) GTG() error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return fmt.Errorf("status %d: %w", resp.StatusCode, ErrGTGNotOK)
 		}
