@@ -3,11 +3,11 @@ package main
 import (
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	api "github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/draft-annotations-api/annotations"
-	"github.com/Financial-Times/draft-annotations-api/basicauth"
 	"github.com/Financial-Times/draft-annotations-api/concept"
 	"github.com/Financial-Times/draft-annotations-api/handler"
 	"github.com/Financial-Times/draft-annotations-api/health"
@@ -113,9 +113,9 @@ func main() {
 
 		client := fthttp.NewClientWithDefaultTimeout("PAC", *appSystemCode)
 
-		basicAuthCredentials, err := basicauth.GetBasicAuth(*deliveryBasicAuth)
-		if err != nil {
-			log.WithError(err).Fatal("error while resolving basic auth")
+		basicAuthCredentials := strings.Split(*deliveryBasicAuth, ":")
+		if len(basicAuthCredentials) != 2 {
+			log.Fatal("error while resolving basic auth")
 		}
 
 		rw := annotations.NewRW(client, *annotationsRWEndpoint)

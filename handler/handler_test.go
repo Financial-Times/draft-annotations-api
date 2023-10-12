@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/Financial-Times/draft-annotations-api/annotations"
-	"github.com/Financial-Times/draft-annotations-api/basicauth"
 	"github.com/Financial-Times/draft-annotations-api/handler"
 	"github.com/Financial-Times/go-ft-http/fthttp"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
@@ -27,7 +26,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-const testTID = "test_tid"
+const (
+	testTID               = "test_tid"
+	testBasicAuthUsername = "username"
+	testBasicAuthPassword = "password"
+)
 
 var testClient = fthttp.NewClientWithDefaultTimeout("PAC", "draft-annotations-api")
 
@@ -556,7 +559,7 @@ func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, annotationsAPIBody)
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword)
 	assert.Equal(t, annotationsAPIServerMock.URL+"/content/%v/annotations", annotationsAPI.Endpoint())
 
 	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
@@ -590,7 +593,7 @@ func TestFetchFromAnnotationsAPI404(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusNotFound, "not found")
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword)
 	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -619,7 +622,7 @@ func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, bannedAnnotationsAPIBody)
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword)
 	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -647,7 +650,7 @@ func TestFetchFromAnnotationsAPI500(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusInternalServerError, "fire!")
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword)
 	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -672,7 +675,7 @@ func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 	aug := new(AugmenterMock)
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, ":#", basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, ":#", testBasicAuthUsername, testBasicAuthPassword)
 	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -699,7 +702,7 @@ func TestFetchFromAnnotationsAPIWithConnectionError(t *testing.T) {
 	annotationsAPIServerMock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL, basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword)
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL, testBasicAuthUsername, testBasicAuthPassword)
 	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
@@ -721,10 +724,17 @@ func TestFetchFromAnnotationsAPIWithConnectionError(t *testing.T) {
 
 func newAnnotationsAPIServerMock(t *testing.T, status int, body string) *httptest.Server {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if basicAuth := r.Header.Get(basicauth.AuthorizationHeader); basicAuth != basicauth.EncodeBasicAuthForTests(t) {
+		username, password, ok := r.BasicAuth()
+		if !ok {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
+
+		if username != testBasicAuthUsername || password != testBasicAuthPassword {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
 		assert.Equal(t, testTID, r.Header.Get(tidutils.TransactionIDHeader))
 		w.WriteHeader(status)
 		w.Write([]byte(body))

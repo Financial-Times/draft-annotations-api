@@ -10,7 +10,6 @@ require (
 	github.com/Financial-Times/service-status-go v0.3.0
 	github.com/Financial-Times/transactionid-utils-go v0.2.0
 	github.com/Pallinder/go-randomdata v0.0.0-20170410161340-8c3362a5e678
-	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.0
 	github.com/husobee/vestigo v1.0.2
 	github.com/jawher/mow.cli v0.0.0-20170712113824-a6088643acff

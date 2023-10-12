@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Financial-Times/draft-annotations-api/basicauth"
 	"github.com/Financial-Times/go-ft-http/fthttp"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/Pallinder/go-randomdata"
@@ -23,6 +22,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	testBasicAuthUsername = "username"
+	testBasicAuthPassword = "password"
+)
+
 var testClient = fthttp.NewClientWithDefaultTimeout("PAC", "draft-annotations-api")
 
 func TestGetConceptsByIDsSingleBatch(t *testing.T) {
@@ -30,10 +34,10 @@ func TestGetConceptsByIDsSingleBatch(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
 	expectedConcepts := generateConcepts(10)
 
-	s := newMockedHappySearchService(t, basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword, batchSize, tid, expectedConcepts)
+	s := newMockedHappySearchService(t, testBasicAuthUsername, testBasicAuthPassword, batchSize, tid, expectedConcepts)
 	defer s.Close()
 
-	csAPI := NewReadAPI(testClient, s.URL, basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword, batchSize)
+	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize)
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	actualConcepts, err := csAPI.GetConceptsByIDs(ctx, extractIDs(expectedConcepts))
@@ -46,10 +50,10 @@ func TestGetConceptsByIDsMultipleBatches(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
 	expectedConcepts := generateConcepts(10)
 
-	s := newMockedHappySearchService(t, basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword, batchSize, tid, expectedConcepts)
+	s := newMockedHappySearchService(t, testBasicAuthUsername, testBasicAuthPassword, batchSize, tid, expectedConcepts)
 	defer s.Close()
 
-	csAPI := NewReadAPI(testClient, s.URL, basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword, batchSize)
+	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize)
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	actualConcepts, err := csAPI.GetConceptsByIDs(ctx, extractIDs(expectedConcepts))
@@ -62,10 +66,10 @@ func TestGetConceptsByIDsMissingTID(t *testing.T) {
 	batchSize := 20
 	expectedConcepts := generateConcepts(10)
 
-	s := newMockedHappySearchService(t, basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword, batchSize, "", expectedConcepts)
+	s := newMockedHappySearchService(t, testBasicAuthUsername, testBasicAuthPassword, batchSize, "", expectedConcepts)
 	defer s.Close()
 
-	csAPI := NewReadAPI(testClient, s.URL, basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword, batchSize)
+	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize)
 
 	actualConcepts, err := csAPI.GetConceptsByIDs(context.Background(), extractIDs(expectedConcepts))
 	assert.NoError(t, err)
@@ -87,7 +91,7 @@ func TestGetConceptsByIDsMissingTID(t *testing.T) {
 func TestGetConceptsByIDsBuildingHTTPRequestError(t *testing.T) {
 	batchSize := 20
 
-	csAPI := NewReadAPI(testClient, ":#invalid endpoint", basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword, batchSize)
+	csAPI := NewReadAPI(testClient, ":#invalid endpoint", testBasicAuthUsername, testBasicAuthPassword, batchSize)
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
@@ -99,7 +103,7 @@ func TestGetConceptsByIDsBuildingHTTPRequestError(t *testing.T) {
 func TestGetConceptsByIDsHTTPCallError(t *testing.T) {
 	batchSize := 20
 
-	csAPI := NewReadAPI(testClient, "", basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword, batchSize)
+	csAPI := NewReadAPI(testClient, "", testBasicAuthUsername, testBasicAuthPassword, batchSize)
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
@@ -114,7 +118,7 @@ func TestGetConceptsByIDsNon200HTTPStatus(t *testing.T) {
 	s := newMockedUnhappySearchService(http.StatusServiceUnavailable, "I am not happy")
 	defer s.Close()
 
-	csAPI := NewReadAPI(testClient, s.URL, basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword, batchSize)
+	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize)
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
@@ -127,7 +131,7 @@ func TestGetConceptsByIDsUnmarshallingPayloadError(t *testing.T) {
 	s := newMockedUnhappySearchService(http.StatusOK, "}-a-wrong-json-payload-{")
 	defer s.Close()
 
-	csAPI := NewReadAPI(testClient, s.URL, basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword, batchSize)
+	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize)
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
@@ -139,10 +143,10 @@ func TestHappyGTG(t *testing.T) {
 	batchSize := 20
 	expectedConcepts := map[string]Concept{ftBrandUUID: generateConcept(ftBrandUUID)}
 
-	s := newMockedHappySearchService(t, basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword, batchSize, "", expectedConcepts)
+	s := newMockedHappySearchService(t, testBasicAuthUsername, testBasicAuthPassword, batchSize, "", expectedConcepts)
 	defer s.Close()
 
-	csAPI := NewReadAPI(testClient, s.URL, basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword, batchSize)
+	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize)
 
 	err := csAPI.GTG()
 	assert.NoError(t, err)
@@ -155,7 +159,7 @@ func TestConceptSearchTimeout(t *testing.T) {
 	})
 
 	s := httptest.NewServer(r)
-	csAPI := NewReadAPI(testClient, s.URL, basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword, 1)
+	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, 1)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel()
@@ -171,7 +175,7 @@ func TestUnhappyGTG(t *testing.T) {
 	s := newMockedUnhappySearchService(http.StatusServiceUnavailable, "I am not happy")
 	defer s.Close()
 
-	csAPI := NewReadAPI(testClient, s.URL, basicauth.TestBasicAuthUsername, basicauth.TestBasicAuthPassword, batchSize)
+	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize)
 
 	err := csAPI.GTG()
 	assert.True(t, errors.Is(err, ErrUnexpectedResponse))
@@ -237,8 +241,13 @@ func (h *mockedSearchServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 
 	assert.Equal(h.t, "PAC-draft-annotations-api/Version--is-not-a-semantic-version", r.Header.Get("User-Agent"))
 
-	actualBasicAuth := r.Header.Get(basicauth.AuthorizationHeader)
-	assert.Equal(h.t, basicauth.EncodeBasicAuthForTests(h.t), actualBasicAuth)
+	username, password, ok := r.BasicAuth()
+	if !ok {
+		h.t.Fatal("missing basic auth")
+	}
+
+	assert.Equal(h.t, username, testBasicAuthUsername)
+	assert.Equal(h.t, password, testBasicAuthPassword)
 
 	actualTID := r.Header.Get(tidUtils.TransactionIDHeader)
 	if h.tid != "" {
