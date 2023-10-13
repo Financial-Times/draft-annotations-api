@@ -17,7 +17,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const testAPIKey = "testAPIKey"
+const (
+	testBasicAuthUsername = "username"
+	testBasicAuthPassword = "password"
+)
 
 var testClient = fthttp.NewClientWithDefaultTimeout("PAC", "draft-annotations-api")
 
@@ -25,7 +28,7 @@ func TestHappyAnnotationsAPIGTG(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIGTGServerMock(t, http.StatusOK, "I am happy!")
 	defer annotationsServerMock.Close()
 
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword)
 	err := annotationsAPI.GTG()
 	assert.NoError(t, err)
 }
@@ -34,7 +37,7 @@ func TestUnhappyAnnotationsAPIGTG(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIGTGServerMock(t, http.StatusServiceUnavailable, "I am not happy!")
 	defer annotationsServerMock.Close()
 
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword)
 	err := annotationsAPI.GTG()
 	assert.True(t, errors.Is(err, ErrGTGNotOK))
 }
@@ -43,13 +46,13 @@ func TestAnnotationsAPIGTGWrongAPIKey(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIGTGServerMock(t, http.StatusServiceUnavailable, "I not am happy!")
 	defer annotationsServerMock.Close()
 
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", "a-non-existing-key")
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", "a-non-existing-basic-auth-username", "a-non-basic-auth-password")
 	err := annotationsAPI.GTG()
 	assert.True(t, errors.Is(err, ErrGTGNotOK))
 }
 
 func TestAnnotationsAPIGTGInvalidURL(t *testing.T) {
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, ":#", testAPIKey)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, ":#", testBasicAuthUsername, testBasicAuthPassword)
 	err := annotationsAPI.GTG()
 	var urlErr *url.Error
 	assert.True(t, errors.As(err, &urlErr))
@@ -60,7 +63,7 @@ func TestAnnotationsAPIGTGConnectionError(t *testing.T) {
 	annotationsServerMock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	annotationsServerMock.Close()
 
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword)
 	err := annotationsAPI.GTG()
 	assert.Error(t, err)
 }
@@ -73,7 +76,7 @@ func TestHappyAnnotationsAPI(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIServerMock(t, tid, uuid, "", http.StatusOK, "I am happy!")
 	defer annotationsServerMock.Close()
 
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword)
 	resp, err := annotationsAPI.getUPPAnnotationsResponse(ctx, uuid)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -87,7 +90,7 @@ func TestHappyAnnotationsAPIWithLifecycles(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIServerMock(t, tid, uuid, "lifecycle=pac&lifecycle=v1&lifecycle=next-video", http.StatusOK, "I am happy!")
 	defer annotationsServerMock.Close()
 
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword)
 	resp, err := annotationsAPI.getUPPAnnotationsResponse(ctx, uuid, pacAnnotationLifecycle, v1AnnotationLifecycle, nextVideoAnnotationLifecycle)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -101,7 +104,7 @@ func TestUnhappyAnnotationsAPI(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIServerMock(t, tid, uuid, "", http.StatusServiceUnavailable, "I am definitely not happy!")
 	defer annotationsServerMock.Close()
 
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword)
 	resp, err := annotationsAPI.getUPPAnnotationsResponse(ctx, uuid)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
@@ -112,14 +115,14 @@ func TestNoTIDAnnotationsAPI(t *testing.T) {
 	annotationsServerMock := newAnnotationsAPIServerMock(t, "", uuid, "", http.StatusServiceUnavailable, "I am definitely not happy!")
 	defer annotationsServerMock.Close()
 
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword)
 	resp, err := annotationsAPI.getUPPAnnotationsResponse(context.TODO(), uuid)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 }
 
 func TestRequestFailsAnnotationsAPI(t *testing.T) {
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, ":#", testAPIKey)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, ":#", testBasicAuthUsername, testBasicAuthPassword)
 	resp, err := annotationsAPI.getUPPAnnotationsResponse(context.TODO(), "")
 
 	assert.Error(t, err)
@@ -127,7 +130,7 @@ func TestRequestFailsAnnotationsAPI(t *testing.T) {
 }
 
 func TestResponseFailsAnnotationsAPI(t *testing.T) {
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, "#:", testAPIKey)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, "#:", testBasicAuthUsername, testBasicAuthPassword)
 	resp, err := annotationsAPI.getUPPAnnotationsResponse(context.TODO(), "")
 
 	assert.Error(t, err)
@@ -141,7 +144,7 @@ func TestAnnotationsAPITimeout(t *testing.T) {
 	})
 
 	s := httptest.NewServer(r)
-	annotationsAPI := NewUPPAnnotationsAPI(testClient, s.URL+"/content/%v/annotations", testAPIKey)
+	annotationsAPI := NewUPPAnnotationsAPI(testClient, s.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel()
@@ -249,7 +252,7 @@ func TestGetAnnotationsHappy(t *testing.T) {
 			annotationsServerMock := newAnnotationsAPIServerMock(t, tid, uuid, "", test.annotationsStatus, test.annotationsBody)
 			defer annotationsServerMock.Close()
 
-			annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testAPIKey)
+			annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword)
 			annotations, err := annotationsAPI.getAnnotations(ctx, uuid)
 
 			assert.ElementsMatch(t, annotations, test.expectedAnnotations)
@@ -267,7 +270,8 @@ func newAnnotationsAPIServerMock(t *testing.T, tid string, uuid string, lifecycl
 		assert.Equal(t, "/content/"+uuid+annotationsEndpoint, r.URL.Path)
 		assert.Equal(t, lifecycles, r.URL.RawQuery)
 
-		if apiKey := r.Header.Get(apiKeyHeader); apiKey != testAPIKey {
+		username, password, ok := r.BasicAuth()
+		if !ok {
 			w.WriteHeader(http.StatusUnauthorized)
 			_, err := w.Write([]byte("unauthorized"))
 			if err != nil {
@@ -276,7 +280,15 @@ func newAnnotationsAPIServerMock(t *testing.T, tid string, uuid string, lifecycl
 			return
 		}
 
-		assert.Equal(t, testAPIKey, r.Header.Get(apiKeyHeader))
+		if username != testBasicAuthUsername || password != testBasicAuthPassword {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, err := w.Write([]byte("unauthorized"))
+			if err != nil {
+				t.Fatalf("write error: %v", err)
+			}
+			return
+		}
+
 		assert.Equal(t, tid, r.Header.Get(tidUtils.TransactionIDHeader))
 		assert.Equal(t, "PAC-draft-annotations-api/Version--is-not-a-semantic-version", r.Header.Get("User-Agent"))
 
@@ -292,7 +304,8 @@ func newAnnotationsAPIServerMock(t *testing.T, tid string, uuid string, lifecycl
 func newAnnotationsAPIGTGServerMock(t *testing.T, status int, body string) *httptest.Server {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/content/"+syntheticContentUUID+annotationsEndpoint, r.URL.Path)
-		if apiKey := r.Header.Get(apiKeyHeader); apiKey != testAPIKey {
+		username, password, ok := r.BasicAuth()
+		if !ok {
 			w.WriteHeader(http.StatusUnauthorized)
 			_, err := w.Write([]byte("unauthorized"))
 			if err != nil {
@@ -301,7 +314,15 @@ func newAnnotationsAPIGTGServerMock(t *testing.T, status int, body string) *http
 			return
 		}
 
-		assert.Equal(t, testAPIKey, r.Header.Get(apiKeyHeader))
+		if username != testBasicAuthUsername || password != testBasicAuthPassword {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, err := w.Write([]byte("unauthorized"))
+			if err != nil {
+				t.Fatalf("write error: %v", err)
+			}
+			return
+		}
+
 		assert.Equal(t, "PAC-draft-annotations-api/Version--is-not-a-semantic-version", r.Header.Get("User-Agent"))
 
 		w.WriteHeader(status)

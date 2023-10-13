@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -16,7 +16,6 @@ import (
 )
 
 const (
-	apiKeyHeader        = "X-Api-Key"
 	annotationsEndpoint = "/annotations"
 
 	syntheticContentUUID = "4f2f97ea-b8ec-11e4-b8e6-00144feab7de"
@@ -66,14 +65,15 @@ func (ue UPPError) UPPBody() []byte {
 // UPPAnnotationsAPI retrieves published annotations from UPP.
 type UPPAnnotationsAPI struct {
 	endpointTemplate string
-	apiKey           string
+	username         string
+	password         string
 	httpClient       *http.Client
 }
 
 // NewUPPAnnotationsAPI initializes UPPAnnotationsAPI by given http client,
 // the url of the UPP public endpoint for getting published annotations and UPP API key.
-func NewUPPAnnotationsAPI(client *http.Client, endpoint string, apiKey string) *UPPAnnotationsAPI {
-	return &UPPAnnotationsAPI{endpointTemplate: endpoint, apiKey: apiKey, httpClient: client}
+func NewUPPAnnotationsAPI(client *http.Client, endpoint string, username string, password string) *UPPAnnotationsAPI {
+	return &UPPAnnotationsAPI{endpointTemplate: endpoint, username: username, password: password, httpClient: client}
 }
 
 // GetAll retrieves the list of published annotations for given contentUUID.
@@ -94,7 +94,7 @@ func (api *UPPAnnotationsAPI) getAnnotations(ctx context.Context, contentUUID st
 	}
 
 	defer uppResponse.Body.Close()
-	respBody, err := ioutil.ReadAll(uppResponse.Body)
+	respBody, err := io.ReadAll(uppResponse.Body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read UPP response body")
 	}
@@ -159,7 +159,7 @@ func (api *UPPAnnotationsAPI) getUPPAnnotationsResponse(ctx context.Context, con
 		return nil, err
 	}
 
-	apiReq.Header.Set(apiKeyHeader, api.apiKey)
+	apiReq.SetBasicAuth(api.username, api.password)
 	logEntry.Info("Calling UPP Public Annotations API")
 
 	return api.httpClient.Do(apiReq.WithContext(ctx))
@@ -173,8 +173,7 @@ func (api *UPPAnnotationsAPI) GTG() error {
 		return fmt.Errorf("GTG: %w", err)
 	}
 
-	apiReq.Header.Set(apiKeyHeader, api.apiKey)
-
+	apiReq.SetBasicAuth(api.username, api.password)
 	apiResp, err := api.httpClient.Do(apiReq)
 	if err != nil {
 		return fmt.Errorf("GTG: %w", err)
@@ -182,7 +181,7 @@ func (api *UPPAnnotationsAPI) GTG() error {
 	defer apiResp.Body.Close()
 
 	if apiResp.StatusCode != http.StatusOK {
-		errMsgBody, err := ioutil.ReadAll(apiResp.Body)
+		errMsgBody, err := io.ReadAll(apiResp.Body)
 		if err != nil {
 			return fmt.Errorf("status %d: %w", apiResp.StatusCode, ErrGTGNotOK)
 		}

@@ -3,7 +3,7 @@ package health
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -262,7 +262,7 @@ func TestUnhappyGTGDueRW(t *testing.T) {
 	resp := w.Result()
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	assert.NoError(t, err)
 	assert.Equal(t, "I am not good at all", string(body))
 
@@ -291,7 +291,7 @@ func TestUnhappyGTGDueConceptSearchAPI(t *testing.T) {
 	resp := w.Result()
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	assert.NoError(t, err)
 	assert.Equal(t, "I am not good at all", string(body))
 
@@ -320,7 +320,7 @@ func TestUnhappyGTGDueAnnotationsAPI(t *testing.T) {
 	resp := w.Result()
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	assert.NoError(t, err)
 	assert.Equal(t, "I am not good at all", string(body))
 

@@ -52,11 +52,11 @@ spec:
             configMapKeyRef:
               name: global-config
               key: internal-concordances-endpoint
-        - name: UPP_APIKEY
+        - name: DELIVERY_BASIC_AUTH
           valueFrom:
             secretKeyRef:
               name: doppler-global-secrets
-              key: DRAFT_ANNOTATIONS_API_UPP_API_KEY
+              key: UPP_DELIVERY_CLUSTER_BASIC_AUTH
         ports:
         - containerPort: 8080
         livenessProbe:
