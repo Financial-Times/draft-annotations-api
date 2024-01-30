@@ -1,0 +1,8 @@
+# Values used for the deployed application.
+replicaCount: 2
+
+service:
+  name: draft-annotations-api
+env:
+  ANNOTATIONS_ENDPOINT: "https://upp-k8s-dev-delivery-eu.upp.ft.com/content/%v/annotations"
+  INTERNAL_CONCORDANCES_ENDPOINT: "https://upp-k8s-dev-delivery-eu.upp.ft.com/internalconcordances"

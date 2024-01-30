@@ -150,7 +150,7 @@ func TestHappyWriteStatusCreate(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
-	s := newAnnotationsRWServerMock(t, http.MethodPut, http.StatusCreated, testRWBody, oldHash, newHash, tid)
+	s := newAnnotationsRWServerMock(t, http.MethodPost, http.StatusCreated, testRWBody, oldHash, newHash, tid)
 	defer s.Close()
 
 	rw := NewRW(testClient, s.URL)
@@ -164,7 +164,7 @@ func TestHappyWriteStatusOK(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
-	s := newAnnotationsRWServerMock(t, http.MethodPut, http.StatusOK, testRWBody, oldHash, newHash, tid)
+	s := newAnnotationsRWServerMock(t, http.MethodPost, http.StatusOK, testRWBody, oldHash, newHash, tid)
 	defer s.Close()
 
 	rw := NewRW(testClient, s.URL)
@@ -177,7 +177,7 @@ func TestHappyWriteStatusOK(t *testing.T) {
 func TestUnhappyWriteStatus500(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
 	oldHash := randomdata.RandStringRunes(56)
-	s := newAnnotationsRWServerMock(t, http.MethodPut, http.StatusInternalServerError, testRWBody, oldHash, "", tid)
+	s := newAnnotationsRWServerMock(t, http.MethodPost, http.StatusInternalServerError, testRWBody, oldHash, "", tid)
 	defer s.Close()
 
 	rw := NewRW(testClient, s.URL)
@@ -207,7 +207,7 @@ func TestWriteHTTPCallError(t *testing.T) {
 
 	var urlError *url.Error
 	assert.True(t, errors.As(err, &urlError))
-	assert.Equal(t, urlError.Op, "Put")
+	assert.Equal(t, urlError.Op, "Post")
 }
 
 func TestWriteMissingTID(t *testing.T) {
@@ -230,7 +230,7 @@ func TestWriteMissingTID(t *testing.T) {
 
 func TestRWTimeout(t *testing.T) {
 	r := vestigo.NewRouter()
-	r.Put("/drafts/content/:uuid/annotations", func(w http.ResponseWriter, r *http.Request) {
+	r.Post("/draft-annotations/:uuid", func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(500 * time.Millisecond)
 	})
 
@@ -247,7 +247,7 @@ func TestRWTimeout(t *testing.T) {
 func newAnnotationsRWServerMock(t *testing.T, method string, status int, body string, hashIn string, hashOut string, tid string) *httptest.Server {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, method, r.Method)
-		assert.Equal(t, "/drafts/content/"+testContentUUID+"/annotations", r.URL.Path)
+		assert.Equal(t, "/draft-annotations/"+testContentUUID, r.URL.Path)
 		if tid == "" {
 			assert.NotEmpty(t, r.Header.Get(tidUtils.TransactionIDHeader))
 		} else {

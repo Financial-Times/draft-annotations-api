@@ -13,7 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const rwURLPattern = "%s/drafts/content/%s/annotations"
+const rwURLPattern = "%s/draft-annotations/%s"
 const DocumentHashHeader = "Document-Hash"
 const PreviousDocumentHashHeader = "Previous-Document-Hash"
 
@@ -101,7 +101,7 @@ func (rw *annotationsRW) Write(ctx context.Context, contentUUID string, annotati
 		return "", err
 	}
 
-	req, err := http.NewRequest("PUT", fmt.Sprintf(rwURLPattern, rw.endpoint, contentUUID), bytes.NewBuffer(annotationsBody))
+	req, err := http.NewRequest("POST", fmt.Sprintf(rwURLPattern, rw.endpoint, contentUUID), bytes.NewBuffer(annotationsBody))
 	if err != nil {
 		writeLog.WithError(err).Error("Error in creating the HTTP write request to annotations RW")
 		return "", err
@@ -109,6 +109,8 @@ func (rw *annotationsRW) Write(ctx context.Context, contentUUID string, annotati
 
 	req.Header.Set(PreviousDocumentHashHeader, hash)
 
+	// TODO: native-rw requires schema version header, need to considered how to propagate it instead of hard coding it here
+	req.Header.Set("X-Schema-Version", "v1")
 	resp, err := rw.httpClient.Do(req.WithContext(ctx))
 	if err != nil {
 		writeLog.WithError(err).Error("Error making the HTTP request to annotations RW")
