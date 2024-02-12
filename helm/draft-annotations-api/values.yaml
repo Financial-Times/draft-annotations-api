@@ -13,3 +13,9 @@ resources:
     memory: 10Mi
   limits:
     memory: 128Mi
+env:
+  ANNOTATIONS_RW_ENDPOINT: "http://nativerw:8080"
+  HTTP_TIMEOUT: "8s"
+  ANNOTATIONS_ENDPOINT: "" # This should be defined in the specific app-configs folder
+  INTERNAL_CONCORDANCES_ENDPOINT: "" # This should be defined in the specific app-configs folder
+

@@ -36,22 +36,13 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         env:
         - name: ANNOTATIONS_RW_ENDPOINT
-          value: "http://generic-rw-aurora:8080"
-        - name: ANNOTATIONS_ENDPOINT
-          valueFrom:
-            configMapKeyRef:
-              name: global-config
-              key: annotations-endpoint
+          value: "{{ .Values.env.ANNOTATIONS_RW_ENDPOINT }}"
         - name: HTTP_TIMEOUT
-          valueFrom:
-            configMapKeyRef:
-              name: timeout-config
-              key: draft-annotations-api-timeout
+          value: "{{ .Values.env.HTTP_TIMEOUT }}"
+        - name: ANNOTATIONS_ENDPOINT
+          value: "{{ .Values.env.ANNOTATIONS_ENDPOINT }}"
         - name: INTERNAL_CONCORDANCES_ENDPOINT
-          valueFrom:
-            configMapKeyRef:
-              name: global-config
-              key: internal-concordances-endpoint
+          value: "{{ .Values.env.INTERNAL_CONCORDANCES_ENDPOINT }}"
         - name: DELIVERY_BASIC_AUTH
           valueFrom:
             secretKeyRef:

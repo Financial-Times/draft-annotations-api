@@ -16,8 +16,8 @@ RUN BUILDINFO_PACKAGE="${ORG_PATH}/service-status-go/buildinfo." \
   && BUILDER="builder=$(go version)" \
   && LDFLAGS="-X '"${BUILDINFO_PACKAGE}$VERSION"' -X '"${BUILDINFO_PACKAGE}$DATETIME"' -X '"${BUILDINFO_PACKAGE}$REPOSITORY"' -X '"${BUILDINFO_PACKAGE}$REVISION"' -X '"${BUILDINFO_PACKAGE}$BUILDER"'" \
   && echo "Build flags: $LDFLAGS" \
-  && CGO_ENABLED=0 GO111MODULE=on go build -mod=readonly -o /artifacts/${PROJECT} -v -ldflags="${LDFLAGS}" 
-  
+  && CGO_ENABLED=0 GO111MODULE=on go build -mod=readonly -o /artifacts/${PROJECT} -v -ldflags="${LDFLAGS}"
+
 
 FROM scratch
 WORKDIR /

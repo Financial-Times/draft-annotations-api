@@ -26,7 +26,7 @@ fixtures:
             apiUrl: http://api.ft.com/things/5507ab98-b747-3ebc-b816-11603b9009f4
             type: http://www.ft.com/ontology/Topic
             prefLabel: Technology sector
-  /drafts/content/8df16ae8-0dfd-4859-a5ff-eeb9644bed35/annotations:
+  /draft-annotations/8df16ae8-0dfd-4859-a5ff-eeb9644bed35:
     get:
       status: 200
       headers:
@@ -35,7 +35,7 @@ fixtures:
         annotations:
           - id: http://www.ft.com/thing/ababe00a-d732-4690-b283-585e7f264d2f
             predicate: http://www.ft.com/ontology/annotation/mentions
-    put:
+    post:
       status: 200
   /content/4f2f97ea-b8ec-11e4-b8e6-00144feab7de/annotations:
     get:
