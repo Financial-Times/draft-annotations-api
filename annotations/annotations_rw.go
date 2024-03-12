@@ -13,13 +13,19 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const rwURLPattern = "%s/draft-annotations/%s"
-const DocumentHashHeader = "Document-Hash"
-const PreviousDocumentHashHeader = "Previous-Document-Hash"
+type SchemaVersionHeaderKey string
+
+const (
+	rwURLPattern               = "%s/draft-annotations/%s"
+	DocumentHashHeader         = "Document-Hash"
+	PreviousDocumentHashHeader = "Previous-Document-Hash"
+	SchemaVersionHeader        = "X-Schema-Version"
+	DefaultSchemaVersion       = "1"
+)
 
 type RW interface {
-	Read(ctx context.Context, contentUUID string) (*Annotations, string, bool, error)
-	Write(ctx context.Context, contentUUID string, annotations *Annotations, hash string) (string, error)
+	Read(ctx context.Context, contentUUID string) (map[string]interface{}, string, bool, error)
+	Write(ctx context.Context, contentUUID string, data map[string]interface{}, hash string) (string, error)
 	Endpoint() string
 	GTG() error
 }
@@ -37,7 +43,7 @@ var ErrUnexpectedStatusRead = errors.New("annotations RW returned an unexpected 
 var ErrUnexpectedStatusWrite = errors.New("annotations RW returned an unexpected HTTP status code in write operation")
 var ErrGTGNotOK = errors.New("gtg returned a non-200 HTTP status")
 
-func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) (*Annotations, string, bool, error) {
+func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) (map[string]interface{}, string, bool, error) {
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 
 	if err != nil {
@@ -66,14 +72,14 @@ func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) (*Annotat
 
 	switch resp.StatusCode {
 	case http.StatusOK:
-		var annotations Annotations
-		err = json.NewDecoder(resp.Body).Decode(&annotations)
+		var data map[string]interface{}
+		err = json.NewDecoder(resp.Body).Decode(&data)
 		if err != nil {
 			readLog.WithError(err).Error("Error in unmarshalling the HTTP response from annotations RW")
 			return nil, "", false, err
 		}
 		hash := resp.Header.Get(DocumentHashHeader)
-		return &annotations, hash, true, nil
+		return data, hash, true, nil
 	case http.StatusNotFound:
 		return nil, "", false, nil
 	default:
@@ -81,7 +87,7 @@ func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) (*Annotat
 	}
 }
 
-func (rw *annotationsRW) Write(ctx context.Context, contentUUID string, annotations *Annotations, hash string) (string, error) {
+func (rw *annotationsRW) Write(ctx context.Context, contentUUID string, data map[string]interface{}, hash string) (string, error) {
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 
 	if err != nil {
@@ -95,7 +101,7 @@ func (rw *annotationsRW) Write(ctx context.Context, contentUUID string, annotati
 
 	writeLog := log.WithField(tidUtils.TransactionIDKey, tid).WithField("uuid", contentUUID)
 
-	annotationsBody, err := json.Marshal(annotations)
+	annotationsBody, err := json.Marshal(data)
 	if err != nil {
 		writeLog.WithError(err).Error("Unable to marshall annotations that needs to be written")
 		return "", err
@@ -107,10 +113,9 @@ func (rw *annotationsRW) Write(ctx context.Context, contentUUID string, annotati
 		return "", err
 	}
 
+	schemaVersion := ctx.Value(SchemaVersionHeaderKey(SchemaVersionHeader)).(string)
+	req.Header.Set(SchemaVersionHeader, schemaVersion)
 	req.Header.Set(PreviousDocumentHashHeader, hash)
-
-	// TODO: native-rw requires schema version header, need to considered how to propagate it instead of hard coding it here
-	req.Header.Set("X-Schema-Version", "v1")
 	resp, err := rw.httpClient.Do(req.WithContext(ctx))
 	if err != nil {
 		writeLog.WithError(err).Error("Error making the HTTP request to annotations RW")

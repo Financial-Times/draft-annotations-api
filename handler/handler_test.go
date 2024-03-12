@@ -38,9 +38,9 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 	hash := randomdata.RandStringRunes(56)
 
 	rw := new(RWMock)
-	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(&expectedAnnotations, hash, true, nil)
+	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations, hash, true, nil)
 	aug := new(AugmenterMock)
-	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations.Annotations).Return(expectedAnnotations.Annotations, nil)
+	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations["annotations"]).Return(expectedAnnotations["annotations"], nil)
 	annAPI := new(AnnotationsAPIMock)
 
 	h := handler.New(rw, annAPI, nil, aug, time.Second)
@@ -49,13 +49,14 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	actual := annotations.Annotations{}
+	actual := make(map[string]interface{})
 	err := json.NewDecoder(resp.Body).Decode(&actual)
 	assert.NoError(t, err)
 
@@ -67,43 +68,44 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 	annAPI.AssertExpectations(t)
 }
 
+// nolint:all
 func TestReadHasBrandAnnotation(t *testing.T) {
 
 	tests := map[string]struct {
-		readAnnotations     []annotations.Annotation
-		expectedAnnotations []annotations.Annotation
+		readAnnotations     []interface{}
+		expectedAnnotations []interface{}
 		sendHasBrand        bool
 	}{
 		"show hasBrand annotations": {
-			readAnnotations: []annotations.Annotation{
-				{
-					Predicate: "http://www.ft.com/ontology/hasBrand",
-					ConceptId: "http://www.ft.com/thing/87645070-7d8a-492e-9695-bf61ac2b4d18",
-					Type:      "http://www.ft.com/ontology/product/Brand",
+			readAnnotations: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/hasBrand",
+					"id":        "http://www.ft.com/thing/87645070-7d8a-492e-9695-bf61ac2b4d18",
+					"type":      "http://www.ft.com/ontology/product/Brand",
 				},
 			},
-			expectedAnnotations: []annotations.Annotation{
-				{
-					Predicate: "http://www.ft.com/ontology/hasBrand",
-					ConceptId: "http://www.ft.com/thing/87645070-7d8a-492e-9695-bf61ac2b4d18",
-					Type:      "http://www.ft.com/ontology/product/Brand",
+			expectedAnnotations: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/hasBrand",
+					"id":        "http://www.ft.com/thing/87645070-7d8a-492e-9695-bf61ac2b4d18",
+					"type":      "http://www.ft.com/ontology/product/Brand",
 				},
 			},
 			sendHasBrand: true,
 		},
 		"hide hasBrand annotations": {
-			readAnnotations: []annotations.Annotation{
-				{
-					Predicate: "http://www.ft.com/ontology/hasBrand",
-					ConceptId: "http://www.ft.com/thing/87645070-7d8a-492e-9695-bf61ac2b4d18",
-					Type:      "http://www.ft.com/ontology/product/Brand",
+			readAnnotations: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/hasBrand",
+					"id":        "http://www.ft.com/thing/87645070-7d8a-492e-9695-bf61ac2b4d18",
+					"type":      "http://www.ft.com/ontology/product/Brand",
 				},
 			},
-			expectedAnnotations: []annotations.Annotation{
-				{
-					Predicate: "http://www.ft.com/ontology/classification/isClassifiedBy",
-					ConceptId: "http://www.ft.com/thing/87645070-7d8a-492e-9695-bf61ac2b4d18",
-					Type:      "http://www.ft.com/ontology/product/Brand",
+			expectedAnnotations: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/classification/isClassifiedBy",
+					"id":        "http://www.ft.com/thing/87645070-7d8a-492e-9695-bf61ac2b4d18",
+					"type":      "http://www.ft.com/ontology/product/Brand",
 				},
 			},
 			sendHasBrand: false,
@@ -120,10 +122,10 @@ func TestReadHasBrandAnnotation(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			hash := randomdata.RandStringRunes(56)
-			rw.read = func(ctx context.Context, contentUUID string) (*annotations.Annotations, string, bool, error) {
-				return &annotations.Annotations{Annotations: test.readAnnotations}, hash, true, nil
+			rw.read = func(ctx context.Context, contentUUID string) (map[string]interface{}, string, bool, error) {
+				return map[string]interface{}{"annotations": test.readAnnotations}, hash, true, nil
 			}
-			aug.augment = func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+			aug.augment = func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 				return test.readAnnotations, nil
 			}
 
@@ -132,6 +134,7 @@ func TestReadHasBrandAnnotation(t *testing.T) {
 			q.Add("sendHasBrand", strconv.FormatBool(test.sendHasBrand))
 			req.URL.RawQuery = q.Encode()
 			req.Header.Set(tidutils.TransactionIDHeader, testTID)
+			req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 			w := httptest.NewRecorder()
 
 			r.ServeHTTP(w, req)
@@ -139,17 +142,18 @@ func TestReadHasBrandAnnotation(t *testing.T) {
 			defer resp.Body.Close()
 			assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-			actual := annotations.Annotations{}
+			actual := make(map[string]interface{})
 			err := json.NewDecoder(resp.Body).Decode(&actual)
 			assert.NoError(t, err)
 
-			assert.Equal(t, annotations.Annotations{Annotations: test.expectedAnnotations}, actual)
+			assert.Equal(t, map[string]interface{}{"annotations": test.expectedAnnotations}, actual)
 			assert.Equal(t, hash, resp.Header.Get(annotations.DocumentHashHeader))
 
 		})
 	}
 }
 
+// nolint:all
 func TestAddAnnotation(t *testing.T) {
 	rw := &RWMock{}
 	annAPI := &AnnotationsAPIMock{}
@@ -163,53 +167,62 @@ func TestAddAnnotation(t *testing.T) {
 	newHash := randomdata.RandStringRunes(56)
 
 	tests := map[string]struct {
-		saved             []annotations.Annotation
-		augmented         []annotations.Annotation
-		added             annotations.Annotation
+		saved             []interface{}
+		augmented         []interface{}
+		added             map[string]interface{}
+		publication       []interface{}
 		requestStatusCode int
 	}{
 		"success - accept hasBrand annotation": {
-			augmented: []annotations.Annotation{
-				{
-					Predicate: "http://www.ft.com/ontology/hasBrand",
-					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-					ApiUrl:    "http://api.ft.com/concepts/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-					Type:      "http://www.ft.com/ontology/product/Brand",
-					PrefLabel: "Temp brand",
+			augmented: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/hasBrand",
+					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					"apiUrl":    "http://api.ft.com/concepts/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					"type":      "http://www.ft.com/ontology/product/Brand",
+					"prefLabel": "Temp brand",
 				},
 			},
-			saved: []annotations.Annotation{
-				{
-					Predicate: "http://www.ft.com/ontology/hasBrand",
-					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			saved: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/hasBrand",
+					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 				},
 			},
-			added: annotations.Annotation{
-				Predicate: "http://www.ft.com/ontology/hasBrand",
-				ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			added: map[string]interface{}{
+				"annotation": map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/hasBrand",
+					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+				},
+				"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 			},
+			publication:       []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 			requestStatusCode: http.StatusOK,
 		},
 		"success - switch isClassifiedBy to hasBrand annotation": {
-			augmented: []annotations.Annotation{
-				{
-					Predicate: "http://www.ft.com/ontology/hasBrand",
-					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-					ApiUrl:    "http://api.ft.com/concepts/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-					Type:      "http://www.ft.com/ontology/product/Brand",
-					PrefLabel: "Temp brand",
+			augmented: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/hasBrand",
+					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					"apiUrl":    "http://api.ft.com/concepts/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					"type":      "http://www.ft.com/ontology/product/Brand",
+					"prefLabel": "Temp brand",
 				},
 			},
-			saved: []annotations.Annotation{
-				{
-					Predicate: "http://www.ft.com/ontology/hasBrand",
-					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			saved: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/hasBrand",
+					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 				},
 			},
-			added: annotations.Annotation{
-				Predicate: "http://www.ft.com/ontology/classification/isClassifiedBy",
-				ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			added: map[string]interface{}{
+				"annotation": map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/classification/isClassifiedBy",
+					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+				},
+				"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 			},
+			publication:       []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 			requestStatusCode: http.StatusOK,
 		},
 	}
@@ -217,17 +230,17 @@ func TestAddAnnotation(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			calledGetAll := false
-			rw.write = func(ctx context.Context, contentUUID string, a *annotations.Annotations, hash string) (string, error) {
-				assert.Equal(t, &annotations.Annotations{Annotations: test.saved}, a)
+			rw.write = func(ctx context.Context, contentUUID string, a map[string]interface{}, hash string) (string, error) {
+				assert.Equal(t, map[string]interface{}{"annotations": test.saved, "publication": test.publication}, a)
 				assert.Equal(t, oldHash, hash)
 				return newHash, nil
 			}
-			annAPI.getAllButV2 = func(ctx context.Context, contentUUID string) ([]annotations.Annotation, error) {
+			annAPI.getAllButV2 = func(ctx context.Context, contentUUID string) ([]interface{}, error) {
 				calledGetAll = true
-				return []annotations.Annotation{}, nil
+				return []interface{}{}, nil
 			}
-			aug.augment = func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
-				expect := []annotations.Annotation{test.added}
+			aug.augment = func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+				expect := []interface{}{test.added["annotation"]}
 				assert.Equal(t, expect, depletedAnnotations)
 				return test.augmented, nil
 			}
@@ -241,6 +254,7 @@ func TestAddAnnotation(t *testing.T) {
 
 			req.Header.Set(tidutils.TransactionIDHeader, testTID)
 			req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+			req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -258,6 +272,7 @@ func TestAddAnnotation(t *testing.T) {
 	}
 }
 
+// nolint:all
 func TestWriteHasBrandAnnotation(t *testing.T) {
 	rw := &RWMock{}
 	annAPI := &AnnotationsAPIMock{}
@@ -271,55 +286,55 @@ func TestWriteHasBrandAnnotation(t *testing.T) {
 	newHash := randomdata.RandStringRunes(56)
 
 	tests := map[string]struct {
-		written           []annotations.Annotation
-		augmented         []annotations.Annotation
-		saved             []annotations.Annotation
+		written           []interface{}
+		augmented         []interface{}
+		saved             []interface{}
 		requestStatusCode int
 	}{
 		"success - accept hasBrand annotation": {
-			written: []annotations.Annotation{
-				{
-					Predicate: "http://www.ft.com/ontology/hasBrand",
-					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			written: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/hasBrand",
+					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 				},
 			},
-			augmented: []annotations.Annotation{
-				{
-					Predicate: "http://www.ft.com/ontology/hasBrand",
-					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-					ApiUrl:    "http://api.ft.com/concepts/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-					Type:      "http://www.ft.com/ontology/product/Brand",
-					PrefLabel: "Temp brand",
+			augmented: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/hasBrand",
+					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					"apiUrl":    "http://api.ft.com/concepts/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					"type":      "http://www.ft.com/ontology/product/Brand",
+					"prefLabel": "Temp brand",
 				},
 			},
-			saved: []annotations.Annotation{
-				{
-					Predicate: "http://www.ft.com/ontology/hasBrand",
-					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			saved: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/hasBrand",
+					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 				},
 			},
 			requestStatusCode: http.StatusOK,
 		},
 		"success - switch isClassifiedBy to hasBrand annotation": {
-			written: []annotations.Annotation{
-				{
-					Predicate: "http://www.ft.com//classification/isClassifiedBy",
-					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			written: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com//classification/isClassifiedBy",
+					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 				},
 			},
-			augmented: []annotations.Annotation{
-				{
-					Predicate: "http://www.ft.com/ontology/hasBrand",
-					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-					ApiUrl:    "http://api.ft.com/concepts/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-					Type:      "http://www.ft.com/ontology/product/Brand",
-					PrefLabel: "Temp brand",
+			augmented: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/hasBrand",
+					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					"apiUrl":    "http://api.ft.com/concepts/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					"type":      "http://www.ft.com/ontology/product/Brand",
+					"prefLabel": "Temp brand",
 				},
 			},
-			saved: []annotations.Annotation{
-				{
-					Predicate: "http://www.ft.com/ontology/hasBrand",
-					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			saved: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/hasBrand",
+					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 				},
 			},
 			requestStatusCode: http.StatusOK,
@@ -328,17 +343,17 @@ func TestWriteHasBrandAnnotation(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			rw.write = func(ctx context.Context, contentUUID string, a *annotations.Annotations, hash string) (string, error) {
-				assert.Equal(t, &annotations.Annotations{Annotations: test.saved}, a)
+			rw.write = func(ctx context.Context, contentUUID string, a map[string]interface{}, hash string) (string, error) {
+				assert.Equal(t, map[string]interface{}{"annotations": test.saved}, a)
 				assert.Equal(t, oldHash, hash)
 				return newHash, nil
 			}
-			aug.augment = func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+			aug.augment = func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 				assert.Equal(t, test.written, depletedAnnotations)
 				return test.augmented, nil
 			}
 
-			b, _ := json.Marshal(annotations.Annotations{Annotations: test.written})
+			b, _ := json.Marshal(map[string]interface{}{"annotations": test.written})
 
 			req := httptest.NewRequest(
 				"PUT",
@@ -347,6 +362,7 @@ func TestWriteHasBrandAnnotation(t *testing.T) {
 
 			req.Header.Set(tidutils.TransactionIDHeader, testTID)
 			req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+			req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -363,6 +379,7 @@ func TestWriteHasBrandAnnotation(t *testing.T) {
 	}
 }
 
+// nolint:all
 func TestReplaceHasBrandAnnotation(t *testing.T) {
 	rw := &RWMock{}
 	annAPI := &AnnotationsAPIMock{}
@@ -377,89 +394,94 @@ func TestReplaceHasBrandAnnotation(t *testing.T) {
 	newHash := randomdata.RandStringRunes(56)
 
 	tests := map[string]struct {
-		fromUpp           []annotations.Annotation
+		fromUpp           []interface{}
 		toReplace         string
-		replaceWith       annotations.Annotation
-		afterReplace      []annotations.Annotation
-		augmented         []annotations.Annotation
-		toStore           []annotations.Annotation
+		replaceWith       map[string]interface{}
+		afterReplace      []interface{}
+		augmented         []interface{}
+		toStore           []interface{}
+		publication       []interface{}
 		requestStatusCode int
 	}{
 		"success - accept hasBrand annotation": {
-			fromUpp: []annotations.Annotation{
-				{
-					Predicate: "http://www.ft.com/ontology/annotation/mentions",
-					ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
-					ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
-					Type:      "http://www.ft.com/ontology/person/Person",
-					PrefLabel: "Barack H. Obama",
+			fromUpp: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/annotation/mentions",
+					"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+					"apiUrl":    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+					"type":      "http://www.ft.com/ontology/person/Person",
+					"prefLabel": "Barack H. Obama",
 				},
-				{
-					Predicate: "http://www.ft.com/ontology/annotation/about",
-					ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
-					ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
-					Type:      "http://www.ft.com/ontology/Topic",
-					PrefLabel: "US interest rates",
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/annotation/about",
+					"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+					"apiUrl":    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+					"type":      "http://www.ft.com/ontology/Topic",
+					"prefLabel": "US interest rates",
 				},
 			},
 			toReplace: "9577c6d4-b09e-4552-b88f-e52745abe02b",
-			replaceWith: annotations.Annotation{
-				Predicate: "http://www.ft.com/ontology/hasBrand",
-				ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			replaceWith: map[string]interface{}{
+				"annotation": map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/hasBrand",
+					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+				},
+				"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 			},
-			afterReplace: []annotations.Annotation{
-				{
-					Predicate: "http://www.ft.com/ontology/annotation/mentions",
-					ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			afterReplace: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/annotation/mentions",
+					"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
 				},
-				{
-					Predicate: "http://www.ft.com/ontology/hasBrand",
-					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-				},
-			},
-			augmented: []annotations.Annotation{
-				{
-					Predicate: "http://www.ft.com/ontology/annotation/mentions",
-					ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
-					ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
-					Type:      "http://www.ft.com/ontology/person/Person",
-					PrefLabel: "Barack H. Obama",
-				},
-				{
-					Predicate: "http://www.ft.com/ontology/hasBrand",
-					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-					ApiUrl:    "http://api.ft.com/concepts/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-					Type:      "http://www.ft.com/ontology/product/Brand",
-					PrefLabel: "Random brand",
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/hasBrand",
+					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 				},
 			},
-			toStore: []annotations.Annotation{
-				{
-					Predicate: "http://www.ft.com/ontology/annotation/mentions",
-					ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			augmented: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/annotation/mentions",
+					"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+					"apiUrl":    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+					"type":      "http://www.ft.com/ontology/person/Person",
+					"prefLabel": "Barack H. Obama",
 				},
-				{
-					Predicate: "http://www.ft.com/ontology/hasBrand",
-					ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/hasBrand",
+					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					"apiUrl":    "http://api.ft.com/concepts/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+					"type":      "http://www.ft.com/ontology/product/Brand",
+					"prefLabel": "Random brand",
 				},
 			},
+			toStore: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/annotation/mentions",
+					"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+				},
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/hasBrand",
+					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+				},
+			},
+			publication:       []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 			requestStatusCode: http.StatusOK,
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			rw.write = func(ctx context.Context, contentUUID string, a *annotations.Annotations, hash string) (string, error) {
-				assert.Equal(t, &annotations.Annotations{Annotations: test.toStore}, a)
+			rw.write = func(ctx context.Context, contentUUID string, a map[string]interface{}, hash string) (string, error) {
+				assert.Equal(t, map[string]interface{}{"annotations": test.toStore, "publication": test.publication}, a)
 				assert.Equal(t, oldHash, hash)
 				return newHash, nil
 			}
 			getAllCalled := false
-			annAPI.getAllButV2 = func(ctx context.Context, contentUUID string) ([]annotations.Annotation, error) {
+			annAPI.getAllButV2 = func(ctx context.Context, contentUUID string) ([]interface{}, error) {
 				getAllCalled = true
 				return test.fromUpp, nil
 			}
-			aug.augment = func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+			aug.augment = func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 				depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
 				assert.Equal(t, test.afterReplace, depletedAnnotations)
 				return test.augmented, nil
@@ -474,6 +496,7 @@ func TestReplaceHasBrandAnnotation(t *testing.T) {
 
 			req.Header.Set(tidutils.TransactionIDHeader, testTID)
 			req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+			req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -503,6 +526,7 @@ func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -521,9 +545,9 @@ func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
 
 func TestUnHappyAugmenter(t *testing.T) {
 	rw := new(RWMock)
-	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(&expectedAnnotations, "", true, nil)
+	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations, "", true, nil)
 	aug := new(AugmenterMock)
-	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations.Annotations).Return([]annotations.Annotation{}, errors.New("computer says no"))
+	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations["annotations"]).Return(expectedAnnotations["annotations"], errors.New("computer says no"))
 	annAPI := new(AnnotationsAPIMock)
 
 	h := handler.New(rw, annAPI, nil, aug, time.Second)
@@ -532,6 +556,7 @@ func TestUnHappyAugmenter(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -550,7 +575,7 @@ func TestUnHappyAugmenter(t *testing.T) {
 
 func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 	aug := new(AugmenterMock)
-	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations.Annotations).Return(expectedAnnotations.Annotations, nil)
+	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations["annotations"]).Return(expectedAnnotations["annotations"], nil)
 
 	rw := new(RWMock)
 
@@ -568,13 +593,14 @@ func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	actual := annotations.Annotations{}
+	actual := make(map[string]interface{})
 	err := json.NewDecoder(resp.Body).Decode(&actual)
 	assert.NoError(t, err)
 
@@ -600,6 +626,7 @@ func TestFetchFromAnnotationsAPI404(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -629,6 +656,7 @@ func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -657,6 +685,7 @@ func TestFetchFromAnnotationsAPI500(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -682,6 +711,7 @@ func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -709,6 +739,7 @@ func TestFetchFromAnnotationsAPIWithConnectionError(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -835,310 +866,337 @@ const expectedAnnotationsBody = `[
    }
 ]`
 
-var expectedAnnotations = annotations.Annotations{
-	Annotations: []annotations.Annotation{
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
-			ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
-			Type:      "http://www.ft.com/ontology/person/Person",
-			PrefLabel: "Barack H. Obama",
+var expectedAnnotations = map[string]interface{}{
+	"annotations": []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"apiUrl":    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"type":      "http://www.ft.com/ontology/person/Person",
+			"prefLabel": "Barack H. Obama",
 		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
-			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
-			ApiUrl:    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
-			Type:      "http://www.ft.com/ontology/person/Person",
-			PrefLabel: "David J Lynch",
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			"apiUrl":    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			"type":      "http://www.ft.com/ontology/person/Person",
+			"prefLabel": "David J Lynch",
 		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/about",
-			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
-			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
-			Type:      "http://www.ft.com/ontology/Topic",
-			PrefLabel: "US interest rates",
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"apiUrl":    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"type":      "http://www.ft.com/ontology/Topic",
+			"prefLabel": "US interest rates",
 		},
-		{
-			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
-			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
-			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
-			Type:      "http://www.ft.com/ontology/Topic",
-			PrefLabel: "US interest rates",
-		},
-	},
-}
-
-var augmentedAnnotationsAfterAddition = annotations.Annotations{
-	Annotations: []annotations.Annotation{
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
-			ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
-			Type:      "http://www.ft.com/ontology/person/Person",
-			PrefLabel: "Barack H. Obama",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
-			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
-			ApiUrl:    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
-			Type:      "http://www.ft.com/ontology/person/Person",
-			PrefLabel: "David J Lynch",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/about",
-			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
-			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
-			Type:      "http://www.ft.com/ontology/Topic",
-			PrefLabel: "US interest rates",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
-			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
-			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
-			Type:      "http://www.ft.com/ontology/Topic",
-			PrefLabel: "US interest rates",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-			ApiUrl:    "http://api.ft.com/organisations/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-			Type:      "http://www.ft.com/ontology/organisation/Organisation",
-			PrefLabel: "Office for National Statistics UK",
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/hasDisplayTag",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"apiUrl":    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"type":      "http://www.ft.com/ontology/Topic",
+			"prefLabel": "US interest rates",
 		},
 	},
 }
 
-var expectedAnnotationsReplace = annotations.Annotations{
-	Annotations: []annotations.Annotation{
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
-			ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
-			Type:      "http://www.ft.com/ontology/person/Person",
-			PrefLabel: "Barack H. Obama",
+var augmentedAnnotationsAfterAddition = map[string]interface{}{
+	"annotations": []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"apiUrl":    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"type":      "http://www.ft.com/ontology/person/Person",
+			"prefLabel": "Barack H. Obama",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			"apiUrl":    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			"type":      "http://www.ft.com/ontology/person/Person",
+			"prefLabel": "David J Lynch",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"apiUrl":    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"type":      "http://www.ft.com/ontology/Topic",
+			"prefLabel": "US interest rates",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/hasDisplayTag",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"apiUrl":    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"type":      "http://www.ft.com/ontology/Topic",
+			"prefLabel": "US interest rates",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			"apiUrl":    "http://api.ft.com/organisations/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			"type":      "http://www.ft.com/ontology/organisation/Organisation",
+			"prefLabel": "Office for National Statistics UK",
 		},
 	},
 }
 
-var expectedAnnotationsReplaceExisting = annotations.Annotations{
-	Annotations: []annotations.Annotation{
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+var expectedAnnotationsReplace = map[string]interface{}{
+	"annotations": []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"apiUrl":    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"type":      "http://www.ft.com/ontology/person/Person",
+			"prefLabel": "Barack H. Obama",
 		},
 	},
 }
 
-var expectedCanonicalisedAnnotationsBody = annotations.Annotations{
-	Annotations: []annotations.Annotation{
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/about",
-			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+var expectedAnnotationsReplaceExisting = map[string]interface{}{
+	"annotations": []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
 		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
-			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+	},
+	"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+}
+
+var expectedCanonicalisedAnnotationsBody = map[string]interface{}{
+	"annotations": []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
 		},
-		{
-			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
-			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/hasDisplayTag",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		},
+	},
+	"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+}
+
+var expectedCanonicalisedAnnotationsBodyWrite = map[string]interface{}{
+	"annotations": []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/hasDisplayTag",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		},
 	},
 }
 
-var expectedCanonicalisedAnnotationsAfterDelete = annotations.Annotations{
-	Annotations: []annotations.Annotation{
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
-			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+var expectedCanonicalisedAnnotationsAfterDelete = map[string]interface{}{
+	"annotations": []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
 		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
-		},
-	},
-}
-
-var augmentedAnnotationsAfterDelete = annotations.Annotations{
-	Annotations: []annotations.Annotation{
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
-			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
-			ApiUrl:    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
-			Type:      "http://www.ft.com/ontology/person/Person",
-			PrefLabel: "David J Lynch",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
-			ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
-			Type:      "http://www.ft.com/ontology/person/Person",
-			PrefLabel: "Barack H. Obama",
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
 		},
 	},
 }
 
-var expectedCanonicalisedAnnotationsAfterAdditon = annotations.Annotations{
-	Annotations: []annotations.Annotation{
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/about",
-			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+var augmentedAnnotationsAfterDelete = map[string]interface{}{
+	"annotations": []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			"apiUrl":    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			"type":      "http://www.ft.com/ontology/person/Person",
+			"prefLabel": "David J Lynch",
 		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
-			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
-			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"apiUrl":    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"type":      "http://www.ft.com/ontology/person/Person",
+			"prefLabel": "Barack H. Obama",
 		},
 	},
 }
 
-var expectedCanonicalisedAnnotationsAfterReplace = annotations.Annotations{
-	Annotations: []annotations.Annotation{
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/about",
-			ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+var expectedCanonicalisedAnnotationsAfterAdditon = map[string]interface{}{
+	"annotations": []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
-			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
 		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
 		},
-		{
-			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
-			ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/hasDisplayTag",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		},
+	},
+	"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+}
+
+var expectedCanonicalisedAnnotationsAfterReplace = map[string]interface{}{
+	"annotations": []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/hasDisplayTag",
+			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+		},
+	},
+	"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+}
+
+var augmentedAnnotationsAfterReplace = map[string]interface{}{
+	"annotations": []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"apiUrl":    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"type":      "http://www.ft.com/ontology/person/Person",
+			"prefLabel": "Barack H. Obama",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			"apiUrl":    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			"type":      "http://www.ft.com/ontology/person/Person",
+			"prefLabel": "David J Lynch",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			"apiUrl":    "http://api.ft.com/organisations/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			"type":      "http://www.ft.com/ontology/organisation/Organisation",
+			"prefLabel": "Office for National Statistics UK",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/hasDisplayTag",
+			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			"apiUrl":    "http://api.ft.com/organisations/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			"type":      "http://www.ft.com/ontology/organisation/Organisation",
+			"prefLabel": "Office for National Statistics UK",
 		},
 	},
 }
 
-var augmentedAnnotationsAfterReplace = annotations.Annotations{
-	Annotations: []annotations.Annotation{
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
-			ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
-			Type:      "http://www.ft.com/ontology/person/Person",
-			PrefLabel: "Barack H. Obama",
+var expectedCanonicalisedAnnotationsSameConceptID = map[string]interface{}{
+	"annotations": []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
-			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
-			ApiUrl:    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
-			Type:      "http://www.ft.com/ontology/person/Person",
-			PrefLabel: "David J Lynch",
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
 		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/about",
-			ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-			ApiUrl:    "http://api.ft.com/organisations/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-			Type:      "http://www.ft.com/ontology/organisation/Organisation",
-			PrefLabel: "Office for National Statistics UK",
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
 		},
-		{
-			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
-			ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-			ApiUrl:    "http://api.ft.com/organisations/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-			Type:      "http://www.ft.com/ontology/organisation/Organisation",
-			PrefLabel: "Office for National Statistics UK",
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/hasDisplayTag",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		},
+	},
+	"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+}
+
+var augmentedAnnotationsSameConceptID = map[string]interface{}{
+	"annotations": []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"apiUrl":    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"type":      "http://www.ft.com/ontology/person/Person",
+			"prefLabel": "Barack H. Obama",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			"apiUrl":    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			"type":      "http://www.ft.com/ontology/person/Person",
+			"prefLabel": "David J Lynch",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			"apiUrl":    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			"type":      "http://www.ft.com/ontology/person/Person",
+			"prefLabel": "David J Lynch",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"apiUrl":    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"type":      "http://www.ft.com/ontology/Topic",
+			"prefLabel": "US interest rates",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/hasDisplayTag",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"apiUrl":    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"type":      "http://www.ft.com/ontology/Topic",
+			"prefLabel": "US interest rates",
 		},
 	},
 }
 
-var expectedCanonicalisedAnnotationsSameConceptId = annotations.Annotations{
-	Annotations: []annotations.Annotation{
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/about",
-			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
-			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
-			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
-		},
-	},
-}
-
-var augmentedAnnotationsSameConceptId = annotations.Annotations{
-	Annotations: []annotations.Annotation{
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
-			ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
-			Type:      "http://www.ft.com/ontology/person/Person",
-			PrefLabel: "Barack H. Obama",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
-			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
-			ApiUrl:    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
-			Type:      "http://www.ft.com/ontology/person/Person",
-			PrefLabel: "David J Lynch",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
-			ApiUrl:    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
-			Type:      "http://www.ft.com/ontology/person/Person",
-			PrefLabel: "David J Lynch",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/about",
-			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
-			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
-			Type:      "http://www.ft.com/ontology/Topic",
-			PrefLabel: "US interest rates",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/hasDisplayTag",
-			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
-			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
-			Type:      "http://www.ft.com/ontology/Topic",
-			PrefLabel: "US interest rates",
-		},
-	},
-}
-
+// nolint:all
 func TestSaveAnnotations(t *testing.T) {
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
 	rw := new(RWMock)
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsBody, oldHash).Return(newHash, nil)
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsBodyWrite, oldHash).Return(newHash, nil)
 
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	annotationsAPI := new(AnnotationsAPIMock)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
-			assert.Equal(t, expectedCanonicalisedAnnotationsBody.Annotations, depletedAnnotations)
-			return expectedAnnotations.Annotations, nil
+			assert.Equal(t, expectedCanonicalisedAnnotationsBody["annotations"], depletedAnnotations)
+			return expectedAnnotations["annotations"].([]interface{}), nil
 		},
 	}
 
@@ -1159,17 +1217,18 @@ func TestSaveAnnotations(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	actual := annotations.Annotations{}
+	actual := make(map[string]interface{})
 	err = json.NewDecoder(resp.Body).Decode(&actual)
 	assert.NoError(t, err)
 
-	assert.Equal(t, expectedCanonicalisedAnnotationsBody, actual)
+	assert.Equal(t, expectedCanonicalisedAnnotationsBodyWrite, actual)
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 
 	rw.AssertExpectations(t)
@@ -1194,6 +1253,7 @@ func TestSaveAnnotationsInvalidContentUUID(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1225,6 +1285,7 @@ func TestSaveAnnotationsInvalidAnnotationsBody(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1239,18 +1300,19 @@ func TestSaveAnnotationsInvalidAnnotationsBody(t *testing.T) {
 	annotationsAPI.AssertExpectations(t)
 }
 
+// nolint:all
 func TestSaveAnnotationsErrorFromRW(t *testing.T) {
 	oldHash := randomdata.RandStringRunes(56)
 	rw := new(RWMock)
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsBody, oldHash).Return("", errors.New("computer says no"))
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsBodyWrite, oldHash).Return("", errors.New("computer says no"))
 
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	annotationsAPI := new(AnnotationsAPIMock)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
-			assert.Equal(t, expectedCanonicalisedAnnotationsBody.Annotations, depletedAnnotations)
-			return expectedAnnotations.Annotations, nil
+			assert.Equal(t, expectedCanonicalisedAnnotationsBody["annotations"], depletedAnnotations)
+			return expectedAnnotations["annotations"].([]interface{}), nil
 		},
 	}
 
@@ -1271,6 +1333,7 @@ func TestSaveAnnotationsErrorFromRW(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1298,6 +1361,7 @@ func TestAnnotationsReadTimeoutGenericRW(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1316,7 +1380,7 @@ func TestAnnotationsReadTimeoutUPP(t *testing.T) {
 
 	aug := new(AugmenterMock)
 	annAPI := new(AnnotationsAPIMock)
-	annAPI.On("GetAll", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return([]annotations.Annotation{}, &url.Error{Err: context.DeadlineExceeded})
+	annAPI.On("GetAll", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return([]interface{}{}, &url.Error{Err: context.DeadlineExceeded})
 
 	h := handler.New(rw, annAPI, nil, aug, time.Second)
 	r := vestigo.NewRouter()
@@ -1324,6 +1388,7 @@ func TestAnnotationsReadTimeoutUPP(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1355,18 +1420,19 @@ func TestIsTimeoutErr(t *testing.T) {
 	assert.True(t, e.Timeout())
 }
 
+// nolint:all
 func TestAnnotationsWriteTimeout(t *testing.T) {
 	oldHash := randomdata.RandStringRunes(56)
 	rw := new(RWMock)
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsBody, oldHash).Return("", &url.Error{Err: context.DeadlineExceeded})
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsBodyWrite, oldHash).Return("", &url.Error{Err: context.DeadlineExceeded})
 
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	annotationsAPI := new(AnnotationsAPIMock)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
-			assert.Equal(t, expectedCanonicalisedAnnotationsBody.Annotations, depletedAnnotations)
-			return expectedAnnotations.Annotations, nil
+			assert.Equal(t, expectedCanonicalisedAnnotationsBody["annotations"], depletedAnnotations)
+			return expectedAnnotations["annotations"].([]interface{}), nil
 		},
 	}
 
@@ -1387,6 +1453,7 @@ func TestAnnotationsWriteTimeout(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -1403,23 +1470,24 @@ func TestAnnotationsWriteTimeout(t *testing.T) {
 	annotationsAPI.AssertExpectations(t)
 }
 
+// nolint:all
 func TestHappyDeleteAnnotations(t *testing.T) {
 	rw := new(RWMock)
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895",
-		&expectedCanonicalisedAnnotationsAfterDelete, oldHash).Return(newHash, nil)
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895",
+		expectedCanonicalisedAnnotationsAfterDelete, oldHash).Return(newHash, nil)
 	annAPI := new(AnnotationsAPIMock)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").
-		Return(expectedAnnotations.Annotations, nil)
+		Return(expectedAnnotations["annotations"], nil)
 
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
-			assert.Equal(t, expectedCanonicalisedAnnotationsAfterDelete.Annotations, depletedAnnotations)
-			return augmentedAnnotationsAfterDelete.Annotations, nil
+			assert.Equal(t, expectedCanonicalisedAnnotationsAfterDelete["annotations"], depletedAnnotations)
+			return augmentedAnnotationsAfterDelete["annotations"].([]interface{}), nil
 		},
 	}
 
@@ -1434,6 +1502,7 @@ func TestHappyDeleteAnnotations(t *testing.T) {
 		nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1494,7 +1563,7 @@ func TestUnHappyDeleteAnnotationsWhenRetrievingAnnotationsFails(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").
-		Return([]annotations.Annotation{}, errors.New("sorry something failed"))
+		Return([]interface{}{}, errors.New("sorry something failed"))
 	aug := new(AugmenterMock)
 
 	h := handler.New(rw, annAPI, nil, aug, time.Second)
@@ -1506,6 +1575,7 @@ func TestUnHappyDeleteAnnotationsWhenRetrievingAnnotationsFails(t *testing.T) {
 		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
 		nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1521,7 +1591,7 @@ func TestUnHappyDeleteAnnotationsWhenNoAnnotationsFound(t *testing.T) {
 	uppErr := annotations.NewUPPError(annotations.UPPNotFoundMsg, http.StatusNotFound, nil)
 
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").
-		Return([]annotations.Annotation{}, uppErr)
+		Return([]interface{}{}, uppErr)
 	aug := new(AugmenterMock)
 
 	h := handler.New(rw, annAPI, nil, aug, time.Second)
@@ -1533,6 +1603,7 @@ func TestUnHappyDeleteAnnotationsWhenNoAnnotationsFound(t *testing.T) {
 		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
 		nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1542,19 +1613,20 @@ func TestUnHappyDeleteAnnotationsWhenNoAnnotationsFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
+// nolint:all
 func TestUnHappyDeleteAnnotationsWhenWritingAnnotationsFails(t *testing.T) {
 	rw := new(RWMock)
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsBody, "").Return(mock.Anything, errors.New("sorry something failed"))
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsBodyWrite, "").Return(mock.Anything, errors.New("sorry something failed"))
 	annAPI := new(AnnotationsAPIMock)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").
-		Return(expectedAnnotations.Annotations, nil)
+		Return(expectedAnnotations["annotations"], nil)
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
-			assert.Equal(t, expectedCanonicalisedAnnotationsBody.Annotations, depletedAnnotations)
-			return expectedAnnotations.Annotations, nil
+			assert.Equal(t, expectedCanonicalisedAnnotationsBody["annotations"], depletedAnnotations)
+			return expectedAnnotations["annotations"].([]interface{}), nil
 		},
 	}
 
@@ -1567,6 +1639,7 @@ func TestUnHappyDeleteAnnotationsWhenWritingAnnotationsFails(t *testing.T) {
 		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
 		nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1575,6 +1648,7 @@ func TestUnHappyDeleteAnnotationsWhenWritingAnnotationsFails(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 }
 
+// nolint:all
 func TestHappyAddAnnotation(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
@@ -1582,14 +1656,14 @@ func TestHappyAddAnnotation(t *testing.T) {
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
 
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterAdditon, oldHash).Return(newHash, nil)
-	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, nil)
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsAfterAdditon, oldHash).Return(newHash, nil)
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], nil)
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
-			assert.Equal(t, expectedCanonicalisedAnnotationsAfterAdditon.Annotations, depletedAnnotations)
-			return augmentedAnnotationsAfterAddition.Annotations, nil
+			assert.Equal(t, expectedCanonicalisedAnnotationsAfterAdditon["annotations"], depletedAnnotations)
+			return augmentedAnnotationsAfterAddition["annotations"].([]interface{}), nil
 		},
 	}
 
@@ -1598,9 +1672,12 @@ func TestHappyAddAnnotation(t *testing.T) {
 
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{
-		Predicate: "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+	ann := map[string]interface{}{
+		"annotation": map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+		},
+		"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
 	}
 	b, _ := json.Marshal(ann)
 
@@ -1611,6 +1688,7 @@ func TestHappyAddAnnotation(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1623,6 +1701,7 @@ func TestHappyAddAnnotation(t *testing.T) {
 	aug.AssertExpectations(t)
 }
 
+// nolint:all
 func TestHappyAddExistingAnnotation(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
@@ -1630,14 +1709,14 @@ func TestHappyAddExistingAnnotation(t *testing.T) {
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
 
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsBody, oldHash).Return(newHash, nil)
-	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, nil)
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsBody, oldHash).Return(newHash, nil)
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], nil)
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
-			assert.Equal(t, expectedCanonicalisedAnnotationsBody.Annotations, depletedAnnotations)
-			return expectedAnnotations.Annotations, nil
+			assert.Equal(t, expectedCanonicalisedAnnotationsBody["annotations"], depletedAnnotations)
+			return expectedAnnotations["annotations"].([]interface{}), nil
 		},
 	}
 
@@ -1646,9 +1725,12 @@ func TestHappyAddExistingAnnotation(t *testing.T) {
 
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{
-		Predicate: "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+	ann := map[string]interface{}{
+		"annotation": map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		},
+		"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
 	}
 	b, _ := json.Marshal(ann)
 
@@ -1659,6 +1741,7 @@ func TestHappyAddExistingAnnotation(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1671,20 +1754,21 @@ func TestHappyAddExistingAnnotation(t *testing.T) {
 	annAPI.AssertExpectations(t)
 }
 
+// nolint:all
 func TestHappyAddAnnotationWithExistingConceptIdDifferentPredicate(t *testing.T) {
 	rw := new(RWMock)
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
 
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsSameConceptId, oldHash).Return(newHash, nil)
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsSameConceptID, oldHash).Return(newHash, nil)
 	annAPI := new(AnnotationsAPIMock)
-	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, nil)
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], nil)
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
-			assert.Equal(t, expectedCanonicalisedAnnotationsSameConceptId.Annotations, depletedAnnotations)
-			return augmentedAnnotationsSameConceptId.Annotations, nil
+			assert.Equal(t, expectedCanonicalisedAnnotationsSameConceptID["annotations"], depletedAnnotations)
+			return augmentedAnnotationsSameConceptID["annotations"].([]interface{}), nil
 		},
 	}
 
@@ -1693,9 +1777,12 @@ func TestHappyAddAnnotationWithExistingConceptIdDifferentPredicate(t *testing.T)
 
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{
-		Predicate: "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+	ann := map[string]interface{}{
+		"annotation": map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+		},
+		"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
 	}
 	b, _ := json.Marshal(ann)
 
@@ -1706,6 +1793,7 @@ func TestHappyAddAnnotationWithExistingConceptIdDifferentPredicate(t *testing.T)
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1733,6 +1821,7 @@ func TestUnHappyAddAnnotationInvalidContentId(t *testing.T) {
 		nil)
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1750,9 +1839,11 @@ func TestUnHappyAddAnnotationInvalidConceptIdPrefix(t *testing.T) {
 	r := vestigo.NewRouter()
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{
-		Predicate: "http://www.ft.com/ontology/annotation/about",
-		ConceptId: "http://www.ft.com/thing//838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+	ann := map[string]interface{}{
+		"annotation": map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+			"id":        "http://www.ft.com/thing//838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+		},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -1762,6 +1853,7 @@ func TestUnHappyAddAnnotationInvalidConceptIdPrefix(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1779,8 +1871,10 @@ func TestUnHappyAddAnnotationEmptyConceptId(t *testing.T) {
 	r := vestigo.NewRouter()
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{
-		Predicate: "http://www.ft.com/ontology/annotation/about",
+	ann := map[string]interface{}{
+		"annotation": map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+		},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -1790,6 +1884,7 @@ func TestUnHappyAddAnnotationEmptyConceptId(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1807,9 +1902,11 @@ func TestUnHappyAddAnnotationInvalidConceptUuid(t *testing.T) {
 	r := vestigo.NewRouter()
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{
-		Predicate: "http://www.ft.com/ontology/annotation/about",
-		ConceptId: "http://www.ft.com/thing//838b3fbe",
+	ann := map[string]interface{}{
+		"annotation": map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+			"id":        "http://www.ft.com/thing//838b3fbe",
+		},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -1819,6 +1916,7 @@ func TestUnHappyAddAnnotationInvalidConceptUuid(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1836,9 +1934,11 @@ func TestUnHappyAddAnnotationInvalidPredicate(t *testing.T) {
 	r := vestigo.NewRouter()
 	r.Add("POST", "/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{
-		Predicate: "http://www.ft.com/ontology/annotation/foobar",
-		ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+	ann := map[string]interface{}{
+		"annotation": map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/foobar",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -1848,6 +1948,7 @@ func TestUnHappyAddAnnotationInvalidPredicate(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1856,18 +1957,19 @@ func TestUnHappyAddAnnotationInvalidPredicate(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
+// nolint:all
 func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, errors.New("error writing annotations"))
-	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, nil)
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, errors.New("error writing annotations"))
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], nil)
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
-			assert.Equal(t, expectedCanonicalisedAnnotationsAfterAdditon.Annotations, depletedAnnotations)
-			return augmentedAnnotationsAfterAddition.Annotations, nil
+			assert.Equal(t, expectedCanonicalisedAnnotationsAfterAdditon["annotations"], depletedAnnotations)
+			return augmentedAnnotationsAfterAddition["annotations"].([]interface{}), nil
 		},
 	}
 
@@ -1876,9 +1978,12 @@ func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{
-		Predicate: "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+	ann := map[string]interface{}{
+		"annotation": map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+		},
+		"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
 	}
 	b, _ := json.Marshal(ann)
 
@@ -1888,6 +1993,7 @@ func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1900,17 +2006,20 @@ func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
-	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, errors.New("error getting annotations"))
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], errors.New("error getting annotations"))
 
 	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	r := vestigo.NewRouter()
 
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{
-		Predicate: "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+	ann := map[string]interface{}{
+		"annotation": map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+		},
+		"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
 	}
 	b, _ := json.Marshal(ann)
 
@@ -1920,6 +2029,7 @@ func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1934,17 +2044,19 @@ func TestUnhappyAddAnnotationWhenNoAnnotationsFound(t *testing.T) {
 
 	uppErr := annotations.NewUPPError(annotations.UPPNotFoundMsg, http.StatusNotFound, nil)
 
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
-	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, uppErr)
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], uppErr)
 
 	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	r := vestigo.NewRouter()
 
 	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
 
-	ann := annotations.Annotation{
-		Predicate: "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+	ann := map[string]interface{}{
+		"annotation": map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+		},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -1954,6 +2066,7 @@ func TestUnhappyAddAnnotationWhenNoAnnotationsFound(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1963,6 +2076,7 @@ func TestUnhappyAddAnnotationWhenNoAnnotationsFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
+// nolint:all
 func TestHappyReplaceAnnotation(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
@@ -1970,14 +2084,14 @@ func TestHappyReplaceAnnotation(t *testing.T) {
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
 
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterReplace, oldHash).Return(newHash, nil)
-	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, nil)
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsAfterReplace, oldHash).Return(newHash, nil)
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], nil)
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
-			assert.Equal(t, expectedCanonicalisedAnnotationsAfterReplace.Annotations, depletedAnnotations)
-			return augmentedAnnotationsAfterReplace.Annotations, nil
+			assert.Equal(t, expectedCanonicalisedAnnotationsAfterReplace["annotations"], depletedAnnotations)
+			return augmentedAnnotationsAfterReplace["annotations"].([]interface{}), nil
 		},
 	}
 
@@ -1986,8 +2100,11 @@ func TestHappyReplaceAnnotation(t *testing.T) {
 
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
 
-	ann := annotations.Annotation{
-		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+	ann := map[string]interface{}{
+		"annotation": map[string]interface{}{
+			"id": "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+		},
+		"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
 	}
 	b, _ := json.Marshal(ann)
 
@@ -1998,6 +2115,7 @@ func TestHappyReplaceAnnotation(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2006,6 +2124,7 @@ func TestHappyReplaceAnnotation(t *testing.T) {
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 }
 
+// nolint:all
 func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
@@ -2014,55 +2133,55 @@ func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
 	newHash := randomdata.RandStringRunes(56)
 
 	const contentID = "83a201c6-60cd-11e7-91a7-502f7ee26895"
-	fromAnnotationAPI := []annotations.Annotation{
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
-			ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
-			Type:      "http://www.ft.com/ontology/person/Person",
-			PrefLabel: "Barack H. Obama",
+	fromAnnotationAPI := []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"apiUrl":    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"type":      "http://www.ft.com/ontology/person/Person",
+			"prefLabel": "Barack H. Obama",
 		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/about",
-			ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
-			ApiUrl:    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
-			Type:      "http://www.ft.com/ontology/Topic",
-			PrefLabel: "US interest rates",
-		},
-	}
-	augmentedAfterReplace := []annotations.Annotation{
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
-			ApiUrl:    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
-			Type:      "http://www.ft.com/ontology/person/Person",
-			PrefLabel: "Barack H. Obama",
-		},
-		{
-			Predicate: "http://www.ft.com/ontology/hasBrand",
-			ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-			ApiUrl:    "http://api.ft.com/concepts/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-			Type:      "http://www.ft.com/ontology/product/Brand",
-			PrefLabel: "Random Brand",
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"apiUrl":    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"type":      "http://www.ft.com/ontology/Topic",
+			"prefLabel": "US interest rates",
 		},
 	}
-	afterReplace := []annotations.Annotation{
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+	augmentedAfterReplace := []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"apiUrl":    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"type":      "http://www.ft.com/ontology/person/Person",
+			"prefLabel": "Barack H. Obama",
 		},
-		{
-			Predicate: "http://www.ft.com/ontology/hasBrand",
-			ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/hasBrand",
+			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			"apiUrl":    "http://api.ft.com/concepts/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			"type":      "http://www.ft.com/ontology/product/Brand",
+			"prefLabel": "Random Brand",
+		},
+	}
+	afterReplace := []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/hasBrand",
+			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 		},
 	}
 
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), contentID, &annotations.Annotations{Annotations: afterReplace}, oldHash).Return(newHash, nil)
+	rw.On("Write", mock.Anything, contentID, map[string]interface{}{"annotations": afterReplace, "publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6"}, oldHash).Return(newHash, nil)
 	annAPI.On("GetAllButV2", mock.Anything, contentID).Return(fromAnnotationAPI, nil)
 
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
 			assert.Equal(t, afterReplace, depletedAnnotations)
 			return augmentedAfterReplace, nil
@@ -2074,9 +2193,12 @@ func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
 
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
 
-	ann := annotations.Annotation{
-		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-		Predicate: "http://www.ft.com/ontology/hasBrand",
+	ann := map[string]interface{}{
+		"annotation": map[string]interface{}{
+			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			"predicate": "http://www.ft.com/ontology/hasBrand",
+		},
+		"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
 	}
 	b, _ := json.Marshal(ann)
 
@@ -2087,6 +2209,7 @@ func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2095,6 +2218,7 @@ func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 }
 
+// nolint:all
 func TestHappyReplaceExistingAnnotation(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
@@ -2102,14 +2226,14 @@ func TestHappyReplaceExistingAnnotation(t *testing.T) {
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
 
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedAnnotationsReplaceExisting, oldHash).Return(newHash, nil)
-	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotationsReplace.Annotations, nil)
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedAnnotationsReplaceExisting, oldHash).Return(newHash, nil)
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotationsReplace["annotations"], nil)
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
-			assert.Equal(t, expectedAnnotationsReplaceExisting.Annotations, depletedAnnotations)
-			return expectedAnnotationsReplace.Annotations, nil
+			assert.Equal(t, expectedAnnotationsReplaceExisting["annotations"], depletedAnnotations)
+			return expectedAnnotationsReplace["annotations"].([]interface{}), nil
 		},
 	}
 
@@ -2117,8 +2241,12 @@ func TestHappyReplaceExistingAnnotation(t *testing.T) {
 	r := vestigo.NewRouter()
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
 
-	ann := annotations.Annotation{
-		ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+	ann := map[string]interface{}{
+		"annotation": map[string]interface{}{
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+		},
+		"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
 	}
 	b, _ := json.Marshal(ann)
 
@@ -2129,6 +2257,7 @@ func TestHappyReplaceExistingAnnotation(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2156,6 +2285,7 @@ func TestUnHappyReplaceAnnotationsInvalidContentUUID(t *testing.T) {
 		nil)
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2173,8 +2303,8 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInURI(t *testing.T) {
 	r := vestigo.NewRouter()
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
 
-	ann := annotations.Annotation{
-		ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+	ann := map[string]interface{}{
+		"id": "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
 	}
 	b, _ := json.Marshal(ann)
 
@@ -2184,6 +2314,7 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInURI(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2207,6 +2338,7 @@ func TestUnHappyReplaceAnnotationEmptyBody(t *testing.T) {
 		nil)
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2224,8 +2356,10 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInBody(t *testing.T) {
 	r := vestigo.NewRouter()
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
 
-	ann := annotations.Annotation{
-		ConceptId: "foobar",
+	ann := map[string]interface{}{
+		"annotation": map[string]interface{}{
+			"id": "foobar",
+		},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -2235,6 +2369,7 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInBody(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2252,9 +2387,11 @@ func TestUnHappyReplaceAnnotationInvalidPredicate(t *testing.T) {
 	r := vestigo.NewRouter()
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
 
-	ann := annotations.Annotation{
-		ConceptId: "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
-		Predicate: "foo",
+	ann := map[string]interface{}{
+		"annotation": map[string]interface{}{
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"predicate": "foo",
+		},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -2264,6 +2401,7 @@ func TestUnHappyReplaceAnnotationInvalidPredicate(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2272,18 +2410,19 @@ func TestUnHappyReplaceAnnotationInvalidPredicate(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
+// nolint:all
 func TestUnhappyReplaceAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterReplace, "").Return(mock.Anything, errors.New("error writing annotations"))
-	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, nil)
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsAfterReplace, "").Return(mock.Anything, errors.New("error writing annotations"))
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], nil)
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
-			assert.Equal(t, expectedCanonicalisedAnnotationsAfterReplace.Annotations, depletedAnnotations)
-			return augmentedAnnotationsAfterReplace.Annotations, nil
+			assert.Equal(t, expectedCanonicalisedAnnotationsAfterReplace["annotations"], depletedAnnotations)
+			return augmentedAnnotationsAfterReplace["annotations"].([]interface{}), nil
 		},
 	}
 
@@ -2291,8 +2430,11 @@ func TestUnhappyReplaceAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 	r := vestigo.NewRouter()
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
 
-	ann := annotations.Annotation{
-		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+	ann := map[string]interface{}{
+		"annotation": map[string]interface{}{
+			"id": "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+		},
+		"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
 	}
 	b, _ := json.Marshal(ann)
 
@@ -2302,6 +2444,7 @@ func TestUnhappyReplaceAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2314,15 +2457,18 @@ func TestUnhappyReplaceAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
-	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, errors.New("error getting annotations"))
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], errors.New("error getting annotations"))
 
 	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
 
-	ann := annotations.Annotation{
-		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+	ann := map[string]interface{}{
+		"annotation": map[string]interface{}{
+			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+		},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -2332,6 +2478,7 @@ func TestUnhappyReplaceAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2346,16 +2493,18 @@ func TestUnhappyReplaceAnnotationWhenNoAnnotationsFound(t *testing.T) {
 
 	uppErr := annotations.NewUPPError(annotations.UPPNotFoundMsg, http.StatusNotFound, nil)
 
-	rw.On("Write", mock.AnythingOfType("*context.valueCtx"), "83a201c6-60cd-11e7-91a7-502f7ee26895", &expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
-	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations.Annotations, uppErr)
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], uppErr)
 
 	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
 	r := vestigo.NewRouter()
 	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
 
-	ann := annotations.Annotation{
-		ConceptId: "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
-	}
+	ann := map[string]interface{}{
+		"annotation": map[string]interface{}{
+			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+		}}
 	b, _ := json.Marshal(ann)
 
 	req := httptest.NewRequest(
@@ -2364,6 +2513,7 @@ func TestUnhappyReplaceAnnotationWhenNoAnnotationsFound(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2375,41 +2525,41 @@ func TestUnhappyReplaceAnnotationWhenNoAnnotationsFound(t *testing.T) {
 
 type AugmenterMock struct {
 	mock.Mock
-	augment func(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error)
+	augment func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error)
 }
 
-func (m *AugmenterMock) AugmentAnnotations(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error) {
+func (m *AugmenterMock) AugmentAnnotations(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 	if m.augment != nil {
 		return m.augment(ctx, depletedAnnotations)
 	}
 	args := m.Called(ctx, depletedAnnotations)
-	return args.Get(0).([]annotations.Annotation), args.Error(1)
+	return args.Get(0).([]interface{}), args.Error(1)
 }
 
 type RWMock struct {
 	mock.Mock
-	read     func(ctx context.Context, contentUUID string) (*annotations.Annotations, string, bool, error)
-	write    func(ctx context.Context, contentUUID string, a *annotations.Annotations, hash string) (string, error)
+	read     func(ctx context.Context, contentUUID string) (map[string]interface{}, string, bool, error)
+	write    func(ctx context.Context, contentUUID string, a map[string]interface{}, hash string) (string, error)
 	endpoint func() string
 	gtg      func() error
 }
 
-func (m *RWMock) Read(ctx context.Context, contentUUID string) (*annotations.Annotations, string, bool, error) {
+func (m *RWMock) Read(ctx context.Context, contentUUID string) (map[string]interface{}, string, bool, error) {
 	if m.read != nil {
 		return m.read(ctx, contentUUID)
 	}
 
 	args := m.Called(ctx, contentUUID)
 
-	var ann *annotations.Annotations
+	var ann map[string]interface{}
 	if v := args.Get(0); v != nil {
-		ann = v.(*annotations.Annotations)
+		ann = v.(map[string]interface{})
 	}
 
 	return ann, args.String(1), args.Bool(2), args.Error(3)
 }
 
-func (m *RWMock) Write(ctx context.Context, contentUUID string, a *annotations.Annotations, hash string) (string, error) {
+func (m *RWMock) Write(ctx context.Context, contentUUID string, a map[string]interface{}, hash string) (string, error) {
 	if m.write != nil {
 		return m.write(ctx, contentUUID, a, hash)
 	}
@@ -2435,26 +2585,26 @@ func (m *RWMock) GTG() error {
 
 type AnnotationsAPIMock struct {
 	mock.Mock
-	getAll      func(ctx context.Context, contentUUID string) ([]annotations.Annotation, error)
-	getAllButV2 func(ctx context.Context, contentUUID string) ([]annotations.Annotation, error)
+	getAll      func(ctx context.Context, contentUUID string) ([]interface{}, error)
+	getAllButV2 func(ctx context.Context, contentUUID string) ([]interface{}, error)
 	endpoint    func() string
 	gtg         func() error
 }
 
-func (m *AnnotationsAPIMock) GetAll(ctx context.Context, contentUUID string) ([]annotations.Annotation, error) {
+func (m *AnnotationsAPIMock) GetAll(ctx context.Context, contentUUID string) ([]interface{}, error) {
 	if m.getAll != nil {
 		return m.getAll(ctx, contentUUID)
 	}
 	args := m.Called(ctx, contentUUID)
-	return args.Get(0).([]annotations.Annotation), args.Error(1)
+	return args.Get(0).([]interface{}), args.Error(1)
 }
 
-func (m *AnnotationsAPIMock) GetAllButV2(ctx context.Context, contentUUID string) ([]annotations.Annotation, error) {
+func (m *AnnotationsAPIMock) GetAllButV2(ctx context.Context, contentUUID string) ([]interface{}, error) {
 	if m.getAllButV2 != nil {
 		return m.getAllButV2(ctx, contentUUID)
 	}
 	args := m.Called(ctx, contentUUID)
-	return args.Get(0).([]annotations.Annotation), args.Error(1)
+	return args.Get(0).([]interface{}), args.Error(1)
 }
 
 func (m *AnnotationsAPIMock) Endpoint() string {

@@ -10,33 +10,33 @@ import (
 )
 
 type Canonicalizer struct {
-	sorterFactory func(ann []Annotation) sort.Interface
+	sorterFactory func(ann []interface{}) sort.Interface
 }
 
 type annotationSorter struct {
-	ann []Annotation
+	ann []interface{}
 }
 
-func NewCanonicalizer(sorterFactory func(ann []Annotation) sort.Interface) *Canonicalizer {
+func NewCanonicalizer(sorterFactory func(ann []interface{}) sort.Interface) *Canonicalizer {
 	return &Canonicalizer{sorterFactory}
 }
 
-func (c *Canonicalizer) Canonicalize(in []Annotation) []Annotation {
-	out := make([]Annotation, len(in))
+func (c *Canonicalizer) Canonicalize(in []interface{}) []interface{} {
+	out := make([]interface{}, len(in))
 	for i, ann := range in {
-		out[i] = *c.deplete(ann)
+		out[i] = *c.deplete(ann.(map[string]interface{}))
 	}
 
 	sort.Sort(c.sorterFactory(out))
 	return out
 }
 
-func (c *Canonicalizer) deplete(in Annotation) *Annotation {
-	return &Annotation{Predicate: in.Predicate, ConceptId: in.ConceptId}
+func (c *Canonicalizer) deplete(in map[string]interface{}) *map[string]interface{} {
+	return &map[string]interface{}{"predicate": in["predicate"], "id": in["id"]}
 }
 
 // Hash hashes the given payload in SHA224 + Hex
-func (c *Canonicalizer) hash(ann []Annotation) string {
+func (c *Canonicalizer) hash(ann []interface{}) string {
 	out := bytes.NewBuffer([]byte{})
 	canonical := c.Canonicalize(ann)
 	json.NewEncoder(out).Encode(canonical)
@@ -46,7 +46,7 @@ func (c *Canonicalizer) hash(ann []Annotation) string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
-func NewCanonicalAnnotationSorter(ann []Annotation) sort.Interface {
+func NewCanonicalAnnotationSorter(ann []interface{}) sort.Interface {
 	return &annotationSorter{ann}
 }
 
@@ -55,9 +55,26 @@ func (s *annotationSorter) Len() int {
 }
 
 func (s *annotationSorter) Less(i, j int) bool {
-	compare := strings.Compare(s.ann[i].Predicate, s.ann[j].Predicate)
+	predicateI := s.ann[i].(map[string]interface{})["predicate"]
+	if predicateI == nil {
+		predicateI = ""
+	}
+	predicateJ := s.ann[j].(map[string]interface{})["predicate"]
+	if predicateJ == nil {
+		predicateJ = ""
+	}
+	conceptIDI := s.ann[i].(map[string]interface{})["id"]
+	if conceptIDI == nil {
+		conceptIDI = ""
+	}
+	conceptIDJ := s.ann[j].(map[string]interface{})["id"]
+	if conceptIDJ == nil {
+		conceptIDJ = ""
+	}
+
+	compare := strings.Compare(predicateI.(string), predicateJ.(string))
 	if compare == 0 {
-		compare = strings.Compare(s.ann[i].ConceptId, s.ann[j].ConceptId)
+		compare = strings.Compare(conceptIDI.(string), conceptIDJ.(string))
 	}
 
 	return compare == -1

@@ -35,15 +35,15 @@ const testRWBody = `{
     ]
 }`
 
-var expectedCanonicalizedAnnotations = Annotations{
-	Annotations: []Annotation{
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/mentions",
-			ConceptId: "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+var expectedCanonicalizedAnnotations = map[string]interface{}{
+	"annotations": []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
 		},
-		{
-			Predicate: "http://www.ft.com/ontology/annotation/hasAuthor",
-			ConceptId: "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
 		},
 	},
 }
@@ -59,7 +59,7 @@ func TestHappyRead(t *testing.T) {
 	actualAnnotations, actualHash, found, err := rw.Read(ctx, testContentUUID)
 	assert.NoError(t, err)
 	assert.True(t, found)
-	assert.Equal(t, expectedCanonicalizedAnnotations, *actualAnnotations)
+	assert.Equal(t, expectedCanonicalizedAnnotations, actualAnnotations)
 	assert.Equal(t, expectedHash, actualHash)
 }
 
@@ -155,7 +155,8 @@ func TestHappyWriteStatusCreate(t *testing.T) {
 
 	rw := NewRW(testClient, s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	actualNewHash, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
+	ctx = context.WithValue(ctx, SchemaVersionHeaderKey(SchemaVersionHeader), DefaultSchemaVersion)
+	actualNewHash, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
 	assert.NoError(t, err)
 	assert.Equal(t, newHash, actualNewHash)
 }
@@ -169,7 +170,8 @@ func TestHappyWriteStatusOK(t *testing.T) {
 
 	rw := NewRW(testClient, s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	actualNewHash, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
+	ctx = context.WithValue(ctx, SchemaVersionHeaderKey(SchemaVersionHeader), DefaultSchemaVersion)
+	actualNewHash, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
 	assert.NoError(t, err)
 	assert.Equal(t, newHash, actualNewHash)
 }
@@ -182,7 +184,8 @@ func TestUnhappyWriteStatus500(t *testing.T) {
 
 	rw := NewRW(testClient, s.URL)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	_, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
+	ctx = context.WithValue(ctx, SchemaVersionHeaderKey(SchemaVersionHeader), DefaultSchemaVersion)
+	_, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
 	assert.True(t, errors.Is(err, ErrUnexpectedStatusWrite))
 }
 
@@ -191,7 +194,7 @@ func TestWriteHTTPRequestError(t *testing.T) {
 	oldHash := randomdata.RandStringRunes(56)
 	rw := NewRW(testClient, ":#")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	_, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
+	_, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
 
 	var urlError *url.Error
 	assert.True(t, errors.As(err, &urlError))
@@ -203,7 +206,8 @@ func TestWriteHTTPCallError(t *testing.T) {
 	oldHash := randomdata.RandStringRunes(56)
 	rw := NewRW(testClient, "")
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
-	_, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
+	ctx = context.WithValue(ctx, SchemaVersionHeaderKey(SchemaVersionHeader), DefaultSchemaVersion)
+	_, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
 
 	var urlError *url.Error
 	assert.True(t, errors.As(err, &urlError))
@@ -214,7 +218,10 @@ func TestWriteMissingTID(t *testing.T) {
 	hook := logTest.NewGlobal()
 	oldHash := randomdata.RandStringRunes(56)
 	rw := NewRW(testClient, "")
-	rw.Write(context.Background(), testContentUUID, &expectedCanonicalizedAnnotations, oldHash)
+
+	ctx := context.WithValue(context.Background(), SchemaVersionHeaderKey(SchemaVersionHeader), DefaultSchemaVersion)
+	_, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
+	assert.Error(t, err)
 	var tid string
 	for i, e := range hook.AllEntries() {
 		if i == 0 {
@@ -228,6 +235,7 @@ func TestWriteMissingTID(t *testing.T) {
 	}
 }
 
+// nolint:all
 func TestRWTimeout(t *testing.T) {
 	r := vestigo.NewRouter()
 	r.Post("/draft-annotations/:uuid", func(w http.ResponseWriter, r *http.Request) {
@@ -237,9 +245,10 @@ func TestRWTimeout(t *testing.T) {
 	s := httptest.NewServer(r)
 	rw := NewRW(testClient, s.URL)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
+	ctx = context.WithValue(ctx, SchemaVersionHeaderKey(SchemaVersionHeader), DefaultSchemaVersion)
 	defer cancel()
 
-	_, err := rw.Write(ctx, testContentUUID, &expectedCanonicalizedAnnotations, "")
+	_, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, "")
 	assert.Error(t, err)
 	assert.True(t, (err.(net.Error)).Timeout())
 }
