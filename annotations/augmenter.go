@@ -2,8 +2,8 @@ package annotations
 
 import (
 	"context"
+	"encoding/json"
 	"maps"
-	"reflect"
 	"strings"
 
 	"github.com/Financial-Times/draft-annotations-api/concept"
@@ -38,7 +38,12 @@ func (a *Augmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations
 		ctx = tidUtils.TransactionAwareContext(ctx, tid)
 	}
 
-	dedupedCanonical := dedupeCanonicalAnnotations(canonicalAnnotations)
+	dedupedCanonical, err := dedupeCanonicalAnnotations(canonicalAnnotations)
+	if err != nil {
+		log.WithField(tidUtils.TransactionIDKey, tid).
+			WithError(err).Error("Request failed when attempting to deduplicate annotations")
+		return nil, err
+	}
 
 	origin := ctx.Value(OriginSystemIDHeaderKey(OriginSystemIDHeader)).(string)
 	if origin == PACOriginSystemID {
@@ -79,23 +84,24 @@ func (a *Augmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations
 	return augmentedAnnotations, nil
 }
 
-func dedupeCanonicalAnnotations(annotations []interface{}) []interface{} {
-	deduped := make([]interface{}, 0)
+func dedupeCanonicalAnnotations(annotations []interface{}) ([]interface{}, error) {
+	var deduped []interface{}
+	dedupedMap := make(map[string]bool)
 
-	for i := 0; i < len(annotations); i++ {
-		duplicate := false
-		for j := 0; j < len(deduped); j++ {
-			if reflect.DeepEqual(annotations[i], deduped[j]) {
-				duplicate = true
-				break
-			}
+	for _, ann := range annotations {
+		jsonAnn, err := json.Marshal(ann)
+		if err != nil {
+			return nil, err
 		}
-		if !duplicate {
-			deduped = append(deduped, annotations[i])
+		jsonAnnStr := string(jsonAnn)
+
+		if _, exists := dedupedMap[jsonAnnStr]; !exists {
+			dedupedMap[jsonAnnStr] = true
+			deduped = append(deduped, ann)
 		}
 	}
 
-	return deduped
+	return deduped, nil
 }
 
 func filterOutInvalidPredicates(annotations []interface{}) []interface{} {
