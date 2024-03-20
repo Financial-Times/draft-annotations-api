@@ -33,6 +33,7 @@ const (
 	pacAnnotationLifecycle       = "pac"
 	v1AnnotationLifecycle        = "v1"
 	nextVideoAnnotationLifecycle = "next-video"
+	manualAnnotationLifecycle    = "manual"
 )
 
 // UPPError encapsulates error information for errors originating from calls to UPP annotations endpoint.
@@ -78,16 +79,16 @@ func NewUPPAnnotationsAPI(client *http.Client, endpoint string, username string,
 
 // GetAll retrieves the list of published annotations for given contentUUID.
 // The returned list contains the annotations returned by UPP without filtering.
-func (api *UPPAnnotationsAPI) GetAll(ctx context.Context, contentUUID string) ([]Annotation, error) {
+func (api *UPPAnnotationsAPI) GetAll(ctx context.Context, contentUUID string) ([]interface{}, error) {
 	return api.getAnnotations(ctx, contentUUID)
 }
 
 // GetAllButV2 retrieves the list of published annotations for given contentUUID but filtering v2 annotations.
-func (api *UPPAnnotationsAPI) GetAllButV2(ctx context.Context, contentUUID string) ([]Annotation, error) {
-	return api.getAnnotations(ctx, contentUUID, pacAnnotationLifecycle, v1AnnotationLifecycle, nextVideoAnnotationLifecycle)
+func (api *UPPAnnotationsAPI) GetAllButV2(ctx context.Context, contentUUID string) ([]interface{}, error) {
+	return api.getAnnotations(ctx, contentUUID, pacAnnotationLifecycle, v1AnnotationLifecycle, nextVideoAnnotationLifecycle, manualAnnotationLifecycle)
 }
 
-func (api *UPPAnnotationsAPI) getAnnotations(ctx context.Context, contentUUID string, lifecycles ...string) ([]Annotation, error) {
+func (api *UPPAnnotationsAPI) getAnnotations(ctx context.Context, contentUUID string, lifecycles ...string) ([]interface{}, error) {
 	uppResponse, err := api.getUPPAnnotationsResponse(ctx, contentUUID, lifecycles...)
 	if err != nil {
 		return nil, err
@@ -110,16 +111,22 @@ func (api *UPPAnnotationsAPI) getAnnotations(ctx context.Context, contentUUID st
 		return nil, UPPError{msg: UPPServiceUnavailableMsg, status: http.StatusServiceUnavailable, uppBody: nil}
 	}
 
-	convertedBody, err := mapper.ConvertPredicates(respBody)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to map predicates from UPP response")
+	origin := ctx.Value(OriginSystemIDHeaderKey(OriginSystemIDHeader)).(string)
+	var convertedBody []byte
+	if origin == PACOriginSystemID {
+		convertedBody, err = mapper.ConvertPredicates(respBody)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to map predicates from UPP response")
+		}
+	} else {
+		convertedBody = respBody
 	}
 
 	if convertedBody == nil {
 		return nil, UPPError{msg: NoAnnotationsMsg, status: http.StatusNotFound, uppBody: nil}
 	}
 
-	rawAnnotations := []Annotation{}
+	var rawAnnotations []interface{}
 	err = json.Unmarshal(convertedBody, &rawAnnotations)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal UPP annotations")

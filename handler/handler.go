@@ -21,13 +21,13 @@ import (
 
 // AnnotationsAPI interface encapsulates logic for getting published annotations from API
 type AnnotationsAPI interface {
-	GetAll(context.Context, string) ([]annotations.Annotation, error)
-	GetAllButV2(context.Context, string) ([]annotations.Annotation, error)
+	GetAll(context.Context, string) ([]interface{}, error)
+	GetAllButV2(context.Context, string) ([]interface{}, error)
 }
 
 // Interface for the annotations augmenter (currently only functionality in the annotations package)
 type Augmenter interface {
-	AugmentAnnotations(ctx context.Context, depletedAnnotations []annotations.Annotation) ([]annotations.Annotation, error)
+	AugmentAnnotations(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error)
 }
 
 // Handler provides endpoints for reading annotations - draft or published, and writing draft annotations.
@@ -63,6 +63,18 @@ func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
 	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
 
 	oldHash := r.Header.Get(annotations.PreviousDocumentHashHeader)
+	schemaVersion := r.Header.Get(annotations.SchemaVersionHeader)
+	if schemaVersion == "" {
+		schemaVersion = annotations.DefaultSchemaVersion
+	}
+	ctx = context.WithValue(ctx, annotations.SchemaVersionHeaderKey(annotations.SchemaVersionHeader), schemaVersion)
+
+	origin := r.Header.Get(annotations.OriginSystemIDHeader)
+	if origin == "" {
+		handleWriteErrors("Invalid request", errors.New("X-Origin-System-Id header missing"), writeLog, w, http.StatusBadRequest)
+		return
+	}
+	ctx = context.WithValue(ctx, annotations.OriginSystemIDHeaderKey(annotations.OriginSystemIDHeader), origin)
 
 	writeLog.Debug("Validating input and reading annotations from UPP...")
 	uppList, httpStatus, err := h.prepareUPPAnnotations(ctx, contentUUID, conceptID)
@@ -73,7 +85,7 @@ func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
 
 	i := 0
 	for _, item := range uppList {
-		if item.ConceptId == conceptID {
+		if item.(map[string]interface{})["id"] == conceptID {
 			continue
 		}
 		uppList[i] = item
@@ -81,7 +93,9 @@ func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
 	}
 	uppList = uppList[:i]
 
-	_, newHash, err := h.saveAndReturnAnnotations(ctx, uppList, writeLog, oldHash, contentUUID)
+	annotationsBody := make(map[string]interface{})
+	annotationsBody["annotations"] = uppList
+	_, newHash, err := h.saveAndReturnAnnotations(ctx, annotationsBody, writeLog, oldHash, contentUUID)
 	if err != nil {
 		handleWriteErrors("Error writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
 		return
@@ -102,21 +116,38 @@ func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
 
 	oldHash := r.Header.Get(annotations.PreviousDocumentHashHeader)
+	schemaVersion := r.Header.Get(annotations.SchemaVersionHeader)
+	if schemaVersion == "" {
+		schemaVersion = annotations.DefaultSchemaVersion
+	}
+	ctx = context.WithValue(ctx, annotations.SchemaVersionHeaderKey(annotations.SchemaVersionHeader), schemaVersion)
 
-	addedAnnotation := annotations.Annotation{}
-	err := json.NewDecoder(r.Body).Decode(&addedAnnotation)
+	origin := r.Header.Get(annotations.OriginSystemIDHeader)
+	if origin == "" {
+		handleWriteErrors("Invalid request", errors.New("X-Origin-System-Id header missing"), writeLog, w, http.StatusBadRequest)
+		return
+	}
+	ctx = context.WithValue(ctx, annotations.OriginSystemIDHeaderKey(annotations.OriginSystemIDHeader), origin)
+
+	var addedAnnotationBody map[string]interface{}
+	err := json.NewDecoder(r.Body).Decode(&addedAnnotationBody)
 	if err != nil {
 		handleWriteErrors("Error decoding request body", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
-	if !mapper.IsValidPACPredicate(addedAnnotation.Predicate) {
+	addedAnnotation := addedAnnotationBody["annotation"].(map[string]interface{})
+	if origin == annotations.PACOriginSystemID && !mapper.IsValidPACPredicate(addedAnnotation["predicate"].(string)) {
 		handleWriteErrors("Invalid request", errors.New("invalid predicate"), writeLog, w, http.StatusBadRequest)
 		return
 	}
 
+	conceptID := addedAnnotation["id"]
+	if conceptID == nil {
+		conceptID = ""
+	}
 	writeLog.Debug("Validating input and reading annotations from UPP...")
-	uppList, httpStatus, err := h.prepareUPPAnnotations(ctx, contentUUID, addedAnnotation.ConceptId)
+	uppList, httpStatus, err := h.prepareUPPAnnotations(ctx, contentUUID, conceptID.(string))
 	if err != nil {
 		handleWriteErrors("Error while preparing annotations", err, writeLog, w, httpStatus)
 		return
@@ -124,7 +155,8 @@ func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 
 	var isFound = false
 	for _, item := range uppList {
-		if addedAnnotation.ConceptId == item.ConceptId && addedAnnotation.Predicate == item.Predicate {
+		ann := item.(map[string]interface{})
+		if addedAnnotation["id"] == ann["id"] && addedAnnotation["predicate"] == ann["predicate"] {
 			writeLog.Debug("Annotation is already in list")
 			isFound = true
 			break
@@ -134,7 +166,10 @@ func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 		uppList = append(uppList, addedAnnotation)
 	}
 
-	_, newHash, err := h.saveAndReturnAnnotations(ctx, uppList, writeLog, oldHash, contentUUID)
+	annotationsBody := make(map[string]interface{})
+	annotationsBody["annotations"] = uppList
+	annotationsBody["publication"] = addedAnnotationBody["publication"]
+	_, newHash, err := h.saveAndReturnAnnotations(ctx, annotationsBody, writeLog, oldHash, contentUUID)
 	if err != nil {
 		handleWriteErrors("Error writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
 		return
@@ -151,6 +186,13 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(tidutils.TransactionAwareContext(r.Context(), tID), h.timeout)
 	defer cancel()
+
+	origin := r.Header.Get(annotations.OriginSystemIDHeader)
+	if origin == "" {
+		writeMessage(w, "X-Origin-System-Id header missing", http.StatusBadRequest)
+		return
+	}
+	ctx = context.WithValue(ctx, annotations.OriginSystemIDHeaderKey(annotations.OriginSystemIDHeader), origin)
 
 	readLog := readLogEntry(ctx, contentUUID)
 
@@ -176,8 +218,7 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(annotations.DocumentHashHeader, hash)
 	}
 
-	response := annotations.Annotations{Annotations: result}
-	err = json.NewEncoder(w).Encode(&response)
+	err = json.NewEncoder(w).Encode(&result)
 	if err != nil {
 		readLog.WithError(err).Error("Failed to encode response")
 		handleReadErrors(err, readLog, w)
@@ -193,22 +234,34 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
 
 	oldHash := r.Header.Get(annotations.PreviousDocumentHashHeader)
+	schemaVersion := r.Header.Get(annotations.SchemaVersionHeader)
+	if schemaVersion == "" {
+		schemaVersion = annotations.DefaultSchemaVersion
+	}
+	ctx = context.WithValue(ctx, annotations.SchemaVersionHeaderKey(annotations.SchemaVersionHeader), schemaVersion)
 
 	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
+
+	origin := r.Header.Get(annotations.OriginSystemIDHeader)
+	if origin == "" {
+		handleWriteErrors("Invalid request", errors.New("X-Origin-System-Id header missing"), writeLog, w, http.StatusBadRequest)
+		return
+	}
+	ctx = context.WithValue(ctx, annotations.OriginSystemIDHeaderKey(annotations.OriginSystemIDHeader), origin)
 
 	if err := validateUUID(contentUUID); err != nil {
 		handleWriteErrors("Invalid content UUID", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
-	var draftAnnotations annotations.Annotations
-	err := json.NewDecoder(r.Body).Decode(&draftAnnotations)
+	var draftAnnotationsBody map[string]interface{}
+	err := json.NewDecoder(r.Body).Decode(&draftAnnotationsBody)
 	if err != nil {
 		handleWriteErrors("Unable to unmarshal annotations body", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
-	savedAnnotations, newHash, err := h.saveAndReturnAnnotations(ctx, draftAnnotations.Annotations, writeLog, oldHash, contentUUID)
+	savedAnnotations, newHash, err := h.saveAndReturnAnnotations(ctx, draftAnnotationsBody, writeLog, oldHash, contentUUID)
 	if err != nil {
 		handleWriteErrors("Error writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
 		return
@@ -236,6 +289,18 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 
 	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
 	oldHash := r.Header.Get(annotations.PreviousDocumentHashHeader)
+	schemaVersion := r.Header.Get(annotations.SchemaVersionHeader)
+	if schemaVersion == "" {
+		schemaVersion = annotations.DefaultSchemaVersion
+	}
+	ctx = context.WithValue(ctx, annotations.SchemaVersionHeaderKey(annotations.SchemaVersionHeader), schemaVersion)
+
+	origin := r.Header.Get(annotations.OriginSystemIDHeader)
+	if origin == "" {
+		handleWriteErrors("Invalid request", errors.New("X-Origin-System-Id header missing"), writeLog, w, http.StatusBadRequest)
+		return
+	}
+	ctx = context.WithValue(ctx, annotations.OriginSystemIDHeaderKey(annotations.OriginSystemIDHeader), origin)
 
 	if err := validateUUID(conceptUUID); err != nil {
 		handleWriteErrors("invalid concept UUID", err, writeLog, w, http.StatusBadRequest)
@@ -244,36 +309,42 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 
 	conceptUUID = mapper.TransformConceptID("/" + vestigo.Param(r, "cuuid"))
 
-	addedAnnotation := annotations.Annotation{}
+	addedAnnotationBody := map[string]interface{}{}
 	dec := json.NewDecoder(r.Body)
-	err := dec.Decode(&addedAnnotation)
+	err := dec.Decode(&addedAnnotationBody)
 	if err != nil {
 		handleWriteErrors("Error decoding request body", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
-	if addedAnnotation.Predicate != "" {
-		if !mapper.IsValidPACPredicate(addedAnnotation.Predicate) {
+
+	addedAnnotation := addedAnnotationBody["annotation"].(map[string]interface{})
+	if addedAnnotation["predicate"] != nil {
+		if origin == annotations.PACOriginSystemID && !mapper.IsValidPACPredicate(addedAnnotation["predicate"].(string)) {
 			handleWriteErrors("Invalid request", errors.New("invalid predicate"), writeLog, w, http.StatusBadRequest)
 			return
 		}
 	}
 	writeLog.Debug("Validating input and reading annotations from UPP...")
-	uppList, httpStatus, err := h.prepareUPPAnnotations(ctx, contentUUID, addedAnnotation.ConceptId)
+	uppList, httpStatus, err := h.prepareUPPAnnotations(ctx, contentUUID, addedAnnotation["id"].(string))
 	if err != nil {
 		handleWriteErrors("Error while preparing annotations", err, writeLog, w, httpStatus)
 		return
 	}
 
 	for i := range uppList {
-		if uppList[i].ConceptId == conceptUUID {
-			uppList[i].ConceptId = addedAnnotation.ConceptId
-			if addedAnnotation.Predicate != "" {
-				uppList[i].Predicate = addedAnnotation.Predicate
+		ann := uppList[i].(map[string]interface{})
+		if ann["id"] == conceptUUID {
+			ann["id"] = addedAnnotation["id"]
+			if addedAnnotation["predicate"] != nil {
+				ann["predicate"] = addedAnnotation["predicate"]
 			}
 		}
 	}
 
-	_, newHash, err := h.saveAndReturnAnnotations(ctx, uppList, writeLog, oldHash, contentUUID)
+	annotationsBody := make(map[string]interface{})
+	annotationsBody["annotations"] = uppList
+	annotationsBody["publication"] = addedAnnotationBody["publication"]
+	_, newHash, err := h.saveAndReturnAnnotations(ctx, annotationsBody, writeLog, oldHash, contentUUID)
 	if err != nil {
 		handleWriteErrors("Error writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
 		return
@@ -282,8 +353,7 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(annotations.DocumentHashHeader, newHash)
 }
 
-func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string, conceptID string) ([]annotations.Annotation, int, error) {
-
+func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string, conceptID string) ([]interface{}, int, error) {
 	if err := validateUUID(contentUUID); err != nil {
 		return nil, http.StatusBadRequest, fmt.Errorf("invalid content ID : %w", err)
 	}
@@ -310,35 +380,43 @@ func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string,
 	return ann, http.StatusOK, nil
 }
 
-func (h *Handler) saveAndReturnAnnotations(ctx context.Context, uppList []annotations.Annotation, writeLog *log.Entry, oldHash string, contentUUID string) (*annotations.Annotations, string, error) {
+func (h *Handler) saveAndReturnAnnotations(ctx context.Context, uppList map[string]interface{}, writeLog *log.Entry, oldHash string, contentUUID string) (map[string]interface{}, string, error) {
 	writeLog.Debug("Move to HasBrand annotations...")
-	uppList, err := h.annotationsAugmenter.AugmentAnnotations(ctx, uppList)
+	var err error
+	anns, ok := uppList["annotations"].([]interface{})
+	if !ok {
+		return nil, "", errors.New("invalid annotations representation")
+	}
+	anns, err = h.annotationsAugmenter.AugmentAnnotations(ctx, anns)
 	if err != nil {
 		return nil, "", err
 	}
-	uppList, err = switchToHasBrand(uppList)
-	if err != nil {
-		return nil, "", err
+
+	origin := ctx.Value(annotations.OriginSystemIDHeaderKey(annotations.OriginSystemIDHeader)).(string)
+	if origin == annotations.PACOriginSystemID {
+		anns = switchToHasBrand(anns)
 	}
+
 	writeLog.Debug("Canonicalizing annotations...")
-	uppList = h.c14n.Canonicalize(uppList)
+	anns = h.c14n.Canonicalize(anns)
+
 	writeLog.Debug("Writing to annotations RW...")
-	newAnnotations := &annotations.Annotations{Annotations: uppList}
-	newHash, err := h.annotationsRW.Write(ctx, contentUUID, newAnnotations, oldHash)
+	uppList["annotations"] = anns
+	newHash, err := h.annotationsRW.Write(ctx, contentUUID, uppList, oldHash)
 	if err != nil {
 		return nil, "", err
 	}
-	return newAnnotations, newHash, nil
+	return uppList, newHash, nil
 }
 
-func (h *Handler) readAnnotations(ctx context.Context, contentUUID string, showHasBrand bool, readLog *log.Entry) ([]annotations.Annotation, string, error) {
+func (h *Handler) readAnnotations(ctx context.Context, contentUUID string, showHasBrand bool, readLog *log.Entry) (map[string]interface{}, string, error) {
 	var (
-		result        []annotations.Annotation
 		hash          string
 		hasDraft      bool
 		err           error
-		rwAnnotations *annotations.Annotations
+		rwAnnotations map[string]interface{}
 	)
+	result := make(map[string]interface{})
 	readLog.Info("Reading Annotations from Annotations R/W")
 	rwAnnotations, hash, hasDraft, err = h.annotationsRW.Read(ctx, contentUUID)
 
@@ -347,23 +425,23 @@ func (h *Handler) readAnnotations(ctx context.Context, contentUUID string, showH
 	}
 
 	if hasDraft {
-		result = rwAnnotations.Annotations
+		result = rwAnnotations
 	} else {
 		readLog.Info("Annotations not found, retrieving annotations from UPP")
-		result, err = h.annotationsAPI.GetAll(ctx, contentUUID)
+		result["annotations"], err = h.annotationsAPI.GetAll(ctx, contentUUID)
 		if err != nil {
 			return nil, hash, err
 		}
 	}
 	readLog.Info("Augmenting annotations with recent UPP data")
-	result, err = h.annotationsAugmenter.AugmentAnnotations(ctx, result)
+	result["annotations"], err = h.annotationsAugmenter.AugmentAnnotations(ctx, result["annotations"].([]interface{}))
 	if err != nil {
 		readLog.WithError(err).Error("Failed to augment annotations")
 		return nil, hash, err
 	}
 
 	if !showHasBrand {
-		result = switchToIsClassifiedBy(result)
+		result["annotations"] = switchToIsClassifiedBy(result["annotations"].([]interface{}))
 	}
 
 	return result, hash, err
@@ -435,27 +513,29 @@ func writeMessage(w http.ResponseWriter, msg string, status int) {
 	}
 }
 
-func switchToHasBrand(toChange []annotations.Annotation) ([]annotations.Annotation, error) {
-	changed := make([]annotations.Annotation, len(toChange))
-	for idx, ann := range toChange {
+func switchToHasBrand(toChange []interface{}) []interface{} {
+	changed := make([]interface{}, len(toChange))
+	for idx, annotation := range toChange {
 		// We have removed Predicate and Type validation here.
 		// Validating not the user input but the saved annotations can (and did) cause unexpected client errors.
 		// To ensure we have only valid predicates we are adding filtering in the augmenter.
-		if ann.Predicate == mapper.PredicateIsClassifiedBy && ann.Type == mapper.ConceptTypeBrand {
-			ann.Predicate = mapper.PredicateHasBrand
+		ann := annotation.(map[string]interface{})
+		if ann["predicate"] == mapper.PredicateIsClassifiedBy && ann["type"] == mapper.ConceptTypeBrand {
+			ann["predicate"] = mapper.PredicateHasBrand
 		}
 
 		changed[idx] = ann
 	}
 
-	return changed, nil
+	return changed
 }
 
-func switchToIsClassifiedBy(toChange []annotations.Annotation) []annotations.Annotation {
-	changed := make([]annotations.Annotation, len(toChange))
-	for idx, ann := range toChange {
-		if ann.Predicate == mapper.PredicateHasBrand {
-			ann.Predicate = mapper.PredicateIsClassifiedBy
+func switchToIsClassifiedBy(toChange []interface{}) []interface{} {
+	changed := make([]interface{}, len(toChange))
+	for idx, annotation := range toChange {
+		ann := annotation.(map[string]interface{})
+		if ann["predicate"] == mapper.PredicateHasBrand {
+			ann["predicate"] = mapper.PredicateIsClassifiedBy
 		}
 		changed[idx] = ann
 	}

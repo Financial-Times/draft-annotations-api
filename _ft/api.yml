@@ -32,6 +32,11 @@ paths:
           required: true
           type: string
           x-example: 8df16ae8-0dfd-4859-a5ff-eeb9644bed35
+        - name: X-Origin-System-Id
+          in: header
+          type: string
+          required: true
+          x-example: http://cmdb.ft.com/systems/pac
       responses:
         200:
           description: Returns an array of PAC format annotations for the given content uuid.
@@ -62,6 +67,11 @@ paths:
           required: true
           type: string
           x-example: 8df16ae8-0dfd-4859-a5ff-eeb9644bed35
+        - name: X-Origin-System-Id
+          in: header
+          type: string
+          required: true
+          x-example: http://cmdb.ft.com/systems/pac
         - name: body
           in: body
           required: true
@@ -101,12 +111,20 @@ paths:
                   required:
                     - id
                     - predicate
+              publication:
+                type: array
+                description: Indicates which titles are aware of this content
+                items:
+                  type: string
             required:
               - annotations
+              - publication
             example:
               annotations:
                 - id: http://www.ft.com/thing/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
                   predicate: http://www.ft.com/ontology/annotation/about
+              publication:
+                - 88fdde6c-2aa4-4f78-af02-9f680097cfd6
       responses:
         200:
           description: Returns the canonicalized input array of annotations that have been successufully written in PAC.
@@ -115,6 +133,8 @@ paths:
               annotations:
                 - id: http://api.ft.com/things/5507ab98-b747-3ebc-b816-11603b9009f4
                   predicate: http://www.ft.com/ontology/annotation/about
+              publication:
+                - 88fdde6c-2aa4-4f78-af02-9f680097cfd6
         400:
           description: Invalid uuid or annotations body supplied
         500:
@@ -133,27 +153,41 @@ paths:
           required: true
           type: string
           x-example: 8df16ae8-0dfd-4859-a5ff-eeb9644bed35
+        - name: X-Origin-System-Id
+          in: header
+          type: string
+          required: true
+          x-example: http://cmdb.ft.com/systems/pac
         - name: body
           in: body
           description: An annotation for specific content
-          required: true
-          schema: 
+          schema:
             type: object
             properties:
-              id:
-                type: string
-                description: The UUID of the concept to be added
-                x-example: http://www.ft.com/thing/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
-              predicate:
-                type: string
-                description: The relationship between the concept and this piece of FT content
-                x-example: http://www.ft.com/ontology/annotation/about
-            example:
-              id: http://www.ft.com/thing/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
-              predicate: http://www.ft.com/ontology/annotation/about
+              annotation:
+                properties:
+                  id:
+                    type: string
+                    description: The UUID of the concept to be added
+                    x-example: http://www.ft.com/thing/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
+                  predicate:
+                    type: string
+                    description: The relationship between the concept and this piece of FT content
+                    x-example: http://www.ft.com/ontology/annotation/about
+                example:
+                  id: http://www.ft.com/thing/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
+                  predicate: http://www.ft.com/ontology/annotation/about
+                required:
+                - id
+                - predicate
+              publication:
+                type: array
+                description: Indicates which titles are aware of this content
+                items:
+                  type: string
             required:
-              - id
-              - predicate
+            - annotation
+            - publication
       responses:
         200:
           description: The annotation was successfully saved to the cannonicalized list of annotations in PAC.
@@ -176,6 +210,11 @@ paths:
           required: true
           type: string
           x-example: 8df16ae8-0dfd-4859-a5ff-eeb9644bed35
+        - name: X-Origin-System-Id
+          in: header
+          type: string
+          required: true
+          x-example: http://cmdb.ft.com/systems/pac
         - name: conceptUUID
           in: path
           description: The UUID of the concept to be deleted
@@ -205,6 +244,11 @@ paths:
           required: true
           type: string
           x-example: 8df16ae8-0dfd-4859-a5ff-eeb9644bed35
+        - name: X-Origin-System-Id
+          in: header
+          type: string
+          required: true
+          x-example: http://cmdb.ft.com/systems/pac
         - name: conceptUUID
           in: path
           description: The UUID of the concept to be replaced
@@ -218,19 +262,29 @@ paths:
           schema: 
             type: object
             properties:
-              id:
-                type: string
-                description: The UUID of the new concept
-                x-example: http://www.ft.com/thing/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
-              predicate:
-                type: string
-                description: The relationship between the concept and this piece of FT content
-                x-example: http://www.ft.com/ontology/annotation/mentions
-            example:
-              id: http://www.ft.com/thing/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
-              predicate: http://www.ft.com/ontology/annotation/mentions
+              annotation:
+                properties:
+                  id:
+                    type: string
+                    description: The UUID of the new concept
+                    x-example: http://www.ft.com/thing/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
+                  predicate:
+                    type: string
+                    description: The relationship between the concept and this piece of FT content
+                    x-example: http://www.ft.com/ontology/annotation/mentions
+                example:
+                  id: http://www.ft.com/thing/d7113d1d-ed66-3adf-9910-1f62b2c40e6a
+                  predicate: http://www.ft.com/ontology/annotation/mentions
+                required:
+                  - id
+              publication:
+                type: array
+                description: Indicates which titles are aware of this content
+                items:
+                  type: string
             required:
-              - id
+              - annotation
+              - publication
       responses:
         200:
           description: The annotation was successfully replaced in the cannonicalized list of annotations in PAC.

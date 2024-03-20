@@ -2,12 +2,21 @@ package annotations
 
 import (
 	"context"
+	"encoding/json"
+	"maps"
 	"strings"
 
 	"github.com/Financial-Times/draft-annotations-api/concept"
 	"github.com/Financial-Times/draft-annotations-api/mapper"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	log "github.com/sirupsen/logrus"
+)
+
+type OriginSystemIDHeaderKey string
+
+const (
+	OriginSystemIDHeader = "X-Origin-System-Id"
+	PACOriginSystemID    = "http://cmdb.ft.com/systems/pac"
 )
 
 type Augmenter struct {
@@ -18,7 +27,7 @@ func NewAugmenter(api concept.ReadAPI) *Augmenter {
 	return &Augmenter{api}
 }
 
-func (a *Augmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations []Annotation) ([]Annotation, error) {
+func (a *Augmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations []interface{}) ([]interface{}, error) {
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 
 	if err != nil {
@@ -29,8 +38,17 @@ func (a *Augmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations
 		ctx = tidUtils.TransactionAwareContext(ctx, tid)
 	}
 
-	dedupedCanonical := dedupeCanonicalAnnotations(canonicalAnnotations)
-	dedupedCanonical = filterOutInvalidPredicates(dedupedCanonical)
+	dedupedCanonical, err := dedupeCanonicalAnnotations(canonicalAnnotations)
+	if err != nil {
+		log.WithField(tidUtils.TransactionIDKey, tid).
+			WithError(err).Error("Request failed when attempting to dedupе annotations")
+		return nil, err
+	}
+
+	origin := ctx.Value(OriginSystemIDHeaderKey(OriginSystemIDHeader)).(string)
+	if origin == PACOriginSystemID {
+		dedupedCanonical = filterOutInvalidPredicates(dedupedCanonical)
+	}
 
 	uuids := getConceptUUIDs(dedupedCanonical)
 
@@ -42,20 +60,22 @@ func (a *Augmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations
 		return nil, err
 	}
 
-	augmentedAnnotations := make([]Annotation, 0)
-	for _, ann := range dedupedCanonical {
-		uuid := extractUUID(ann.ConceptId)
+	augmentedAnnotations := make([]interface{}, 0)
+	for _, annotation := range dedupedCanonical {
+		ann := make(map[string]interface{})
+		maps.Copy(ann, annotation.(map[string]interface{}))
+		uuid := extractUUID(ann["id"].(string))
 		concept, found := concepts[uuid]
 		if found {
-			ann.ConceptId = concept.ID
-			ann.ApiUrl = concept.ApiUrl
-			ann.PrefLabel = concept.PrefLabel
-			ann.IsFTAuthor = concept.IsFTAuthor
-			ann.Type = concept.Type
+			ann["id"] = concept.ID
+			ann["apiUrl"] = concept.ApiUrl
+			ann["prefLabel"] = concept.PrefLabel
+			ann["isFTAuthor"] = concept.IsFTAuthor
+			ann["type"] = concept.Type
 			augmentedAnnotations = append(augmentedAnnotations, ann)
 		} else {
 			log.WithField(tidUtils.TransactionIDKey, tid).
-				WithField("conceptId", ann.ConceptId).
+				WithField("conceptId", ann["id"]).
 				Warn("Concept data for this annotation was not found, and will be removed from the list of annotations.")
 		}
 	}
@@ -64,23 +84,30 @@ func (a *Augmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations
 	return augmentedAnnotations, nil
 }
 
-func dedupeCanonicalAnnotations(annotations []Annotation) []Annotation {
-	var empty struct{}
-	var deduped []Annotation
-	dedupedMap := make(map[Annotation]struct{})
+func dedupeCanonicalAnnotations(annotations []interface{}) ([]interface{}, error) {
+	var deduped []interface{}
+	dedupedMap := make(map[string]bool)
+
 	for _, ann := range annotations {
-		dedupedMap[ann] = empty
+		jsonAnn, err := json.Marshal(ann)
+		if err != nil {
+			return nil, err
+		}
+		jsonAnnStr := string(jsonAnn)
+
+		if _, exists := dedupedMap[jsonAnnStr]; !exists {
+			dedupedMap[jsonAnnStr] = true
+			deduped = append(deduped, ann)
+		}
 	}
-	for k := range dedupedMap {
-		deduped = append(deduped, k)
-	}
-	return deduped
+
+	return deduped, nil
 }
 
-func filterOutInvalidPredicates(annotations []Annotation) []Annotation {
+func filterOutInvalidPredicates(annotations []interface{}) []interface{} {
 	i := 0
 	for _, item := range annotations {
-		if !mapper.IsValidPACPredicate(item.Predicate) {
+		if !mapper.IsValidPACPredicate(item.(map[string]interface{})["predicate"].(string)) {
 			continue
 		}
 		annotations[i] = item
@@ -90,12 +117,12 @@ func filterOutInvalidPredicates(annotations []Annotation) []Annotation {
 	return annotations[:i]
 }
 
-func getConceptUUIDs(canonicalAnnotations []Annotation) []string {
+func getConceptUUIDs(canonicalAnnotations []interface{}) []string {
 	conceptUUIDs := make(map[string]struct{})
 	var empty struct{}
 	var keys []string
 	for _, ann := range canonicalAnnotations {
-		conceptUUID := extractUUID(ann.ConceptId)
+		conceptUUID := extractUUID(ann.(map[string]interface{})["id"].(string))
 		if conceptUUID != "" {
 			conceptUUIDs[conceptUUID] = empty
 		}

@@ -160,7 +160,7 @@ func TestGetAnnotationsHappy(t *testing.T) {
 		name                string
 		annotationsStatus   int
 		annotationsBody     string
-		expectedAnnotations []Annotation
+		expectedAnnotations []interface{}
 		expectError         bool
 		expectedError       error
 	}{
@@ -190,20 +190,20 @@ func TestGetAnnotationsHappy(t *testing.T) {
 	        	],
 	        	"prefLabel": "News"
 	    	}]`,
-			expectedAnnotations: []Annotation{
-				{
-					Predicate: "http://www.ft.com/ontology/annotation/about",
-					ConceptId: "http://www.ft.com/thing/dd158946-e88b-3a85-abe4-5848319501ce",
-					ApiUrl:    "http://api.ft.com/things/dd158946-e88b-3a85-abe4-5848319501ce",
-					Type:      "http://www.ft.com/ontology/Location",
-					PrefLabel: "Canada",
+			expectedAnnotations: []interface{}{
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/annotation/about",
+					"id":        "http://www.ft.com/thing/dd158946-e88b-3a85-abe4-5848319501ce",
+					"apiUrl":    "http://api.ft.com/things/dd158946-e88b-3a85-abe4-5848319501ce",
+					"type":      "http://www.ft.com/ontology/Location",
+					"prefLabel": "Canada",
 				},
-				{
-					Predicate: "http://www.ft.com/ontology/classification/isClassifiedBy",
-					ConceptId: "http://www.ft.com/thing/a579350c-61ce-4c00-97ca-ddaa2e0cacf6",
-					ApiUrl:    "http://api.ft.com/things/a579350c-61ce-4c00-97ca-ddaa2e0cacf6",
-					Type:      "http://www.ft.com/ontology/Genre",
-					PrefLabel: "News",
+				map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/classification/isClassifiedBy",
+					"id":        "http://www.ft.com/thing/a579350c-61ce-4c00-97ca-ddaa2e0cacf6",
+					"apiUrl":    "http://api.ft.com/things/a579350c-61ce-4c00-97ca-ddaa2e0cacf6",
+					"type":      "http://www.ft.com/ontology/Genre",
+					"prefLabel": "News",
 				},
 			},
 			expectError:   false,
@@ -248,6 +248,7 @@ func TestGetAnnotationsHappy(t *testing.T) {
 			uuid := uuid.New().String()
 			tid := "tid_all-good"
 			ctx := tidUtils.TransactionAwareContext(context.TODO(), tid)
+			ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), PACOriginSystemID)
 
 			annotationsServerMock := newAnnotationsAPIServerMock(t, tid, uuid, "", test.annotationsStatus, test.annotationsBody)
 			defer annotationsServerMock.Close()

@@ -16,26 +16,26 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-var testCanonicalizedAnnotations = []Annotation{
-	{
-		Predicate: "http://www.ft.com/ontology/classification/isClassifiedBy",
-		ConceptId: "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
+var testCanonicalizedAnnotations = []interface{}{
+	map[string]interface{}{
+		"predicate": "http://www.ft.com/ontology/classification/isClassifiedBy",
+		"id":        "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
 	},
-	{
-		Predicate: "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId: "http://www.ft.com/thing/1a2a1a0a-7199-38b8-8a73-e651e2172471",
+	map[string]interface{}{
+		"predicate": "http://www.ft.com/ontology/annotation/mentions",
+		"id":        "http://www.ft.com/thing/1a2a1a0a-7199-38b8-8a73-e651e2172471",
 	},
-	{
-		Predicate: "http://www.ft.com/ontology/hasContributor",
-		ConceptId: "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+	map[string]interface{}{
+		"predicate": "http://www.ft.com/ontology/hasContributor",
+		"id":        "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
 	},
-	{
-		Predicate: "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId: "http://www.ft.com/thing/1fb3faf1-bf00-3a15-8efb-1038a59653f7",
+	map[string]interface{}{
+		"predicate": "http://www.ft.com/ontology/annotation/mentions",
+		"id":        "http://www.ft.com/thing/1fb3faf1-bf00-3a15-8efb-1038a59653f7",
 	},
-	{
-		Predicate: "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId: "http://www.ft.com/thing/7b7dafa0-d54e-4c1d-8e22-3d452792acd2",
+	map[string]interface{}{
+		"predicate": "http://www.ft.com/ontology/annotation/mentions",
+		"id":        "http://www.ft.com/thing/7b7dafa0-d54e-4c1d-8e22-3d452792acd2",
 	},
 }
 
@@ -70,30 +70,30 @@ var testConcepts = map[string]concept.Concept{
 	},
 }
 
-var expectedAugmentedAnnotations = []Annotation{
-	{
-		Predicate:  "http://www.ft.com/ontology/classification/isClassifiedBy",
-		ConceptId:  "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
-		ApiUrl:     "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
-		Type:       "http://www.ft.com/ontology/Subject",
-		PrefLabel:  "Economic Indicators",
-		IsFTAuthor: false,
+var expectedAugmentedAnnotations = []interface{}{
+	map[string]interface{}{
+		"predicate":  "http://www.ft.com/ontology/classification/isClassifiedBy",
+		"id":         "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
+		"apiUrl":     "http://api.ft.com/things/b224ad07-c818-3ad6-94af-a4d351dbb619",
+		"type":       "http://www.ft.com/ontology/Subject",
+		"prefLabel":  "Economic Indicators",
+		"isFTAuthor": false,
 	},
-	{
-		Predicate:  "http://www.ft.com/ontology/hasContributor",
-		ConceptId:  "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-		ApiUrl:     "http://api.ft.com/things/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
-		Type:       "http://www.ft.com/ontology/person/Person",
-		PrefLabel:  "Lisa Barrett",
-		IsFTAuthor: true,
+	map[string]interface{}{
+		"predicate":  "http://www.ft.com/ontology/hasContributor",
+		"id":         "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+		"apiUrl":     "http://api.ft.com/things/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+		"type":       "http://www.ft.com/ontology/person/Person",
+		"prefLabel":  "Lisa Barrett",
+		"isFTAuthor": true,
 	},
-	{
-		Predicate:  "http://www.ft.com/ontology/annotation/mentions",
-		ConceptId:  "http://www.ft.com/thing/28f8d585-37ea-4879-ae1c-f6c0580a43b8",
-		ApiUrl:     "http://api.ft.com/things/28f8d585-37ea-4879-ae1c-f6c0580a43b8",
-		Type:       "http://www.ft.com/ontology/person/Person",
-		PrefLabel:  "Frederick Stapleton",
-		IsFTAuthor: false,
+	map[string]interface{}{
+		"predicate":  "http://www.ft.com/ontology/annotation/mentions",
+		"id":         "http://www.ft.com/thing/28f8d585-37ea-4879-ae1c-f6c0580a43b8",
+		"apiUrl":     "http://api.ft.com/things/28f8d585-37ea-4879-ae1c-f6c0580a43b8",
+		"type":       "http://www.ft.com/ontology/person/Person",
+		"prefLabel":  "Frederick Stapleton",
+		"isFTAuthor": false,
 	},
 }
 
@@ -117,6 +117,7 @@ func TestAugmentAnnotations(t *testing.T) {
 
 	conceptRead := new(ConceptReadAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
+	ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), PACOriginSystemID)
 	conceptRead.
 		On("GetConceptsByIDs", ctx, matcher).
 		Return(testConcepts, nil)
@@ -148,6 +149,7 @@ func TestAugmentAnnotationsFixtures(t *testing.T) {
 
 			conceptRead := new(ConceptReadAPIMock)
 			ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
+			ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), PACOriginSystemID)
 			conceptRead.
 				On("GetConceptsByIDs", ctx, matcher).
 				Return(testReturnSingleConcept, nil)
@@ -160,10 +162,10 @@ func TestAugmentAnnotationsFixtures(t *testing.T) {
 			expectedAnnotations := helperGetAnnotationsFromFixture(t, "augmenter-expected-"+test.fixtureBaseName)
 
 			sort.Slice(annotations, func(i, j int) bool {
-				return annotations[i].Predicate < annotations[j].Predicate
+				return annotations[i].(map[string]interface{})["predicate"].(string) < annotations[j].(map[string]interface{})["predicate"].(string)
 			})
 			sort.Slice(expectedAnnotations, func(i, j int) bool {
-				return expectedAnnotations[i].Predicate < expectedAnnotations[j].Predicate
+				return expectedAnnotations[i].(map[string]interface{})["predicate"].(string) < expectedAnnotations[j].(map[string]interface{})["predicate"].(string)
 			})
 			assert.Equal(t, annotations, expectedAnnotations)
 			conceptRead.AssertExpectations(t)
@@ -177,6 +179,7 @@ func TestAugmentAnnotationsArrayShouldNotBeNull(t *testing.T) {
 	})
 	conceptRead := new(ConceptReadAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
+	ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), PACOriginSystemID)
 	conceptRead.
 		On("GetConceptsByIDs", ctx, matcher).
 		Return(make(map[string]concept.Concept), nil)
@@ -201,8 +204,9 @@ func TestAugmentAnnotationsMissingTransactionID(t *testing.T) {
 		Return(testConcepts, nil)
 	a := NewAugmenter(conceptRead)
 
+	ctx := context.WithValue(context.Background(), OriginSystemIDHeaderKey(OriginSystemIDHeader), PACOriginSystemID)
 	// nolint errcheck
-	a.AugmentAnnotations(context.Background(), testCanonicalizedAnnotations)
+	a.AugmentAnnotations(ctx, testCanonicalizedAnnotations)
 
 	var tid string
 	for i, e := range hook.AllEntries() {
@@ -225,6 +229,7 @@ func TestAugmentAnnotationsConceptSearchError(t *testing.T) {
 	})
 	conceptRead := new(ConceptReadAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
+	ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), PACOriginSystemID)
 	conceptRead.
 		On("GetConceptsByIDs", ctx, matcher).
 		Return(map[string]concept.Concept{}, errors.New("one minute to midnight"))
@@ -243,12 +248,13 @@ func TestAugmentAnnotationsWithInvalidConceptID(t *testing.T) {
 	})
 	conceptRead := new(ConceptReadAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
+	ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), PACOriginSystemID)
 	conceptRead.
 		On("GetConceptsByIDs", ctx, matcher).
 		Return(testConcepts, nil)
 	a := NewAugmenter(conceptRead)
 
-	testCanonicalizedAnnotations = append(testCanonicalizedAnnotations, Annotation{ConceptId: "xyz"})
+	testCanonicalizedAnnotations = append(testCanonicalizedAnnotations, map[string]interface{}{"id": "xyz", "predicate": "test"})
 	annotations, err := a.AugmentAnnotations(ctx, testCanonicalizedAnnotations)
 
 	assert.NoError(t, err)
@@ -279,12 +285,12 @@ func (m *ConceptReadAPIMock) Endpoint() string {
 	return args.String(0)
 }
 
-func helperGetAnnotationsFromFixture(t *testing.T, fixtureName string) []Annotation {
+func helperGetAnnotationsFromFixture(t *testing.T, fixtureName string) []interface{} {
 	j, err := os.ReadFile("testdata/" + fixtureName + ".json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var a []Annotation
+	var a []interface{}
 	err = json.Unmarshal(j, &a)
 	if err != nil {
 		t.Fatal(err)
