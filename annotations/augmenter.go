@@ -41,7 +41,7 @@ func (a *Augmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations
 	dedupedCanonical, err := dedupeCanonicalAnnotations(canonicalAnnotations)
 	if err != nil {
 		log.WithField(tidUtils.TransactionIDKey, tid).
-			WithError(err).Error("Request failed when attempting to deduplicate annotations")
+			WithError(err).Error("Request failed when attempting to dedupе annotations")
 		return nil, err
 	}
 
