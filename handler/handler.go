@@ -11,12 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Financial-Times/go-logger/v2"
+	"github.com/gorilla/mux"
+
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/Financial-Times/draft-annotations-api/mapper"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/google/uuid"
-	"github.com/husobee/vestigo"
-	log "github.com/sirupsen/logrus"
 )
 
 // AnnotationsAPI interface encapsulates logic for getting published annotations from API
@@ -30,23 +31,32 @@ type Augmenter interface {
 	AugmentAnnotations(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error)
 }
 
+// Interface for json validator
+type jsonValidator interface {
+	Validate(interface{}) error
+}
+
 // Handler provides endpoints for reading annotations - draft or published, and writing draft annotations.
 type Handler struct {
 	annotationsRW        annotations.RW
 	annotationsAPI       AnnotationsAPI
 	c14n                 *annotations.Canonicalizer
 	annotationsAugmenter Augmenter
+	validator            jsonValidator
 	timeout              time.Duration
+	log                  *logger.UPPLogger
 }
 
 // New initializes Handler.
-func New(rw annotations.RW, annotationsAPI AnnotationsAPI, c14n *annotations.Canonicalizer, augmenter Augmenter, httpTimeout time.Duration) *Handler {
+func New(rw annotations.RW, annotationsAPI AnnotationsAPI, c14n *annotations.Canonicalizer, augmenter Augmenter, validator jsonValidator, httpTimeout time.Duration, log *logger.UPPLogger) *Handler {
 	return &Handler{
 		rw,
 		annotationsAPI,
 		c14n,
 		augmenter,
+		validator,
 		httpTimeout,
+		log,
 	}
 }
 
@@ -55,12 +65,12 @@ func New(rw annotations.RW, annotationsAPI AnnotationsAPI, c14n *annotations.Can
 func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 
-	contentUUID := vestigo.Param(r, "uuid")
-	conceptID := mapper.TransformConceptID("/" + vestigo.Param(r, "cuuid"))
+	contentUUID := mux.Vars(r)["uuid"]
+	conceptID := mapper.TransformConceptID("/" + mux.Vars(r)["cuuid"])
 
 	tID := tidutils.GetTransactionIDFromRequest(r)
 	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
-	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
+	writeLog := h.log.WithTransactionID(tID).WithUUID(contentUUID)
 
 	oldHash := r.Header.Get(annotations.PreviousDocumentHashHeader)
 	schemaVersion := r.Header.Get(annotations.SchemaVersionHeader)
@@ -109,11 +119,11 @@ func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 
-	contentUUID := vestigo.Param(r, "uuid")
+	contentUUID := mux.Vars(r)["uuid"]
 
 	tID := tidutils.GetTransactionIDFromRequest(r)
 	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
-	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
+	writeLog := h.log.WithTransactionID(tID).WithUUID(contentUUID)
 
 	oldHash := r.Header.Get(annotations.PreviousDocumentHashHeader)
 	schemaVersion := r.Header.Get(annotations.SchemaVersionHeader)
@@ -133,6 +143,12 @@ func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&addedAnnotationBody)
 	if err != nil {
 		handleWriteErrors("Error decoding request body", err, writeLog, w, http.StatusBadRequest)
+		return
+	}
+
+	err = h.validator.Validate(addedAnnotationBody)
+	if err != nil {
+		handleWriteErrors("Failed to validate request body", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
@@ -181,20 +197,19 @@ func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 // ReadAnnotations gets the annotations for a given content uuid.
 // If there are draft annotations, they are returned, otherwise the published annotations are returned.
 func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
-	contentUUID := vestigo.Param(r, "uuid")
+	contentUUID := mux.Vars(r)["uuid"]
 	tID := tidutils.GetTransactionIDFromRequest(r)
+	readLog := h.log.WithTransactionID(tID).WithUUID(contentUUID)
 
 	ctx, cancel := context.WithTimeout(tidutils.TransactionAwareContext(r.Context(), tID), h.timeout)
 	defer cancel()
 
 	origin := r.Header.Get(annotations.OriginSystemIDHeader)
 	if origin == "" {
-		writeMessage(w, "X-Origin-System-Id header missing", http.StatusBadRequest)
+		writeMessage(w, readLog, "X-Origin-System-Id header missing", http.StatusBadRequest)
 		return
 	}
 	ctx = context.WithValue(ctx, annotations.OriginSystemIDHeaderKey(annotations.OriginSystemIDHeader), origin)
-
-	readLog := readLogEntry(ctx, contentUUID)
 
 	w.Header().Add("Content-Type", "application/json")
 
@@ -204,7 +219,7 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 	if queryParam != "" {
 		showHasBrand, err = strconv.ParseBool(queryParam)
 		if err != nil {
-			writeMessage(w, fmt.Sprintf("invalid param sendHasBrand: %s ", queryParam), http.StatusBadRequest)
+			writeMessage(w, readLog, fmt.Sprintf("invalid param sendHasBrand: %s ", queryParam), http.StatusBadRequest)
 			return
 		}
 	}
@@ -229,7 +244,7 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 
-	contentUUID := vestigo.Param(r, "uuid")
+	contentUUID := mux.Vars(r)["uuid"]
 	tID := tidutils.GetTransactionIDFromRequest(r)
 	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
 
@@ -240,7 +255,7 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx = context.WithValue(ctx, annotations.SchemaVersionHeaderKey(annotations.SchemaVersionHeader), schemaVersion)
 
-	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
+	writeLog := h.log.WithTransactionID(tID).WithUUID(contentUUID)
 
 	origin := r.Header.Get(annotations.OriginSystemIDHeader)
 	if origin == "" {
@@ -258,6 +273,12 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&draftAnnotationsBody)
 	if err != nil {
 		handleWriteErrors("Unable to unmarshal annotations body", err, writeLog, w, http.StatusBadRequest)
+		return
+	}
+
+	err = h.validator.Validate(draftAnnotationsBody)
+	if err != nil {
+		handleWriteErrors("Failed to validate request body", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
@@ -281,13 +302,13 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 
-	contentUUID := vestigo.Param(r, "uuid")
-	conceptUUID := vestigo.Param(r, "cuuid")
+	contentUUID := mux.Vars(r)["uuid"]
+	conceptUUID := mux.Vars(r)["cuuid"]
 
 	tID := tidutils.GetTransactionIDFromRequest(r)
 	ctx := tidutils.TransactionAwareContext(context.Background(), tID)
 
-	writeLog := log.WithField(tidutils.TransactionIDKey, tID).WithField("uuid", contentUUID)
+	writeLog := h.log.WithTransactionID(tID).WithUUID(contentUUID)
 	oldHash := r.Header.Get(annotations.PreviousDocumentHashHeader)
 	schemaVersion := r.Header.Get(annotations.SchemaVersionHeader)
 	if schemaVersion == "" {
@@ -307,13 +328,19 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conceptUUID = mapper.TransformConceptID("/" + vestigo.Param(r, "cuuid"))
+	conceptUUID = mapper.TransformConceptID("/" + mux.Vars(r)["cuuid"])
 
 	addedAnnotationBody := map[string]interface{}{}
 	dec := json.NewDecoder(r.Body)
 	err := dec.Decode(&addedAnnotationBody)
 	if err != nil {
 		handleWriteErrors("Error decoding request body", err, writeLog, w, http.StatusBadRequest)
+		return
+	}
+
+	err = h.validator.Validate(addedAnnotationBody)
+	if err != nil {
+		handleWriteErrors("Failed to validate request body", err, writeLog, w, http.StatusBadRequest)
 		return
 	}
 
@@ -353,6 +380,28 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set(annotations.DocumentHashHeader, newHash)
 }
 
+// Validate request body against the available schemas
+func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
+	tID := tidutils.GetTransactionIDFromRequest(r)
+	validateLog := h.log.WithTransactionID(tID)
+
+	requestBody := map[string]interface{}{}
+	dec := json.NewDecoder(r.Body)
+	err := dec.Decode(&requestBody)
+	if err != nil {
+		handleWriteErrors("Error decoding request body", err, validateLog, w, http.StatusBadRequest)
+		return
+	}
+
+	err = h.validator.Validate(requestBody)
+	if err != nil {
+		handleWriteErrors("Failed to validate request body", err, validateLog, w, http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string, conceptID string) ([]interface{}, int, error) {
 	if err := validateUUID(contentUUID); err != nil {
 		return nil, http.StatusBadRequest, fmt.Errorf("invalid content ID : %w", err)
@@ -380,7 +429,7 @@ func (h *Handler) prepareUPPAnnotations(ctx context.Context, contentUUID string,
 	return ann, http.StatusOK, nil
 }
 
-func (h *Handler) saveAndReturnAnnotations(ctx context.Context, uppList map[string]interface{}, writeLog *log.Entry, oldHash string, contentUUID string) (map[string]interface{}, string, error) {
+func (h *Handler) saveAndReturnAnnotations(ctx context.Context, uppList map[string]interface{}, writeLog *logger.LogEntry, oldHash string, contentUUID string) (map[string]interface{}, string, error) {
 	writeLog.Debug("Move to HasBrand annotations...")
 	var err error
 	anns, ok := uppList["annotations"].([]interface{})
@@ -409,7 +458,7 @@ func (h *Handler) saveAndReturnAnnotations(ctx context.Context, uppList map[stri
 	return uppList, newHash, nil
 }
 
-func (h *Handler) readAnnotations(ctx context.Context, contentUUID string, showHasBrand bool, readLog *log.Entry) (map[string]interface{}, string, error) {
+func (h *Handler) readAnnotations(ctx context.Context, contentUUID string, showHasBrand bool, readLog *logger.LogEntry) (map[string]interface{}, string, error) {
 	var (
 		hash          string
 		hasDraft      bool
@@ -447,10 +496,10 @@ func (h *Handler) readAnnotations(ctx context.Context, contentUUID string, showH
 	return result, hash, err
 }
 
-func handleReadErrors(err error, readLog *log.Entry, w http.ResponseWriter) {
+func handleReadErrors(err error, readLog *logger.LogEntry, w http.ResponseWriter) {
 	if isTimeoutErr(err) {
 		readLog.WithError(err).Error("Timeout while reading annotations.")
-		writeMessage(w, "Timeout while reading annotations", http.StatusGatewayTimeout)
+		writeMessage(w, readLog, "Timeout while reading annotations", http.StatusGatewayTimeout)
 		return
 	}
 	var uppErr annotations.UPPError
@@ -461,13 +510,13 @@ func handleReadErrors(err error, readLog *log.Entry, w http.ResponseWriter) {
 			w.Write(uppErr.UPPBody())
 			return
 		}
-		writeMessage(w, uppErr.Error(), uppErr.Status())
+		writeMessage(w, readLog, uppErr.Error(), uppErr.Status())
 		return
 	}
-	writeMessage(w, fmt.Sprintf("Failed to read annotations: %v", err), http.StatusInternalServerError)
+	writeMessage(w, readLog, fmt.Sprintf("Failed to read annotations: %v", err), http.StatusInternalServerError)
 }
 
-func handleWriteErrors(msg string, err error, writeLog *log.Entry, w http.ResponseWriter, httpStatus int) {
+func handleWriteErrors(msg string, err error, writeLog *logger.LogEntry, w http.ResponseWriter, httpStatus int) {
 	msg = fmt.Sprintf(msg+": %v", err.Error())
 	if isTimeoutErr(err) {
 		msg = "Timeout while waiting to write draft annotations"
@@ -475,12 +524,7 @@ func handleWriteErrors(msg string, err error, writeLog *log.Entry, w http.Respon
 	}
 
 	writeLog.WithError(err).Error(msg)
-	writeMessage(w, msg, httpStatus)
-}
-
-func readLogEntry(ctx context.Context, contentUUID string) *log.Entry {
-	tid, _ := tidutils.GetTransactionIDFromContext(ctx)
-	return log.WithField(tidutils.TransactionIDKey, tid).WithField("uuid", contentUUID)
+	writeMessage(w, writeLog, msg, httpStatus)
 }
 
 func isTimeoutErr(err error) bool {
@@ -496,20 +540,20 @@ func validateUUID(u string) error {
 	return err
 }
 
-func writeMessage(w http.ResponseWriter, msg string, status int) {
+func writeMessage(w http.ResponseWriter, logEntry *logger.LogEntry, msg string, status int) {
 	w.WriteHeader(status)
 
 	message := make(map[string]interface{})
 	message["message"] = msg
 	j, err := json.Marshal(&message)
 	if err != nil {
-		log.WithError(err).Error("Failed to parse provided message to json, this is a bug.")
+		logEntry.WithError(err).Error("Failed to parse provided message to json.")
 		return
 	}
 
 	_, err = w.Write(j)
 	if err != nil {
-		log.WithError(err).Error("Failed to parse response message.")
+		logEntry.WithError(err).Error("Failed to parse response message.")
 	}
 }
 

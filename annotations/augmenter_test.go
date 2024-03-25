@@ -8,9 +8,10 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/Financial-Times/go-logger/v2"
+
 	"github.com/Financial-Times/draft-annotations-api/concept"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
-	log "github.com/sirupsen/logrus"
 	logTest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -121,7 +122,8 @@ func TestAugmentAnnotations(t *testing.T) {
 	conceptRead.
 		On("GetConceptsByIDs", ctx, matcher).
 		Return(testConcepts, nil)
-	a := NewAugmenter(conceptRead)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	a := NewAugmenter(conceptRead, log)
 
 	annotations, err := a.AugmentAnnotations(ctx, testCanonicalizedAnnotations)
 
@@ -153,7 +155,8 @@ func TestAugmentAnnotationsFixtures(t *testing.T) {
 			conceptRead.
 				On("GetConceptsByIDs", ctx, matcher).
 				Return(testReturnSingleConcept, nil)
-			a := NewAugmenter(conceptRead)
+			log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+			a := NewAugmenter(conceptRead, log)
 
 			originalAnnotations := helperGetAnnotationsFromFixture(t, "augmenter-input-"+test.fixtureBaseName)
 			annotations, err := a.AugmentAnnotations(ctx, originalAnnotations)
@@ -183,7 +186,8 @@ func TestAugmentAnnotationsArrayShouldNotBeNull(t *testing.T) {
 	conceptRead.
 		On("GetConceptsByIDs", ctx, matcher).
 		Return(make(map[string]concept.Concept), nil)
-	a := NewAugmenter(conceptRead)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	a := NewAugmenter(conceptRead, log)
 
 	annotations, err := a.AugmentAnnotations(ctx, testCanonicalizedAnnotations)
 
@@ -202,7 +206,8 @@ func TestAugmentAnnotationsMissingTransactionID(t *testing.T) {
 	conceptRead.
 		On("GetConceptsByIDs", mock.Anything, matcher).
 		Return(testConcepts, nil)
-	a := NewAugmenter(conceptRead)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	a := NewAugmenter(conceptRead, log)
 
 	ctx := context.WithValue(context.Background(), OriginSystemIDHeaderKey(OriginSystemIDHeader), PACOriginSystemID)
 	// nolint errcheck
@@ -211,7 +216,7 @@ func TestAugmentAnnotationsMissingTransactionID(t *testing.T) {
 	var tid string
 	for i, e := range hook.AllEntries() {
 		if i == 0 {
-			assert.Equal(t, log.WarnLevel, e.Level)
+			assert.Equal(t, "WARN", e.Level)
 			assert.Equal(t, "Transaction ID error in augmenting annotations with concept data: Generated a new transaction ID", e.Message)
 			tid = e.Data[tidUtils.TransactionIDKey].(string)
 			assert.NotEmpty(t, tid)
@@ -233,7 +238,8 @@ func TestAugmentAnnotationsConceptSearchError(t *testing.T) {
 	conceptRead.
 		On("GetConceptsByIDs", ctx, matcher).
 		Return(map[string]concept.Concept{}, errors.New("one minute to midnight"))
-	a := NewAugmenter(conceptRead)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	a := NewAugmenter(conceptRead, log)
 
 	_, err := a.AugmentAnnotations(ctx, testCanonicalizedAnnotations)
 
@@ -252,7 +258,8 @@ func TestAugmentAnnotationsWithInvalidConceptID(t *testing.T) {
 	conceptRead.
 		On("GetConceptsByIDs", ctx, matcher).
 		Return(testConcepts, nil)
-	a := NewAugmenter(conceptRead)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	a := NewAugmenter(conceptRead, log)
 
 	testCanonicalizedAnnotations = append(testCanonicalizedAnnotations, map[string]interface{}{"id": "xyz", "predicate": "test"})
 	annotations, err := a.AugmentAnnotations(ctx, testCanonicalizedAnnotations)

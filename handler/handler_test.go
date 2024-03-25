@@ -11,17 +11,22 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Financial-Times/cm-annotations-ontology/validator"
+	"github.com/Financial-Times/go-logger/v2"
+	"github.com/gorilla/mux"
+	"github.com/stretchr/testify/require"
 
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/Financial-Times/draft-annotations-api/handler"
 	"github.com/Financial-Times/go-ft-http/fthttp"
 	tidutils "github.com/Financial-Times/transactionid-utils-go"
 	randomdata "github.com/Pallinder/go-randomdata"
-	"github.com/husobee/vestigo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -35,6 +40,8 @@ const (
 var testClient = fthttp.NewClientWithDefaultTimeout("PAC", "draft-annotations-api")
 
 func TestHappyFetchFromAnnotationsRW(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	hash := randomdata.RandStringRunes(56)
 
 	rw := new(RWMock)
@@ -43,9 +50,11 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations["annotations"]).Return(expectedAnnotations["annotations"], nil)
 	annAPI := new(AnnotationsAPIMock)
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods("GET")
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -68,9 +77,9 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 	annAPI.AssertExpectations(t)
 }
 
-// nolint:all
 func TestReadHasBrandAnnotation(t *testing.T) {
-
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	tests := map[string]struct {
 		readAnnotations     []interface{}
 		expectedAnnotations []interface{}
@@ -115,17 +124,19 @@ func TestReadHasBrandAnnotation(t *testing.T) {
 	rw := &RWMock{}
 	aug := &AugmenterMock{}
 	annAPI := &AnnotationsAPIMock{}
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods("GET")
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			hash := randomdata.RandStringRunes(56)
-			rw.read = func(ctx context.Context, contentUUID string) (map[string]interface{}, string, bool, error) {
+			rw.read = func(_ context.Context, _ string) (map[string]interface{}, string, bool, error) {
 				return map[string]interface{}{"annotations": test.readAnnotations}, hash, true, nil
 			}
-			aug.augment = func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+			aug.augment = func(_ context.Context, _ []interface{}) ([]interface{}, error) {
 				return test.readAnnotations, nil
 			}
 
@@ -153,15 +164,18 @@ func TestReadHasBrandAnnotation(t *testing.T) {
 	}
 }
 
-// nolint:all
 func TestAddAnnotation(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := &RWMock{}
 	annAPI := &AnnotationsAPIMock{}
 	aug := &AugmenterMock{}
 
-	handler := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
-	router := vestigo.NewRouter()
-	router.Post("/drafts/content/:uuid/annotations", handler.AddAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	handler := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
+	router := mux.NewRouter()
+	router.HandleFunc("/drafts/content/{uuid}/annotations", handler.AddAnnotation).Methods("POST")
 
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
@@ -230,16 +244,16 @@ func TestAddAnnotation(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			calledGetAll := false
-			rw.write = func(ctx context.Context, contentUUID string, a map[string]interface{}, hash string) (string, error) {
+			rw.write = func(_ context.Context, _ string, a map[string]interface{}, hash string) (string, error) {
 				assert.Equal(t, map[string]interface{}{"annotations": test.saved, "publication": test.publication}, a)
 				assert.Equal(t, oldHash, hash)
 				return newHash, nil
 			}
-			annAPI.getAllButV2 = func(ctx context.Context, contentUUID string) ([]interface{}, error) {
+			annAPI.getAllButV2 = func(_ context.Context, _ string) ([]interface{}, error) {
 				calledGetAll = true
 				return []interface{}{}, nil
 			}
-			aug.augment = func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+			aug.augment = func(_ context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 				expect := []interface{}{test.added["annotation"]}
 				assert.Equal(t, expect, depletedAnnotations)
 				return test.augmented, nil
@@ -272,15 +286,18 @@ func TestAddAnnotation(t *testing.T) {
 	}
 }
 
-// nolint:all
 func TestWriteHasBrandAnnotation(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := &RWMock{}
 	annAPI := &AnnotationsAPIMock{}
 	aug := &AugmenterMock{}
 
-	handler := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
-	router := vestigo.NewRouter()
-	router.Put("/drafts/content/:uuid/annotations", handler.WriteAnnotations)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	handler := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
+	router := mux.NewRouter()
+	router.HandleFunc("/drafts/content/{uuid}/annotations", handler.WriteAnnotations).Methods("PUT")
 
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
@@ -289,6 +306,7 @@ func TestWriteHasBrandAnnotation(t *testing.T) {
 		written           []interface{}
 		augmented         []interface{}
 		saved             []interface{}
+		publication       []interface{}
 		requestStatusCode int
 	}{
 		"success - accept hasBrand annotation": {
@@ -313,12 +331,13 @@ func TestWriteHasBrandAnnotation(t *testing.T) {
 					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 				},
 			},
+			publication:       []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 			requestStatusCode: http.StatusOK,
 		},
 		"success - switch isClassifiedBy to hasBrand annotation": {
 			written: []interface{}{
 				map[string]interface{}{
-					"predicate": "http://www.ft.com//classification/isClassifiedBy",
+					"predicate": "http://www.ft.com/ontology/classification/isClassifiedBy",
 					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 				},
 			},
@@ -337,23 +356,24 @@ func TestWriteHasBrandAnnotation(t *testing.T) {
 					"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 				},
 			},
+			publication:       []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 			requestStatusCode: http.StatusOK,
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			rw.write = func(ctx context.Context, contentUUID string, a map[string]interface{}, hash string) (string, error) {
-				assert.Equal(t, map[string]interface{}{"annotations": test.saved}, a)
+			rw.write = func(_ context.Context, _ string, a map[string]interface{}, hash string) (string, error) {
+				assert.Equal(t, map[string]interface{}{"annotations": test.saved, "publication": test.publication}, a)
 				assert.Equal(t, oldHash, hash)
 				return newHash, nil
 			}
-			aug.augment = func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+			aug.augment = func(_ context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 				assert.Equal(t, test.written, depletedAnnotations)
 				return test.augmented, nil
 			}
 
-			b, _ := json.Marshal(map[string]interface{}{"annotations": test.written})
+			b, _ := json.Marshal(map[string]interface{}{"annotations": test.written, "publication": test.publication})
 
 			req := httptest.NewRequest(
 				"PUT",
@@ -379,16 +399,19 @@ func TestWriteHasBrandAnnotation(t *testing.T) {
 	}
 }
 
-// nolint:all
 func TestReplaceHasBrandAnnotation(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := &RWMock{}
 	annAPI := &AnnotationsAPIMock{}
 	aug := &AugmenterMock{}
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 
-	handler := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
-	router := vestigo.NewRouter()
-	router.Patch("/drafts/content/:uuid/annotations/:cuuid", handler.ReplaceAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	handler := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
+	router := mux.NewRouter()
+	router.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", handler.ReplaceAnnotation).Methods("PATCH")
 
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
@@ -471,17 +494,17 @@ func TestReplaceHasBrandAnnotation(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			rw.write = func(ctx context.Context, contentUUID string, a map[string]interface{}, hash string) (string, error) {
+			rw.write = func(_ context.Context, _ string, a map[string]interface{}, hash string) (string, error) {
 				assert.Equal(t, map[string]interface{}{"annotations": test.toStore, "publication": test.publication}, a)
 				assert.Equal(t, oldHash, hash)
 				return newHash, nil
 			}
 			getAllCalled := false
-			annAPI.getAllButV2 = func(ctx context.Context, contentUUID string) ([]interface{}, error) {
+			annAPI.getAllButV2 = func(_ context.Context, _ string) ([]interface{}, error) {
 				getAllCalled = true
 				return test.fromUpp, nil
 			}
-			aug.augment = func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+			aug.augment = func(_ context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 				depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
 				assert.Equal(t, test.afterReplace, depletedAnnotations)
 				return test.augmented, nil
@@ -515,14 +538,18 @@ func TestReplaceHasBrandAnnotation(t *testing.T) {
 }
 
 func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, errors.New("computer says no"))
 	aug := new(AugmenterMock)
 	annAPI := new(AnnotationsAPIMock)
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods("GET")
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -544,15 +571,19 @@ func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
 }
 
 func TestUnHappyAugmenter(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations, "", true, nil)
 	aug := new(AugmenterMock)
 	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations["annotations"]).Return(expectedAnnotations["annotations"], errors.New("computer says no"))
 	annAPI := new(AnnotationsAPIMock)
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods("GET")
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -574,6 +605,8 @@ func TestUnHappyAugmenter(t *testing.T) {
 }
 
 func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	aug := new(AugmenterMock)
 	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations["annotations"]).Return(expectedAnnotations["annotations"], nil)
 
@@ -584,12 +617,14 @@ func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, annotationsAPIBody)
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword, log)
 	assert.Equal(t, annotationsAPIServerMock.URL+"/content/%v/annotations", annotationsAPI.Endpoint())
 
-	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annotationsAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods("GET")
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -612,6 +647,8 @@ func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 }
 
 func TestFetchFromAnnotationsAPI404(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	aug := new(AugmenterMock)
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
@@ -619,10 +656,12 @@ func TestFetchFromAnnotationsAPI404(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusNotFound, "not found")
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword)
-	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword, log)
+	h := handler.New(rw, annotationsAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods("GET")
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -642,6 +681,8 @@ func TestFetchFromAnnotationsAPI404(t *testing.T) {
 }
 
 func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 	aug := new(AugmenterMock)
@@ -649,10 +690,12 @@ func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusOK, bannedAnnotationsAPIBody)
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword)
-	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword, log)
+	h := handler.New(rw, annotationsAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods("GET")
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -672,16 +715,20 @@ func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 }
 
 func TestFetchFromAnnotationsAPI500(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 	aug := new(AugmenterMock)
 	annotationsAPIServerMock := newAnnotationsAPIServerMock(t, http.StatusInternalServerError, "fire!")
 	defer annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword)
-	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword, log)
+	h := handler.New(rw, annotationsAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods("GET")
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -701,13 +748,18 @@ func TestFetchFromAnnotationsAPI500(t *testing.T) {
 }
 
 func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 	aug := new(AugmenterMock)
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, ":#", testBasicAuthUsername, testBasicAuthPassword)
-	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
+
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, ":#", testBasicAuthUsername, testBasicAuthPassword, log)
+	h := handler.New(rw, annotationsAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods("GET")
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -726,16 +778,20 @@ func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
 }
 
 func TestFetchFromAnnotationsAPIWithConnectionError(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 	aug := new(AugmenterMock)
 	annotationsAPIServerMock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	annotationsAPIServerMock.Close()
 
-	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL, testBasicAuthUsername, testBasicAuthPassword)
-	h := handler.New(rw, annotationsAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL, testBasicAuthUsername, testBasicAuthPassword, log)
+	h := handler.New(rw, annotationsAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods("GET")
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -899,6 +955,40 @@ var expectedAnnotations = map[string]interface{}{
 	},
 }
 
+var expectedAnnotationsWithPublication = map[string]interface{}{
+	"annotations": []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"apiUrl":    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"type":      "http://www.ft.com/ontology/person/Person",
+			"prefLabel": "Barack H. Obama",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			"apiUrl":    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			"type":      "http://www.ft.com/ontology/person/Person",
+			"prefLabel": "David J Lynch",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"apiUrl":    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"type":      "http://www.ft.com/ontology/Topic",
+			"prefLabel": "US interest rates",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/hasDisplayTag",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"apiUrl":    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"type":      "http://www.ft.com/ontology/Topic",
+			"prefLabel": "US interest rates",
+		},
+	},
+	"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
+}
+
 var augmentedAnnotationsAfterAddition = map[string]interface{}{
 	"annotations": []interface{}{
 		map[string]interface{}{
@@ -958,7 +1048,7 @@ var expectedAnnotationsReplaceExisting = map[string]interface{}{
 			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
 		},
 	},
-	"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+	"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 }
 
 var expectedCanonicalisedAnnotationsBody = map[string]interface{}{
@@ -980,7 +1070,29 @@ var expectedCanonicalisedAnnotationsBody = map[string]interface{}{
 			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		},
 	},
-	"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+	"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
+}
+
+var expectedCanonicalisedAnnotationsBodyWriteWithPublication = map[string]interface{}{
+	"annotations": []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/hasDisplayTag",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		},
+	},
+	"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 }
 
 var expectedCanonicalisedAnnotationsBodyWrite = map[string]interface{}{
@@ -1059,7 +1171,7 @@ var expectedCanonicalisedAnnotationsAfterAdditon = map[string]interface{}{
 			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		},
 	},
-	"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+	"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 }
 
 var expectedCanonicalisedAnnotationsAfterReplace = map[string]interface{}{
@@ -1081,7 +1193,7 @@ var expectedCanonicalisedAnnotationsAfterReplace = map[string]interface{}{
 			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 		},
 	},
-	"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+	"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 }
 
 var augmentedAnnotationsAfterReplace = map[string]interface{}{
@@ -1140,7 +1252,7 @@ var expectedCanonicalisedAnnotationsSameConceptID = map[string]interface{}{
 			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		},
 	},
-	"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+	"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 }
 
 var augmentedAnnotationsSameConceptID = map[string]interface{}{
@@ -1183,29 +1295,32 @@ var augmentedAnnotationsSameConceptID = map[string]interface{}{
 	},
 }
 
-// nolint:all
 func TestSaveAnnotations(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
 	rw := new(RWMock)
-	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsBodyWrite, oldHash).Return(newHash, nil)
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsBodyWriteWithPublication, oldHash).Return(newHash, nil)
 
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	annotationsAPI := new(AnnotationsAPIMock)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+		augment: func(_ context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
 			assert.Equal(t, expectedCanonicalisedAnnotationsBody["annotations"], depletedAnnotations)
-			return expectedAnnotations["annotations"].([]interface{}), nil
+			return expectedAnnotationsWithPublication["annotations"].([]interface{}), nil
 		},
 	}
 
-	h := handler.New(rw, annotationsAPI, canonicalizer, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annotationsAPI, canonicalizer, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.WriteAnnotations).Methods("PUT")
 
 	entity := bytes.Buffer{}
-	err := json.NewEncoder(&entity).Encode(&expectedAnnotations)
+	err := json.NewEncoder(&entity).Encode(&expectedAnnotationsWithPublication)
 	if err != nil {
 		t.Fatalf("failed to encode annotations: %v", err)
 	}
@@ -1228,7 +1343,7 @@ func TestSaveAnnotations(t *testing.T) {
 	err = json.NewDecoder(resp.Body).Decode(&actual)
 	assert.NoError(t, err)
 
-	assert.Equal(t, expectedCanonicalisedAnnotationsBodyWrite, actual)
+	assert.Equal(t, expectedCanonicalisedAnnotationsBodyWriteWithPublication, actual)
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 
 	rw.AssertExpectations(t)
@@ -1237,14 +1352,18 @@ func TestSaveAnnotations(t *testing.T) {
 }
 
 func TestSaveAnnotationsInvalidContentUUID(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	oldHash := randomdata.RandStringRunes(56)
 	rw := new(RWMock)
 	aug := new(AugmenterMock)
 	annotationsAPI := new(AnnotationsAPIMock)
 
-	h := handler.New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.WriteAnnotations).Methods("PUT")
 
 	req := httptest.NewRequest(
 		"PUT",
@@ -1269,14 +1388,18 @@ func TestSaveAnnotationsInvalidContentUUID(t *testing.T) {
 }
 
 func TestSaveAnnotationsInvalidAnnotationsBody(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	oldHash := randomdata.RandStringRunes(56)
 	rw := new(RWMock)
 	aug := new(AugmenterMock)
 	annotationsAPI := new(AnnotationsAPIMock)
 
-	h := handler.New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.WriteAnnotations).Methods("PUT")
 
 	req := httptest.NewRequest(
 		"PUT",
@@ -1300,28 +1423,31 @@ func TestSaveAnnotationsInvalidAnnotationsBody(t *testing.T) {
 	annotationsAPI.AssertExpectations(t)
 }
 
-// nolint:all
 func TestSaveAnnotationsErrorFromRW(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	oldHash := randomdata.RandStringRunes(56)
 	rw := new(RWMock)
-	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsBodyWrite, oldHash).Return("", errors.New("computer says no"))
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsBodyWriteWithPublication, oldHash).Return("", errors.New("computer says no"))
 
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	annotationsAPI := new(AnnotationsAPIMock)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+		augment: func(_ context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
 			assert.Equal(t, expectedCanonicalisedAnnotationsBody["annotations"], depletedAnnotations)
-			return expectedAnnotations["annotations"].([]interface{}), nil
+			return expectedAnnotationsWithPublication["annotations"].([]interface{}), nil
 		},
 	}
 
-	h := handler.New(rw, annotationsAPI, canonicalizer, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annotationsAPI, canonicalizer, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.WriteAnnotations).Methods("PUT")
 
 	entity := bytes.Buffer{}
-	err := json.NewEncoder(&entity).Encode(&expectedAnnotations)
+	err := json.NewEncoder(&entity).Encode(&expectedAnnotationsWithPublication)
 	if err != nil {
 		t.Fatalf("failed to encode annotations: %v", err)
 	}
@@ -1349,15 +1475,19 @@ func TestSaveAnnotationsErrorFromRW(t *testing.T) {
 }
 
 func TestAnnotationsReadTimeoutGenericRW(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, &url.Error{Err: context.DeadlineExceeded})
 
 	aug := new(AugmenterMock)
 	annAPI := new(AnnotationsAPIMock)
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods("GET")
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -1375,6 +1505,8 @@ func TestAnnotationsReadTimeoutGenericRW(t *testing.T) {
 }
 
 func TestAnnotationsReadTimeoutUPP(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 
@@ -1382,9 +1514,11 @@ func TestAnnotationsReadTimeoutUPP(t *testing.T) {
 	annAPI := new(AnnotationsAPIMock)
 	annAPI.On("GetAll", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return([]interface{}{}, &url.Error{Err: context.DeadlineExceeded})
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Get("/drafts/content/:uuid/annotations", h.ReadAnnotations)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods("GET")
 
 	req := httptest.NewRequest("GET", "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -1402,10 +1536,12 @@ func TestAnnotationsReadTimeoutUPP(t *testing.T) {
 }
 
 func TestIsTimeoutErr(t *testing.T) {
-	r := vestigo.NewRouter()
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	r := mux.NewRouter()
+	r.HandleFunc("/", func(_ http.ResponseWriter, _ *http.Request) {
 		time.Sleep(500 * time.Millisecond)
-	})
+	}).Methods("GET")
 
 	s := httptest.NewServer(r)
 
@@ -1420,28 +1556,31 @@ func TestIsTimeoutErr(t *testing.T) {
 	assert.True(t, e.Timeout())
 }
 
-// nolint:all
 func TestAnnotationsWriteTimeout(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	oldHash := randomdata.RandStringRunes(56)
 	rw := new(RWMock)
-	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsBodyWrite, oldHash).Return("", &url.Error{Err: context.DeadlineExceeded})
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsBodyWriteWithPublication, oldHash).Return("", &url.Error{Err: context.DeadlineExceeded})
 
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	annotationsAPI := new(AnnotationsAPIMock)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+		augment: func(_ context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
 			assert.Equal(t, expectedCanonicalisedAnnotationsBody["annotations"], depletedAnnotations)
-			return expectedAnnotations["annotations"].([]interface{}), nil
+			return expectedAnnotationsWithPublication["annotations"].([]interface{}), nil
 		},
 	}
 
-	h := handler.New(rw, annotationsAPI, canonicalizer, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Put("/drafts/content/:uuid/annotations", h.WriteAnnotations)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annotationsAPI, canonicalizer, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.WriteAnnotations).Methods("PUT")
 
 	entity := bytes.Buffer{}
-	err := json.NewEncoder(&entity).Encode(&expectedAnnotations)
+	err := json.NewEncoder(&entity).Encode(&expectedAnnotationsWithPublication)
 	if err != nil {
 		t.Fatalf("failed to encode annotations: %v", err)
 	}
@@ -1470,8 +1609,9 @@ func TestAnnotationsWriteTimeout(t *testing.T) {
 	annotationsAPI.AssertExpectations(t)
 }
 
-// nolint:all
 func TestHappyDeleteAnnotations(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
@@ -1484,17 +1624,19 @@ func TestHappyDeleteAnnotations(t *testing.T) {
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+		augment: func(_ context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
 			assert.Equal(t, expectedCanonicalisedAnnotationsAfterDelete["annotations"], depletedAnnotations)
 			return augmentedAnnotationsAfterDelete["annotations"].([]interface{}), nil
 		},
 	}
 
-	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
 
-	r := vestigo.NewRouter()
-	r.Delete("/drafts/content/:uuid/annotations/:cuuid", h.DeleteAnnotation)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.DeleteAnnotation).Methods("DELETE")
 
 	req := httptest.NewRequest(
 		"DELETE",
@@ -1516,13 +1658,17 @@ func TestHappyDeleteAnnotations(t *testing.T) {
 }
 
 func TestUnHappyDeleteAnnotationsMissingContentUUID(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Delete("/drafts/content/:uuid/annotations/:cuuid", h.DeleteAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.DeleteAnnotation).Methods("DELETE")
 
 	req := httptest.NewRequest(
 		"DELETE",
@@ -1538,13 +1684,17 @@ func TestUnHappyDeleteAnnotationsMissingContentUUID(t *testing.T) {
 }
 
 func TestUnHappyDeleteAnnotationsInvalidConceptUUID(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Delete("/drafts/content/:uuid/annotations/:cuuid", h.DeleteAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.DeleteAnnotation).Methods("DELETE")
 
 	req := httptest.NewRequest(
 		"DELETE",
@@ -1560,15 +1710,19 @@ func TestUnHappyDeleteAnnotationsInvalidConceptUUID(t *testing.T) {
 }
 
 func TestUnHappyDeleteAnnotationsWhenRetrievingAnnotationsFails(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").
 		Return([]interface{}{}, errors.New("sorry something failed"))
 	aug := new(AugmenterMock)
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Delete("/drafts/content/:uuid/annotations/:cuuid", h.DeleteAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.DeleteAnnotation).Methods("DELETE")
 
 	req := httptest.NewRequest(
 		"DELETE",
@@ -1585,6 +1739,8 @@ func TestUnHappyDeleteAnnotationsWhenRetrievingAnnotationsFails(t *testing.T) {
 }
 
 func TestUnHappyDeleteAnnotationsWhenNoAnnotationsFound(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 
@@ -1594,9 +1750,11 @@ func TestUnHappyDeleteAnnotationsWhenNoAnnotationsFound(t *testing.T) {
 		Return([]interface{}{}, uppErr)
 	aug := new(AugmenterMock)
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Delete("/drafts/content/:uuid/annotations/:cuuid", h.DeleteAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/:uuid/annotations/{cuuid}", h.DeleteAnnotation).Methods("DELETE")
 
 	req := httptest.NewRequest(
 		"DELETE",
@@ -1613,8 +1771,9 @@ func TestUnHappyDeleteAnnotationsWhenNoAnnotationsFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
-// nolint:all
 func TestUnHappyDeleteAnnotationsWhenWritingAnnotationsFails(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsBodyWrite, "").Return(mock.Anything, errors.New("sorry something failed"))
 	annAPI := new(AnnotationsAPIMock)
@@ -1623,16 +1782,18 @@ func TestUnHappyDeleteAnnotationsWhenWritingAnnotationsFails(t *testing.T) {
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+		augment: func(_ context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
 			assert.Equal(t, expectedCanonicalisedAnnotationsBody["annotations"], depletedAnnotations)
 			return expectedAnnotations["annotations"].([]interface{}), nil
 		},
 	}
 
-	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Delete("/drafts/content/:uuid/annotations/:cuuid", h.DeleteAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.DeleteAnnotation).Methods("DELETE")
 
 	req := httptest.NewRequest(
 		"DELETE",
@@ -1648,8 +1809,9 @@ func TestUnHappyDeleteAnnotationsWhenWritingAnnotationsFails(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 }
 
-// nolint:all
 func TestHappyAddAnnotation(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 
@@ -1660,24 +1822,26 @@ func TestHappyAddAnnotation(t *testing.T) {
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], nil)
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+		augment: func(_ context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
 			assert.Equal(t, expectedCanonicalisedAnnotationsAfterAdditon["annotations"], depletedAnnotations)
 			return augmentedAnnotationsAfterAddition["annotations"].([]interface{}), nil
 		},
 	}
 
-	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
-	r := vestigo.NewRouter()
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
+	r := mux.NewRouter()
 
-	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods("POST")
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
 			"predicate": "http://www.ft.com/ontology/annotation/mentions",
 			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 		},
-		"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+		"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -1701,8 +1865,9 @@ func TestHappyAddAnnotation(t *testing.T) {
 	aug.AssertExpectations(t)
 }
 
-// nolint:all
 func TestHappyAddExistingAnnotation(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 
@@ -1713,24 +1878,26 @@ func TestHappyAddExistingAnnotation(t *testing.T) {
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], nil)
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+		augment: func(_ context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
 			assert.Equal(t, expectedCanonicalisedAnnotationsBody["annotations"], depletedAnnotations)
 			return expectedAnnotations["annotations"].([]interface{}), nil
 		},
 	}
 
-	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
-	r := vestigo.NewRouter()
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
+	r := mux.NewRouter()
 
-	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods("POST")
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
 			"predicate": "http://www.ft.com/ontology/annotation/mentions",
 			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
 		},
-		"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+		"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -1754,8 +1921,9 @@ func TestHappyAddExistingAnnotation(t *testing.T) {
 	annAPI.AssertExpectations(t)
 }
 
-// nolint:all
 func TestHappyAddAnnotationWithExistingConceptIdDifferentPredicate(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
@@ -1765,24 +1933,26 @@ func TestHappyAddAnnotationWithExistingConceptIdDifferentPredicate(t *testing.T)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], nil)
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+		augment: func(_ context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
 			assert.Equal(t, expectedCanonicalisedAnnotationsSameConceptID["annotations"], depletedAnnotations)
 			return augmentedAnnotationsSameConceptID["annotations"].([]interface{}), nil
 		},
 	}
 
-	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
-	r := vestigo.NewRouter()
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
+	r := mux.NewRouter()
 
-	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods("POST")
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
 			"predicate": "http://www.ft.com/ontology/annotation/mentions",
 			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
 		},
-		"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+		"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -1807,13 +1977,17 @@ func TestHappyAddAnnotationWithExistingConceptIdDifferentPredicate(t *testing.T)
 }
 
 func TestUnHappyAddAnnotationInvalidContentId(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods("POST")
 
 	req := httptest.NewRequest(
 		"POST",
@@ -1831,13 +2005,17 @@ func TestUnHappyAddAnnotationInvalidContentId(t *testing.T) {
 }
 
 func TestUnHappyAddAnnotationInvalidConceptIdPrefix(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods("POST")
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -1863,13 +2041,17 @@ func TestUnHappyAddAnnotationInvalidConceptIdPrefix(t *testing.T) {
 }
 
 func TestUnHappyAddAnnotationEmptyConceptId(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods("POST")
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -1894,13 +2076,17 @@ func TestUnHappyAddAnnotationEmptyConceptId(t *testing.T) {
 }
 
 func TestUnHappyAddAnnotationInvalidConceptUuid(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods("POST")
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -1926,13 +2112,17 @@ func TestUnHappyAddAnnotationInvalidConceptUuid(t *testing.T) {
 }
 
 func TestUnHappyAddAnnotationInvalidPredicate(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Add("POST", "/drafts/content/:uuid/annotations", h.AddAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods("POST")
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -1957,8 +2147,9 @@ func TestUnHappyAddAnnotationInvalidPredicate(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-// nolint:all
 func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 
@@ -1966,24 +2157,26 @@ func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], nil)
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+		augment: func(_ context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
 			assert.Equal(t, expectedCanonicalisedAnnotationsAfterAdditon["annotations"], depletedAnnotations)
 			return augmentedAnnotationsAfterAddition["annotations"].([]interface{}), nil
 		},
 	}
 
-	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
-	r := vestigo.NewRouter()
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
+	r := mux.NewRouter()
 
-	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods("POST")
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
 			"predicate": "http://www.ft.com/ontology/annotation/mentions",
 			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 		},
-		"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+		"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -2002,6 +2195,8 @@ func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 }
 
 func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -2009,17 +2204,19 @@ func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], errors.New("error getting annotations"))
 
-	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
-	r := vestigo.NewRouter()
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
+	r := mux.NewRouter()
 
-	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods("POST")
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
 			"predicate": "http://www.ft.com/ontology/annotation/mentions",
 			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 		},
-		"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+		"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -2038,6 +2235,8 @@ func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 }
 
 func TestUnhappyAddAnnotationWhenNoAnnotationsFound(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -2047,16 +2246,19 @@ func TestUnhappyAddAnnotationWhenNoAnnotationsFound(t *testing.T) {
 	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], uppErr)
 
-	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
-	r := vestigo.NewRouter()
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
+	r := mux.NewRouter()
 
-	r.Post("/drafts/content/:uuid/annotations", h.AddAnnotation)
+	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods("POST")
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
 			"predicate": "http://www.ft.com/ontology/annotation/mentions",
 			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 		},
+		"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -2076,8 +2278,9 @@ func TestUnhappyAddAnnotationWhenNoAnnotationsFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
-// nolint:all
 func TestHappyReplaceAnnotation(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 
@@ -2088,23 +2291,25 @@ func TestHappyReplaceAnnotation(t *testing.T) {
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], nil)
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+		augment: func(_ context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
 			assert.Equal(t, expectedCanonicalisedAnnotationsAfterReplace["annotations"], depletedAnnotations)
 			return augmentedAnnotationsAfterReplace["annotations"].([]interface{}), nil
 		},
 	}
 
-	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
-	r := vestigo.NewRouter()
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
+	r := mux.NewRouter()
 
-	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods("PATCH")
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
 			"id": "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 		},
-		"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+		"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -2124,8 +2329,9 @@ func TestHappyReplaceAnnotation(t *testing.T) {
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 }
 
-// nolint:all
 func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 
@@ -2176,29 +2382,31 @@ func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
 		},
 	}
 
-	rw.On("Write", mock.Anything, contentID, map[string]interface{}{"annotations": afterReplace, "publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6"}, oldHash).Return(newHash, nil)
+	rw.On("Write", mock.Anything, contentID, map[string]interface{}{"annotations": afterReplace, "publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"}}, oldHash).Return(newHash, nil)
 	annAPI.On("GetAllButV2", mock.Anything, contentID).Return(fromAnnotationAPI, nil)
 
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+		augment: func(_ context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
 			assert.Equal(t, afterReplace, depletedAnnotations)
 			return augmentedAfterReplace, nil
 		},
 	}
 
-	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
-	r := vestigo.NewRouter()
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
+	r := mux.NewRouter()
 
-	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods("PATCH")
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
 			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 			"predicate": "http://www.ft.com/ontology/hasBrand",
 		},
-		"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+		"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -2218,8 +2426,9 @@ func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 }
 
-// nolint:all
 func TestHappyReplaceExistingAnnotation(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 
@@ -2230,23 +2439,25 @@ func TestHappyReplaceExistingAnnotation(t *testing.T) {
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotationsReplace["annotations"], nil)
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+		augment: func(_ context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
 			assert.Equal(t, expectedAnnotationsReplaceExisting["annotations"], depletedAnnotations)
 			return expectedAnnotationsReplace["annotations"].([]interface{}), nil
 		},
 	}
 
-	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods("PATCH")
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
 			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
 			"predicate": "http://www.ft.com/ontology/annotation/mentions",
 		},
-		"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+		"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -2271,13 +2482,17 @@ func TestHappyReplaceExistingAnnotation(t *testing.T) {
 }
 
 func TestUnHappyReplaceAnnotationsInvalidContentUUID(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods("PATCH")
 
 	req := httptest.NewRequest(
 		"PATCH",
@@ -2295,13 +2510,17 @@ func TestUnHappyReplaceAnnotationsInvalidContentUUID(t *testing.T) {
 }
 
 func TestUnHappyReplaceAnnotationInvalidConceptIdInURI(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods("PATCH")
 
 	ann := map[string]interface{}{
 		"id": "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
@@ -2324,13 +2543,17 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInURI(t *testing.T) {
 }
 
 func TestUnHappyReplaceAnnotationEmptyBody(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods("PATCH")
 
 	req := httptest.NewRequest(
 		"PATCH",
@@ -2348,13 +2571,17 @@ func TestUnHappyReplaceAnnotationEmptyBody(t *testing.T) {
 }
 
 func TestUnHappyReplaceAnnotationInvalidConceptIdInBody(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods("PATCH")
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -2379,13 +2606,17 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInBody(t *testing.T) {
 }
 
 func TestUnHappyReplaceAnnotationInvalidPredicate(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
 
-	h := handler.New(rw, annAPI, nil, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods("PATCH")
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -2410,8 +2641,9 @@ func TestUnHappyReplaceAnnotationInvalidPredicate(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
-// nolint:all
 func TestUnhappyReplaceAnnotationWhenWritingAnnotationsFails(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 
@@ -2419,22 +2651,24 @@ func TestUnhappyReplaceAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], nil)
 	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
 	aug := &AugmenterMock{
-		augment: func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+		augment: func(_ context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
 			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
 			assert.Equal(t, expectedCanonicalisedAnnotationsAfterReplace["annotations"], depletedAnnotations)
 			return augmentedAnnotationsAfterReplace["annotations"].([]interface{}), nil
 		},
 	}
 
-	h := handler.New(rw, annAPI, canonicalizer, aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods("PATCH")
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
 			"id": "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 		},
-		"publication": "88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+		"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -2453,6 +2687,8 @@ func TestUnhappyReplaceAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 }
 
 func TestUnhappyReplaceAnnotationWhenGettingAnnotationsFails(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -2460,15 +2696,18 @@ func TestUnhappyReplaceAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], errors.New("error getting annotations"))
 
-	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods("PATCH")
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
 			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 			"predicate": "http://www.ft.com/ontology/annotation/about",
 		},
+		"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 	}
 	b, _ := json.Marshal(ann)
 
@@ -2487,6 +2726,8 @@ func TestUnhappyReplaceAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 }
 
 func TestUnhappyReplaceAnnotationWhenNoAnnotationsFound(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -2496,20 +2737,24 @@ func TestUnhappyReplaceAnnotationWhenNoAnnotationsFound(t *testing.T) {
 	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsAfterAdditon, "").Return(mock.Anything, nil)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations["annotations"], uppErr)
 
-	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, time.Second)
-	r := vestigo.NewRouter()
-	r.Patch("/drafts/content/:uuid/annotations/:cuuid", h.ReplaceAnnotation)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods("PATCH")
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
 			"id":        "http://www.ft.com/thing/100e3cc0-aecc-4458-8ebd-6b1fbc7345ed",
 			"predicate": "http://www.ft.com/ontology/annotation/about",
-		}}
+		},
+		"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
+	}
 	b, _ := json.Marshal(ann)
 
 	req := httptest.NewRequest(
 		"PATCH",
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		"/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2521,6 +2766,227 @@ func TestUnhappyReplaceAnnotationWhenNoAnnotationsFound(t *testing.T) {
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func TestValidate(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+
+	tests := []struct {
+		name               string
+		requestBody        map[string]interface{}
+		expectedStatusCode int
+	}{
+		{
+			"Valid PAC annotations write request",
+			map[string]interface{}{
+				"annotations": []interface{}{
+					map[string]interface{}{
+						"predicate": "http://www.ft.com/ontology/annotation/mentions",
+						"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+					},
+				},
+				"publication": []string{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
+			},
+			200,
+		},
+		{
+			"Valid SV annotations write request",
+			map[string]interface{}{
+				"annotations": []interface{}{
+					map[string]interface{}{
+						"predicate": "http://www.ft.com/ontology/annotation/about",
+						"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+					},
+				},
+				"publication": []string{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
+			},
+			200,
+		},
+		{
+			"PAC annotations write request with missing publication array",
+			map[string]interface{}{
+				"annotations": []interface{}{
+					map[string]interface{}{
+						"predicate": "http://www.ft.com/ontology/annotation/mentions",
+						"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+					},
+				},
+			},
+			400,
+		},
+		{
+			"SV annotations write request with missing publication array",
+			map[string]interface{}{
+				"annotations": []interface{}{
+					map[string]interface{}{
+						"predicate": "http://www.ft.com/ontology/annotation/about",
+						"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+					},
+				},
+			},
+			400,
+		},
+		{
+			"Valid PAC annotations add request",
+			map[string]interface{}{
+				"annotation": map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/annotation/mentions",
+					"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+				},
+				"publication": []string{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
+			},
+			200,
+		},
+		{
+			"Valid SV annotations add request",
+			map[string]interface{}{
+				"annotation": map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/annotation/about",
+					"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+				},
+				"publication": []string{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
+			},
+			200,
+		},
+		{
+			"PAC annotations add request with missing publication",
+			map[string]interface{}{
+				"annotation": map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/annotation/mentions",
+					"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+				},
+			},
+			400,
+		},
+		{
+			"SV annotations add request with missing publication",
+			map[string]interface{}{
+				"annotation": map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/annotation/about",
+					"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+				},
+			},
+			400,
+		},
+	}
+
+	for _, tt := range tests {
+		rw := new(RWMock)
+		annAPI := new(AnnotationsAPIMock)
+		aug := new(AugmenterMock)
+
+		log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+		v := validator.NewSchemaValidator(log).GetJSONValidator()
+		h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
+
+		r := mux.NewRouter()
+		r.HandleFunc("/drafts/validate", h.Validate).Methods("POST")
+
+		b, err := json.Marshal(tt.requestBody)
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(
+			"POST",
+			"/drafts/validate",
+			bytes.NewBuffer(b))
+
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+		resp := w.Result()
+		defer resp.Body.Close()
+
+		assert.Equal(t, tt.expectedStatusCode, resp.StatusCode)
+	}
+}
+
+func TestListSchemas(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+
+	tests := []struct {
+		name            string
+		expectedMessage string
+	}{
+		{
+			"List schemas",
+			`{"_links":{"application/vnd.ft-upp-annotations-pac-add.json":[{"href":"/drafts/schemas/draft-annotations-pac-add.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-pac-replace.json":[{"href":"/drafts/schemas/draft-annotations-pac-replace.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-pac-write.json":[{"href":"/drafts/schemas/draft-annotations-pac-write.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-sv-add.json":[{"href":"/drafts/schemas/draft-annotations-sv-add.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-sv-replace.json":[{"href":"/drafts/schemas/draft-annotations-sv-replace.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-sv-write.json":[{"href":"/drafts/schemas/draft-annotations-sv-write.json","name":"latest-version"}],"self":{"href":"/drafts/schemas"}}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+		s := validator.NewSchemaValidator(log).GetSchemaHandler()
+
+		r := mux.NewRouter()
+		r.HandleFunc("/drafts/schemas", s.ListSchemas).Methods("GET")
+
+		req := httptest.NewRequest(
+			"GET",
+			"/drafts/schemas",
+			nil)
+
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+		resp := w.Result()
+		defer resp.Body.Close()
+
+		assert.Equal(t, tt.expectedMessage, strings.TrimSpace(w.Body.String()))
+	}
+}
+
+func TestGetSchemas(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+
+	tests := []struct {
+		name            string
+		schemaName      string
+		expectedMessage string
+	}{
+		{
+			"Get Draft PAC Annotations Write Schema",
+			"draft-annotations-pac-write.json",
+			`{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"http://upp-publishing-prod.ft.com/schema/draft-annotations-pac-write+json","title":"Draft PAC Annotations Write Endpoint","type":"object","description":"Schema for Draft PAC Annotations","properties":{"annotations":{"type":"array","description":"Draft PAC annotations","items":{"$ref":"#/$defs/annotation"}},"publication":{"type":"array","description":"Indicates which titles are aware of this content","items":{"type":"string","pattern":"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"}}},"required":["annotations","publication"],"additionalProperties":false,"$defs":{"annotation":{"type":"object","properties":{"id":{"type":"string","pattern":".*/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$","description":"ID of the related concept"},"predicate":{"type":"string","description":"Predicate of the annotation","enum":["http://www.ft.com/ontology/annotation/mentions","http://www.ft.com/ontology/classification/isClassifiedBy","http://www.ft.com/ontology/implicitlyClassifiedBy","http://www.ft.com/ontology/annotation/about","http://www.ft.com/ontology/isPrimarilyClassifiedBy","http://www.ft.com/ontology/majorMentions","http://www.ft.com/ontology/annotation/hasAuthor","http://www.ft.com/ontology/hasContributor","http://www.ft.com/ontology/hasDisplayTag","http://www.ft.com/ontology/hasBrand"]},"apiUrl":{"type":"string","description":"API URL of the related concept"},"type":{"type":"string","description":"Type of the related concept"},"prefLabel":{"type":"string","description":"PrefLabel of the related concept"},"isFTAuthor":{"type":"boolean","description":"Indicates whether the related concept is an FT author"}},"required":["id","predicate"],"additionalProperties":false}}}`,
+		},
+		{
+			"Get Draft SV Annotations Add Schema",
+			"draft-annotations-sv-add.json",
+			`{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"http://upp-publishing-prod.ft.com/schema/draft-annotations-sv-add+json","title":"Draft Sustainable Views Annotations Add Endpoint","type":"object","description":"Schema for Draft Sustainable Views Annotations","properties":{"annotation":{"type":"object","properties":{"id":{"type":"string","pattern":".*/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$","description":"ID of the related concept"},"predicate":{"type":"string","description":"Predicate of the annotation","enum":["http://www.ft.com/ontology/annotation/about","http://www.ft.com/ontology/annotation/hasAuthor","http://www.ft.com/ontology/annotation/hasReference"]},"apiUrl":{"type":"string","description":"API URL of the related concept"},"type":{"type":"string","description":"Type of the related concept"},"prefLabel":{"type":"string","description":"PrefLabel of the related concept"},"isFTAuthor":{"type":"boolean","description":"Indicates whether the related concept is an FT author"}},"required":["id","predicate"],"additionalProperties":false},"publication":{"type":"array","description":"Indicates which titles are aware of this content","items":{"type":"string","pattern":"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"}}},"required":["annotation","publication"],"additionalProperties":false}`,
+		},
+		{
+			"Get Draft SV Annotations Replace Schema",
+			"draft-annotations-sv-replace.json",
+			`{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"http://upp-publishing-prod.ft.com/schema/draft-annotations-sv-replace+json","title":"Draft Sustainable Views Annotations Replace Endpoint","type":"object","description":"Schema for Draft Sustainable Views Annotations","properties":{"annotation":{"type":"object","properties":{"id":{"type":"string","pattern":".*/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$","description":"ID of the related concept"},"predicate":{"type":"string","description":"Predicate of the annotation","enum":["http://www.ft.com/ontology/annotation/about","http://www.ft.com/ontology/annotation/hasAuthor","http://www.ft.com/ontology/annotation/hasReference"]},"apiUrl":{"type":"string","description":"API URL of the related concept"},"type":{"type":"string","description":"Type of the related concept"},"prefLabel":{"type":"string","description":"PrefLabel of the related concept"},"isFTAuthor":{"type":"boolean","description":"Indicates whether the related concept is an FT author"}},"required":["id"],"additionalProperties":false},"publication":{"type":"array","description":"Indicates which titles are aware of this content","items":{"type":"string","pattern":"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"}}},"required":["annotation","publication"],"additionalProperties":false}`,
+		},
+	}
+
+	for _, tt := range tests {
+		log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+		s := validator.NewSchemaValidator(log).GetSchemaHandler()
+
+		r := mux.NewRouter()
+		r.HandleFunc("/drafts/schemas/{schemaName}", s.GetSchema).Methods("GET")
+
+		req := httptest.NewRequest(
+			"GET",
+			"/drafts/schemas/"+tt.schemaName,
+			nil)
+
+		w := httptest.NewRecorder()
+
+		r.ServeHTTP(w, req)
+		resp := w.Result()
+		defer resp.Body.Close()
+
+		body := &bytes.Buffer{}
+		err := json.Compact(body, w.Body.Bytes())
+		require.NoError(t, err)
+
+		assert.Equal(t, tt.expectedMessage, strings.TrimSpace(body.String()))
+	}
 }
 
 type AugmenterMock struct {

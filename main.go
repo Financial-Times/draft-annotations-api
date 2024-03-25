@@ -1,23 +1,25 @@
 package main
 
 import (
+	"github.com/Financial-Times/cm-annotations-ontology/validator"
+	"github.com/Financial-Times/go-logger/v2"
+	"github.com/Financial-Times/upp-content-validator-kit/v3/schema"
+	"github.com/gorilla/mux"
+	"github.com/rcrowley/go-metrics"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
-	api "github.com/Financial-Times/api-endpoint"
+	apiEndpoint "github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/draft-annotations-api/annotations"
 	"github.com/Financial-Times/draft-annotations-api/concept"
 	"github.com/Financial-Times/draft-annotations-api/handler"
 	"github.com/Financial-Times/draft-annotations-api/health"
 	"github.com/Financial-Times/go-ft-http/fthttp"
-	"github.com/Financial-Times/http-handlers-go/httphandlers"
+	"github.com/Financial-Times/http-handlers-go/v2/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
-	"github.com/husobee/vestigo"
 	cli "github.com/jawher/mow.cli"
-	metrics "github.com/rcrowley/go-metrics"
-	log "github.com/sirupsen/logrus"
 )
 
 const appDescription = "PAC Draft Annotations API"
@@ -92,19 +94,10 @@ func main() {
 		EnvVar: "LOG_LEVEL",
 	})
 
-	log.SetFormatter(&log.JSONFormatter{})
-	log.Infof("[Startup] %v is starting", *appSystemCode)
+	log := logger.NewUPPLogger(*appName, *logLevel)
 
 	app.Action = func() {
-		log.Infof("System code: %s, App Name: %s, Port: %s", *appSystemCode, *appName, *port)
-
-		// Setting the real log level here in order to have the startup log
-		parsedLogLevel, err := log.ParseLevel(*logLevel)
-		if err != nil {
-			log.WithField("logLevel", *logLevel).WithError(err).Error("Incorrect log level. Using INFO instead.")
-			parsedLogLevel = log.InfoLevel
-		}
-		log.SetLevel(parsedLogLevel)
+		log.Infof("Starting with system code: %s, app name: %s, port: %s", *appSystemCode, *appName, *port)
 
 		httpTimeout, err := time.ParseDuration(*httpTimeoutDuration)
 		if err != nil {
@@ -118,15 +111,18 @@ func main() {
 			log.Fatal("error while resolving basic auth")
 		}
 
-		rw := annotations.NewRW(client, *annotationsRWEndpoint)
-		annotationsAPI := annotations.NewUPPAnnotationsAPI(client, *annotationsAPIEndpoint, basicAuthCredentials[0], basicAuthCredentials[1])
+		rw := annotations.NewRW(client, *annotationsRWEndpoint, log)
+		annotationsAPI := annotations.NewUPPAnnotationsAPI(client, *annotationsAPIEndpoint, basicAuthCredentials[0], basicAuthCredentials[1], log)
 		c14n := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
-		conceptRead := concept.NewReadAPI(client, *internalConcordancesEndpoint, basicAuthCredentials[0], basicAuthCredentials[1], *internalConcordancesBatchSize)
-		augmenter := annotations.NewAugmenter(conceptRead)
-		annotationsHandler := handler.New(rw, annotationsAPI, c14n, augmenter, time.Millisecond*httpTimeout)
+		conceptRead := concept.NewReadAPI(client, *internalConcordancesEndpoint, basicAuthCredentials[0], basicAuthCredentials[1], *internalConcordancesBatchSize, log)
+		augmenter := annotations.NewAugmenter(conceptRead, log)
+		schemaValidator := validator.NewSchemaValidator(log)
+		jsonValidator := schemaValidator.GetJSONValidator()
+		schemaHandler := schemaValidator.GetSchemaHandler()
+		annotationsHandler := handler.New(rw, annotationsAPI, c14n, augmenter, jsonValidator, time.Millisecond*httpTimeout, log)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, rw, annotationsAPI, conceptRead)
 
-		serveEndpoints(*port, apiYml, annotationsHandler, healthService)
+		serveEndpoints(*port, *apiYml, annotationsHandler, healthService, schemaHandler, log)
 	}
 
 	err := app.Run(os.Args)
@@ -136,33 +132,33 @@ func main() {
 	}
 }
 
-func serveEndpoints(port string, apiYml *string, handler *handler.Handler, healthService *health.HealthService) {
-	r := vestigo.NewRouter()
+func serveEndpoints(port string, apiYml string, handler *handler.Handler, healthService *health.HealthService, schemaHandler *schema.SchemasHandler, log *logger.UPPLogger) {
+	r := mux.NewRouter()
 
-	r.Delete("/drafts/content/:uuid/annotations/:cuuid", handler.DeleteAnnotation)
-	r.Get("/drafts/content/:uuid/annotations", handler.ReadAnnotations)
-	r.Put("/drafts/content/:uuid/annotations", handler.WriteAnnotations)
-	r.Post("/drafts/content/:uuid/annotations", handler.AddAnnotation)
-	r.Patch("/drafts/content/:uuid/annotations/:cuuid", handler.ReplaceAnnotation)
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", handler.DeleteAnnotation).Methods("DELETE")
+	r.HandleFunc("/drafts/content/{uuid}/annotations", handler.ReadAnnotations).Methods("GET")
+	r.HandleFunc("/drafts/content/{uuid}/annotations", handler.WriteAnnotations).Methods("PUT")
+	r.HandleFunc("/drafts/content/{uuid}/annotations", handler.AddAnnotation).Methods("POST")
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", handler.ReplaceAnnotation).Methods("PATCH")
+	r.HandleFunc("/drafts/validate", handler.Validate).Methods("POST")
+	r.HandleFunc("/drafts/schemas", schemaHandler.ListSchemas).Methods("GET")
+	r.HandleFunc("/drafts/schemas/{schemaName}", schemaHandler.GetSchema).Methods("GET")
 
-	var monitoringRouter http.Handler = r
-	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
-	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
+	if apiYml != "" {
+		if endpoint, err := apiEndpoint.NewAPIEndpointForFile(apiYml); err == nil {
+			r.HandleFunc(apiEndpoint.DefaultPath, endpoint.ServeHTTP).Methods("GET")
+		}
+	}
 
 	http.HandleFunc("/__health", healthService.HealthCheckHandleFunc())
 	http.HandleFunc(status.GTGPath, status.NewGoodToGoHandler(healthService.GTG))
 	http.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
 
-	http.Handle("/", monitoringRouter)
+	var monitoringRouter http.Handler = r
+	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log, monitoringRouter)
+	monitoringRouter = httphandlers.HTTPMetricsHandler(metrics.DefaultRegistry, monitoringRouter)
 
-	if apiYml != nil {
-		apiEndpoint, err := api.NewAPIEndpointForFile(*apiYml)
-		if err != nil {
-			log.WithError(err).WithField("file", *apiYml).Warn("Failed to serve the API Endpoint for this service. Please validate the Swagger YML and the file location")
-		} else {
-			r.Get(api.DefaultPath, apiEndpoint.ServeHTTP)
-		}
-	}
+	http.Handle("/", monitoringRouter)
 
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("Unable to start: %v", err)

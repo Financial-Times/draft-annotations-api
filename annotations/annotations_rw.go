@@ -9,8 +9,9 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/Financial-Times/go-logger/v2"
+
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
-	log "github.com/sirupsen/logrus"
 )
 
 type SchemaVersionHeaderKey string
@@ -33,10 +34,11 @@ type RW interface {
 type annotationsRW struct {
 	endpoint   string
 	httpClient *http.Client
+	log        *logger.UPPLogger
 }
 
-func NewRW(client *http.Client, endpoint string) RW {
-	return &annotationsRW{endpoint, client}
+func NewRW(client *http.Client, endpoint string, log *logger.UPPLogger) RW {
+	return &annotationsRW{endpoint, client, log}
 }
 
 var ErrUnexpectedStatusRead = errors.New("annotations RW returned an unexpected HTTP status code in read operation")
@@ -48,14 +50,14 @@ func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) (map[stri
 
 	if err != nil {
 		tid = tidUtils.NewTransactionID()
-		log.WithField(tidUtils.TransactionIDKey, tid).
-			WithField("uuid", contentUUID).
+		rw.log.WithTransactionID(tid).
+			WithUUID(contentUUID).
 			WithError(err).
 			Warn("Transaction ID error in getting annotations from RW with concept data: Generated a new transaction ID")
 		ctx = tidUtils.TransactionAwareContext(ctx, tid)
 	}
 
-	readLog := log.WithField(tidUtils.TransactionIDKey, tid).WithField("uuid", contentUUID)
+	readLog := rw.log.WithTransactionID(tid).WithUUID(contentUUID)
 
 	req, err := http.NewRequest("GET", fmt.Sprintf(rwURLPattern, rw.endpoint, contentUUID), nil)
 	if err != nil {
@@ -92,14 +94,14 @@ func (rw *annotationsRW) Write(ctx context.Context, contentUUID string, data map
 
 	if err != nil {
 		tid = tidUtils.NewTransactionID()
-		log.WithField(tidUtils.TransactionIDKey, tid).
-			WithField("uuid", contentUUID).
+		rw.log.WithTransactionID(tid).
+			WithUUID(contentUUID).
 			WithError(err).
 			Warn("Transaction ID error in writing annotations to RW with concept data: Generated a new transaction ID")
 		ctx = tidUtils.TransactionAwareContext(ctx, tid)
 	}
 
-	writeLog := log.WithField(tidUtils.TransactionIDKey, tid).WithField("uuid", contentUUID)
+	writeLog := rw.log.WithTransactionID(tid).WithUUID(contentUUID)
 
 	annotationsBody, err := json.Marshal(data)
 	if err != nil {
@@ -139,13 +141,13 @@ func (rw *annotationsRW) Endpoint() string {
 func (rw *annotationsRW) GTG() error {
 	req, err := http.NewRequest("GET", rw.endpoint+"/__gtg", nil)
 	if err != nil {
-		log.WithError(err).Error("Error in creating the HTTP request to annotations RW GTG")
+		rw.log.WithError(err).Error("Error in creating the HTTP request to annotations RW GTG")
 		return fmt.Errorf("GTG: %w", err)
 	}
 
 	resp, err := rw.httpClient.Do(req)
 	if err != nil {
-		log.WithError(err).Error("Error making the HTTP request to annotations RW GTG")
+		rw.log.WithError(err).Error("Error making the HTTP request to annotations RW GTG")
 		return fmt.Errorf("GTG: %w", err)
 	}
 	defer resp.Body.Close()

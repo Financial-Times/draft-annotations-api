@@ -6,10 +6,11 @@ import (
 	"maps"
 	"strings"
 
+	"github.com/Financial-Times/go-logger/v2"
+
 	"github.com/Financial-Times/draft-annotations-api/concept"
 	"github.com/Financial-Times/draft-annotations-api/mapper"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
-	log "github.com/sirupsen/logrus"
 )
 
 type OriginSystemIDHeaderKey string
@@ -21,10 +22,11 @@ const (
 
 type Augmenter struct {
 	conceptRead concept.ReadAPI
+	log         *logger.UPPLogger
 }
 
-func NewAugmenter(api concept.ReadAPI) *Augmenter {
-	return &Augmenter{api}
+func NewAugmenter(api concept.ReadAPI, log *logger.UPPLogger) *Augmenter {
+	return &Augmenter{conceptRead: api, log: log}
 }
 
 func (a *Augmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations []interface{}) ([]interface{}, error) {
@@ -32,7 +34,7 @@ func (a *Augmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations
 
 	if err != nil {
 		tid = tidUtils.NewTransactionID()
-		log.WithField(tidUtils.TransactionIDKey, tid).
+		a.log.WithTransactionID(tid).
 			WithError(err).
 			Warn("Transaction ID error in augmenting annotations with concept data: Generated a new transaction ID")
 		ctx = tidUtils.TransactionAwareContext(ctx, tid)
@@ -40,7 +42,7 @@ func (a *Augmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations
 
 	dedupedCanonical, err := dedupeCanonicalAnnotations(canonicalAnnotations)
 	if err != nil {
-		log.WithField(tidUtils.TransactionIDKey, tid).
+		a.log.WithTransactionID(tid).
 			WithError(err).Error("Request failed when attempting to dedupе annotations")
 		return nil, err
 	}
@@ -55,7 +57,7 @@ func (a *Augmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations
 	concepts, err := a.conceptRead.GetConceptsByIDs(ctx, uuids)
 
 	if err != nil {
-		log.WithField(tidUtils.TransactionIDKey, tid).
+		a.log.WithTransactionID(tid).
 			WithError(err).Error("Request failed when attempting to augment annotations from UPP concept data")
 		return nil, err
 	}
@@ -74,13 +76,13 @@ func (a *Augmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations
 			ann["type"] = concept.Type
 			augmentedAnnotations = append(augmentedAnnotations, ann)
 		} else {
-			log.WithField(tidUtils.TransactionIDKey, tid).
-				WithField("conceptId", ann["id"]).
+			a.log.WithTransactionID(tid).
+				WithUUID(ann["id"].(string)).
 				Warn("Concept data for this annotation was not found, and will be removed from the list of annotations.")
 		}
 	}
 
-	log.WithField(tidUtils.TransactionIDKey, tid).Info("Annotations augmented with concept data")
+	a.log.WithTransactionID(tid).Info("Annotations augmented with concept data")
 	return augmentedAnnotations, nil
 }
 

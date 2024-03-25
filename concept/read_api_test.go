@@ -12,12 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Financial-Times/go-logger/v2"
+	"github.com/gorilla/mux"
+
 	"github.com/Financial-Times/go-ft-http/fthttp"
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/Pallinder/go-randomdata"
 	"github.com/google/uuid"
-	"github.com/husobee/vestigo"
-	log "github.com/sirupsen/logrus"
 	logTest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 )
@@ -37,7 +38,8 @@ func TestGetConceptsByIDsSingleBatch(t *testing.T) {
 	s := newMockedHappySearchService(t, testBasicAuthUsername, testBasicAuthPassword, batchSize, tid, expectedConcepts)
 	defer s.Close()
 
-	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize, log)
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	actualConcepts, err := csAPI.GetConceptsByIDs(ctx, extractIDs(expectedConcepts))
@@ -53,7 +55,8 @@ func TestGetConceptsByIDsMultipleBatches(t *testing.T) {
 	s := newMockedHappySearchService(t, testBasicAuthUsername, testBasicAuthPassword, batchSize, tid, expectedConcepts)
 	defer s.Close()
 
-	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize, log)
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	actualConcepts, err := csAPI.GetConceptsByIDs(ctx, extractIDs(expectedConcepts))
@@ -69,7 +72,8 @@ func TestGetConceptsByIDsMissingTID(t *testing.T) {
 	s := newMockedHappySearchService(t, testBasicAuthUsername, testBasicAuthPassword, batchSize, "", expectedConcepts)
 	defer s.Close()
 
-	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize, log)
 
 	actualConcepts, err := csAPI.GetConceptsByIDs(context.Background(), extractIDs(expectedConcepts))
 	assert.NoError(t, err)
@@ -78,7 +82,7 @@ func TestGetConceptsByIDsMissingTID(t *testing.T) {
 	var tid string
 	for i, e := range hook.AllEntries() {
 		if i == 0 {
-			assert.Equal(t, log.InfoLevel, e.Level)
+			assert.Equal(t, "INFO", e.Level)
 			assert.Equal(t, "No Transaction ID provided for concept request, so a new one has been generated.", e.Message)
 			tid = e.Data[tidUtils.TransactionIDKey].(string)
 			assert.NotEmpty(t, tid)
@@ -91,7 +95,8 @@ func TestGetConceptsByIDsMissingTID(t *testing.T) {
 func TestGetConceptsByIDsBuildingHTTPRequestError(t *testing.T) {
 	batchSize := 20
 
-	csAPI := NewReadAPI(testClient, ":#invalid endpoint", testBasicAuthUsername, testBasicAuthPassword, batchSize)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	csAPI := NewReadAPI(testClient, ":#invalid endpoint", testBasicAuthUsername, testBasicAuthPassword, batchSize, log)
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
@@ -103,7 +108,8 @@ func TestGetConceptsByIDsBuildingHTTPRequestError(t *testing.T) {
 func TestGetConceptsByIDsHTTPCallError(t *testing.T) {
 	batchSize := 20
 
-	csAPI := NewReadAPI(testClient, "", testBasicAuthUsername, testBasicAuthPassword, batchSize)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	csAPI := NewReadAPI(testClient, "", testBasicAuthUsername, testBasicAuthPassword, batchSize, log)
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
@@ -118,7 +124,8 @@ func TestGetConceptsByIDsNon200HTTPStatus(t *testing.T) {
 	s := newMockedUnhappySearchService(http.StatusServiceUnavailable, "I am not happy")
 	defer s.Close()
 
-	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize, log)
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
@@ -131,7 +138,8 @@ func TestGetConceptsByIDsUnmarshallingPayloadError(t *testing.T) {
 	s := newMockedUnhappySearchService(http.StatusOK, "}-a-wrong-json-payload-{")
 	defer s.Close()
 
-	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize, log)
 
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
 	_, err := csAPI.GetConceptsByIDs(ctx, []string{"an-id"})
@@ -146,20 +154,22 @@ func TestHappyGTG(t *testing.T) {
 	s := newMockedHappySearchService(t, testBasicAuthUsername, testBasicAuthPassword, batchSize, "", expectedConcepts)
 	defer s.Close()
 
-	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize, log)
 
 	err := csAPI.GTG()
 	assert.NoError(t, err)
 }
 
 func TestConceptSearchTimeout(t *testing.T) {
-	r := vestigo.NewRouter()
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	r := mux.NewRouter()
+	r.HandleFunc("/", func(_ http.ResponseWriter, _ *http.Request) {
 		time.Sleep(500 * time.Millisecond)
-	})
+	}).Methods("GET")
 
 	s := httptest.NewServer(r)
-	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, 1)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, 1, log)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel()
@@ -175,7 +185,8 @@ func TestUnhappyGTG(t *testing.T) {
 	s := newMockedUnhappySearchService(http.StatusServiceUnavailable, "I am not happy")
 	defer s.Close()
 
-	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	csAPI := NewReadAPI(testClient, s.URL, testBasicAuthUsername, testBasicAuthPassword, batchSize, log)
 
 	err := csAPI.GTG()
 	assert.True(t, errors.Is(err, ErrUnexpectedResponse))
