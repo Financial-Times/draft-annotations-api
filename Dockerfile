@@ -1,12 +1,14 @@
 FROM golang:1
 
 ENV PROJECT=draft-annotations-api
-
 ENV ORG_PATH="github.com/Financial-Times"
 ENV SRC_FOLDER="${GOPATH}/src/${ORG_PATH}/${PROJECT}"
 
 COPY . ${SRC_FOLDER}
 WORKDIR ${SRC_FOLDER}
+
+ARG GITHUB_USERNAME
+ARG GITHUB_TOKEN
 
 RUN BUILDINFO_PACKAGE="${ORG_PATH}/service-status-go/buildinfo." \
   && VERSION="version=$(git describe --tag --always 2> /dev/null)" \
@@ -15,7 +17,9 @@ RUN BUILDINFO_PACKAGE="${ORG_PATH}/service-status-go/buildinfo." \
   && REVISION="revision=$(git rev-parse HEAD)" \
   && BUILDER="builder=$(go version)" \
   && LDFLAGS="-X '"${BUILDINFO_PACKAGE}$VERSION"' -X '"${BUILDINFO_PACKAGE}$DATETIME"' -X '"${BUILDINFO_PACKAGE}$REPOSITORY"' -X '"${BUILDINFO_PACKAGE}$REVISION"' -X '"${BUILDINFO_PACKAGE}$BUILDER"'" \
-  && echo "Build flags: $LDFLAGS" \
+  && git config --global url."https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com".insteadOf "https://github.com" \
+  && mkdir -p /artifacts/schemas/ \
+  && cp -r /${SRC_FOLDER}/schemas /artifacts/schemas \
   && CGO_ENABLED=0 GO111MODULE=on go build -mod=readonly -o /artifacts/${PROJECT} -v -ldflags="${LDFLAGS}"
 
 

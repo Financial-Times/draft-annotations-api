@@ -12,11 +12,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Financial-Times/go-logger/v2"
+	"github.com/gorilla/mux"
+	logTest "github.com/sirupsen/logrus/hooks/test"
+
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
 	"github.com/Pallinder/go-randomdata"
-	"github.com/husobee/vestigo"
-	log "github.com/sirupsen/logrus"
-	logTest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -54,7 +55,8 @@ func TestHappyRead(t *testing.T) {
 	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusOK, testRWBody, "", expectedHash, tid)
 	defer s.Close()
 
-	rw := NewRW(testClient, s.URL)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, s.URL, log)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	actualAnnotations, actualHash, found, err := rw.Read(ctx, testContentUUID)
 	assert.NoError(t, err)
@@ -68,7 +70,8 @@ func TestReadAnnotationsNotFound(t *testing.T) {
 	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusNotFound, "", "", "", tid)
 	defer s.Close()
 
-	rw := NewRW(testClient, s.URL)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, s.URL, log)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, _, found, err := rw.Read(ctx, testContentUUID)
 	assert.NoError(t, err)
@@ -80,7 +83,8 @@ func TestUnhappyReadStatus500(t *testing.T) {
 	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusInternalServerError, "", "", "", tid)
 	defer s.Close()
 
-	rw := NewRW(testClient, s.URL)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, s.URL, log)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, _, found, err := rw.Read(ctx, testContentUUID)
 	assert.True(t, errors.Is(err, ErrUnexpectedStatusRead))
@@ -90,7 +94,8 @@ func TestUnhappyReadStatus500(t *testing.T) {
 func TestReadHTTPRequestError(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
 
-	rw := NewRW(testClient, ":#")
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, ":#", log)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, _, found, err := rw.Read(ctx, testContentUUID)
 
@@ -103,7 +108,8 @@ func TestReadHTTPRequestError(t *testing.T) {
 func TestReadHTTPCallError(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
 
-	rw := NewRW(testClient, "")
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, "", log)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, _, found, err := rw.Read(ctx, testContentUUID)
 
@@ -118,7 +124,8 @@ func TestReadInvalidBodyError(t *testing.T) {
 	s := newAnnotationsRWServerMock(t, http.MethodGet, http.StatusOK, "{invalid-body}", "", "", tid)
 	defer s.Close()
 
-	rw := NewRW(testClient, s.URL)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, s.URL, log)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, _, found, err := rw.Read(ctx, testContentUUID)
 	var jsonErr *json.SyntaxError
@@ -131,12 +138,13 @@ func TestReadInvalidBodyError(t *testing.T) {
 func TestReadMissingTID(t *testing.T) {
 	hook := logTest.NewGlobal()
 
-	rw := NewRW(testClient, "")
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, "", log)
 	rw.Read(context.Background(), testContentUUID)
 	var tid string
 	for i, e := range hook.AllEntries() {
 		if i == 0 {
-			assert.Equal(t, log.WarnLevel, e.Level)
+			assert.Equal(t, "WARN", e.Level)
 			assert.Equal(t, "Transaction ID error in getting annotations from RW with concept data: Generated a new transaction ID", e.Message)
 			tid = e.Data[tidUtils.TransactionIDKey].(string)
 			assert.NotEmpty(t, tid)
@@ -153,7 +161,8 @@ func TestHappyWriteStatusCreate(t *testing.T) {
 	s := newAnnotationsRWServerMock(t, http.MethodPost, http.StatusCreated, testRWBody, oldHash, newHash, tid)
 	defer s.Close()
 
-	rw := NewRW(testClient, s.URL)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, s.URL, log)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	ctx = context.WithValue(ctx, SchemaVersionHeaderKey(SchemaVersionHeader), DefaultSchemaVersion)
 	actualNewHash, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
@@ -168,7 +177,8 @@ func TestHappyWriteStatusOK(t *testing.T) {
 	s := newAnnotationsRWServerMock(t, http.MethodPost, http.StatusOK, testRWBody, oldHash, newHash, tid)
 	defer s.Close()
 
-	rw := NewRW(testClient, s.URL)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, s.URL, log)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	ctx = context.WithValue(ctx, SchemaVersionHeaderKey(SchemaVersionHeader), DefaultSchemaVersion)
 	actualNewHash, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
@@ -182,7 +192,8 @@ func TestUnhappyWriteStatus500(t *testing.T) {
 	s := newAnnotationsRWServerMock(t, http.MethodPost, http.StatusInternalServerError, testRWBody, oldHash, "", tid)
 	defer s.Close()
 
-	rw := NewRW(testClient, s.URL)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, s.URL, log)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	ctx = context.WithValue(ctx, SchemaVersionHeaderKey(SchemaVersionHeader), DefaultSchemaVersion)
 	_, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
@@ -192,7 +203,8 @@ func TestUnhappyWriteStatus500(t *testing.T) {
 func TestWriteHTTPRequestError(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
 	oldHash := randomdata.RandStringRunes(56)
-	rw := NewRW(testClient, ":#")
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, ":#", log)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
 
@@ -204,7 +216,8 @@ func TestWriteHTTPRequestError(t *testing.T) {
 func TestWriteHTTPCallError(t *testing.T) {
 	tid := tidUtils.NewTransactionID()
 	oldHash := randomdata.RandStringRunes(56)
-	rw := NewRW(testClient, "")
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, "", log)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	ctx = context.WithValue(ctx, SchemaVersionHeaderKey(SchemaVersionHeader), DefaultSchemaVersion)
 	_, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
@@ -217,7 +230,8 @@ func TestWriteHTTPCallError(t *testing.T) {
 func TestWriteMissingTID(t *testing.T) {
 	hook := logTest.NewGlobal()
 	oldHash := randomdata.RandStringRunes(56)
-	rw := NewRW(testClient, "")
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, "", log)
 
 	ctx := context.WithValue(context.Background(), SchemaVersionHeaderKey(SchemaVersionHeader), DefaultSchemaVersion)
 	_, err := rw.Write(ctx, testContentUUID, expectedCanonicalizedAnnotations, oldHash)
@@ -225,7 +239,7 @@ func TestWriteMissingTID(t *testing.T) {
 	var tid string
 	for i, e := range hook.AllEntries() {
 		if i == 0 {
-			assert.Equal(t, log.WarnLevel, e.Level)
+			assert.Equal(t, "WARN", e.Level)
 			assert.Equal(t, "Transaction ID error in writing annotations to RW with concept data: Generated a new transaction ID", e.Message)
 			tid = e.Data[tidUtils.TransactionIDKey].(string)
 			assert.NotEmpty(t, tid)
@@ -237,13 +251,14 @@ func TestWriteMissingTID(t *testing.T) {
 
 // nolint:all
 func TestRWTimeout(t *testing.T) {
-	r := vestigo.NewRouter()
-	r.Post("/draft-annotations/:uuid", func(w http.ResponseWriter, r *http.Request) {
+	r := mux.NewRouter()
+	r.HandleFunc("/draft-annotations/{uuid}", func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(500 * time.Millisecond)
-	})
+	}).Methods(http.MethodPost)
 
 	s := httptest.NewServer(r)
-	rw := NewRW(testClient, s.URL)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, s.URL, log)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
 	ctx = context.WithValue(ctx, SchemaVersionHeaderKey(SchemaVersionHeader), DefaultSchemaVersion)
 	defer cancel()
@@ -283,13 +298,15 @@ func newAnnotationsRWServerMock(t *testing.T, method string, status int, body st
 func TestRWHappyGTG(t *testing.T) {
 	s := newAnnotationsRWGTGServerMock(t, http.StatusOK, "")
 	defer s.Close()
-	rw := NewRW(testClient, s.URL)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, s.URL, log)
 	err := rw.GTG()
 	assert.NoError(t, err)
 }
 
 func TestRWHTTPRequestErrorGTG(t *testing.T) {
-	rw := NewRW(testClient, ":#")
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, ":#", log)
 	err := rw.GTG()
 	var urlError *url.Error
 	assert.True(t, errors.As(err, &urlError))
@@ -297,7 +314,8 @@ func TestRWHTTPRequestErrorGTG(t *testing.T) {
 }
 
 func TestRWHTTPCallErrorGTG(t *testing.T) {
-	rw := NewRW(testClient, "")
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, "", log)
 	err := rw.GTG()
 	var urlError *url.Error
 	assert.True(t, errors.As(err, &urlError))
@@ -307,14 +325,15 @@ func TestRWHTTPCallErrorGTG(t *testing.T) {
 func TestRW503GTG(t *testing.T) {
 	s := newAnnotationsRWGTGServerMock(t, http.StatusServiceUnavailable, "service unavailable")
 	defer s.Close()
-	rw := NewRW(testClient, s.URL)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, s.URL, log)
 	err := rw.GTG()
 	assert.True(t, errors.Is(err, ErrGTGNotOK))
 }
 
 func newAnnotationsRWGTGServerMock(t *testing.T, status int, body string) *httptest.Server {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, http.MethodGet, r.Method)
 		assert.Equal(t, "/__gtg", r.URL.Path)
 		w.WriteHeader(status)
 		w.Write([]byte(body))
@@ -324,6 +343,7 @@ func newAnnotationsRWGTGServerMock(t *testing.T, status int, body string) *httpt
 
 func TestRWEndpoint(t *testing.T) {
 	testEndpoint := "http://an-endpoint.com:8080"
-	rw := NewRW(testClient, testEndpoint)
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	rw := NewRW(testClient, testEndpoint, log)
 	assert.Equal(t, testEndpoint, rw.Endpoint())
 }

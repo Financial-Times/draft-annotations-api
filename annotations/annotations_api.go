@@ -8,11 +8,12 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/Financial-Times/go-logger/v2"
+
 	"github.com/Financial-Times/draft-annotations-api/mapper"
 	"github.com/pkg/errors"
 
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -69,12 +70,13 @@ type UPPAnnotationsAPI struct {
 	username         string
 	password         string
 	httpClient       *http.Client
+	log              *logger.UPPLogger
 }
 
 // NewUPPAnnotationsAPI initializes UPPAnnotationsAPI by given http client,
 // the url of the UPP public endpoint for getting published annotations and UPP API key.
-func NewUPPAnnotationsAPI(client *http.Client, endpoint string, username string, password string) *UPPAnnotationsAPI {
-	return &UPPAnnotationsAPI{endpointTemplate: endpoint, username: username, password: password, httpClient: client}
+func NewUPPAnnotationsAPI(client *http.Client, endpoint string, username string, password string, log *logger.UPPLogger) *UPPAnnotationsAPI {
+	return &UPPAnnotationsAPI{endpointTemplate: endpoint, username: username, password: password, httpClient: client, log: log}
 }
 
 // GetAll retrieves the list of published annotations for given contentUUID.
@@ -158,7 +160,7 @@ func (api *UPPAnnotationsAPI) getUPPAnnotationsResponse(ctx context.Context, con
 		tid = "not_found"
 	}
 
-	logEntry := log.WithField(tidUtils.TransactionIDKey, tid).WithField("url", apiReqURI).WithField("uuid", contentUUID)
+	logEntry := api.log.WithTransactionID(tid).WithField("url", apiReqURI).WithUUID(contentUUID)
 
 	apiReq, err := http.NewRequest("GET", apiReqURI, nil)
 	if err != nil {

@@ -8,8 +8,9 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/Financial-Times/go-logger/v2"
+
 	tidUtils "github.com/Financial-Times/transactionid-utils-go"
-	log "github.com/sirupsen/logrus"
 )
 
 type ReadAPI interface {
@@ -24,15 +25,17 @@ type internalConcordancesAPI struct {
 	password   string
 	httpClient *http.Client
 	batchSize  int
+	log        *logger.UPPLogger
 }
 
-func NewReadAPI(client *http.Client, endpoint string, username string, password string, batchSize int) ReadAPI {
+func NewReadAPI(client *http.Client, endpoint string, username string, password string, batchSize int, log *logger.UPPLogger) ReadAPI {
 	return &internalConcordancesAPI{
 		endpoint:   endpoint,
 		username:   username,
 		password:   password,
 		httpClient: client,
 		batchSize:  batchSize,
+		log:        log,
 	}
 }
 
@@ -42,7 +45,7 @@ func (search *internalConcordancesAPI) GetConceptsByIDs(ctx context.Context, con
 	tid, err := tidUtils.GetTransactionIDFromContext(ctx)
 	if err != nil {
 		tid = tidUtils.NewTransactionID()
-		log.WithField(tidUtils.TransactionIDKey, tid).
+		search.log.WithTransactionID(tid).
 			WithError(err).
 			Info("No Transaction ID provided for concept request, so a new one has been generated.")
 		ctx = tidUtils.TransactionAwareContext(ctx, tid)
@@ -57,7 +60,7 @@ func (search *internalConcordancesAPI) GetConceptsByIDs(ctx context.Context, con
 		if ((i+1)%search.batchSize == 0) && (i != 0) || (i+1 == n) {
 			conceptsBatch, err := search.searchConceptBatch(ctx, conceptIDsBatch)
 			if err != nil {
-				log.WithError(err).WithField(tidUtils.TransactionIDKey, tid).Info("Failed to fetch concepts batch")
+				search.log.WithTransactionID(tid).WithError(err).Info("Failed to fetch concepts batch")
 				return nil, err
 			}
 
@@ -67,15 +70,15 @@ func (search *internalConcordancesAPI) GetConceptsByIDs(ctx context.Context, con
 			conceptIDsBatch = []string{}
 		}
 	}
-	log.WithField(tidUtils.TransactionIDKey, tid).Info("Concepts information fetched successfully")
+	search.log.WithTransactionID(tid).Info("Concepts information fetched successfully")
 	return combinedResult, nil
 }
 
 func (search *internalConcordancesAPI) searchConceptBatch(ctx context.Context, conceptIDs []string) (map[string]Concept, error) {
 	tid, _ := tidUtils.GetTransactionIDFromContext(ctx)
-	batchConceptsLog := log.WithField(tidUtils.TransactionIDKey, tid)
+	batchConceptsLog := search.log.WithTransactionID(tid)
 
-	req, err := http.NewRequest("GET", search.endpoint, nil)
+	req, err := http.NewRequest(http.MethodGet, search.endpoint, nil)
 	if err != nil {
 		batchConceptsLog.WithError(err).Error("Error in creating the HTTP request to concept search API")
 		return nil, err
@@ -127,7 +130,7 @@ func (search *internalConcordancesAPI) GTG() error {
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tid)
 	_, err := search.searchConceptBatch(ctx, []string{ftBrandUUID})
 	if err != nil {
-		log.WithError(err).WithField(tidUtils.TransactionIDKey, tid).Error("Concept search API is not good-to-go")
+		search.log.WithTransactionID(tid).WithError(err).Error("Concept search API is not good-to-go")
 	}
 	return err
 }

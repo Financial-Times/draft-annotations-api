@@ -12,6 +12,8 @@ jobs:
           ANNOTATIONS_RW_ENDPOINT: http://localhost:9000
           ANNOTATIONS_ENDPOINT: http://localhost:9000/content/%v/annotations
           INTERNAL_CONCORDANCES_ENDPOINT: http://localhost:9000/internalconcordances
+          JSON_SCHEMAS_PATH: ./schemas
+          JSON_SCHEMA_NAME: draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json
       - image: peteclarkft/ersatz:stable
     steps:
       - checkout
@@ -20,7 +22,20 @@ jobs:
           command: "curl -X POST --data-binary @_ft/ersatz-fixtures.yml -H \"Content-type: text/x-yaml\" http://localhost:9000/__configure"
       - run:
           name: Go Build
-          command: go build -mod=readonly -v
+          command: >
+            #!/bin/bash
+
+            git config --global --unset url."ssh://git@github.com".insteadOf
+
+            export GOPRIVATE="github.com/Financial-Times"
+
+            git config --global
+            url."https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com".insteadOf
+            "https://github.com"
+
+            go mod download
+
+            go build -v
       - run:
           name: Download dredd
           command: |
@@ -36,13 +51,18 @@ workflows:
     jobs:
       - ft-golang-ci/build-and-test:
           name: build-and-test-project
-      - dredd
+          context: cm-team-github
+      - dredd:
+          context: cm-team-github
       - ft-golang-ci/docker-build:
           name: build-docker-image
           requires:
             - build-and-test-project
+          context: cm-team-github
   snyk-scanning:
     jobs:
       - ft-golang-ci/scan:
           name: scan-dependencies
-          context: cm-team-snyk
+          context:
+            - cm-team-snyk
+            - cm-team-github

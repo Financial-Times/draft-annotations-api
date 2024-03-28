@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "http://upp-publishing-prod.ft.com/schema/draft-annotations-pac-replace+json",
+  "title": "Draft PAC Annotations Replace Endpoint",
+  "type": "object",
+  "description": "Schema for Draft PAC Annotations",
+  "properties": {
+    "annotation": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": ".*/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$",
+          "description": "ID of the related concept"
+        },
+        "predicate": {
+          "type": "string",
+          "description": "Predicate of the annotation",
+          "enum": [
+            "http://www.ft.com/ontology/annotation/mentions",
+            "http://www.ft.com/ontology/classification/isClassifiedBy",
+            "http://www.ft.com/ontology/implicitlyClassifiedBy",
+            "http://www.ft.com/ontology/annotation/about",
+            "http://www.ft.com/ontology/isPrimarilyClassifiedBy",
+            "http://www.ft.com/ontology/majorMentions",
+            "http://www.ft.com/ontology/annotation/hasAuthor",
+            "http://www.ft.com/ontology/hasContributor",
+            "http://www.ft.com/ontology/hasDisplayTag",
+            "http://www.ft.com/ontology/hasBrand"
+          ]
+        },
+        "apiUrl": {
+          "type": "string",
+          "description": "API URL of the related concept"
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of the related concept"
+        },
+        "prefLabel": {
+          "type": "string",
+          "description": "PrefLabel of the related concept"
+        },
+        "isFTAuthor": {
+          "type": "boolean",
+          "description": "Indicates whether the related concept is an FT author"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "publication": {
+      "type": "array",
+      "description": "Indicates which titles are aware of this content",
+      "items": {
+        "type": "string",
+        "pattern": "[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"
+      }
+    }
+  },
+  "required": [
+    "annotation",
+    "publication"
+  ],
+  "additionalProperties": false
+}

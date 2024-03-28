@@ -18,4 +18,6 @@ env:
   HTTP_TIMEOUT: "8s"
   ANNOTATIONS_ENDPOINT: "" # This should be defined in the specific app-configs folder
   INTERNAL_CONCORDANCES_ENDPOINT: "" # This should be defined in the specific app-configs folder
+  JSON_SCHEMAS_PATH: "/schemas"
+  JSON_SCHEMA_NAME: "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json"
 
