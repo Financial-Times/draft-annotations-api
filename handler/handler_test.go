@@ -54,9 +54,9 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
 
-	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
@@ -128,7 +128,7 @@ func TestReadHasBrandAnnotation(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -140,7 +140,7 @@ func TestReadHasBrandAnnotation(t *testing.T) {
 				return test.readAnnotations, nil
 			}
 
-			req := httptest.NewRequest(http.MethodGet, "/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
+			req := httptest.NewRequest(http.MethodGet, "/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 			q := req.URL.Query()
 			q.Add("sendHasBrand", strconv.FormatBool(test.sendHasBrand))
 			req.URL.RawQuery = q.Encode()
@@ -175,7 +175,7 @@ func TestAddAnnotation(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	handler := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
 	router := mux.NewRouter()
-	router.HandleFunc("/drafts/content/{uuid}/annotations", handler.AddAnnotation).Methods(http.MethodPost)
+	router.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.AddAnnotation).Methods(http.MethodPost)
 
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
@@ -263,7 +263,7 @@ func TestAddAnnotation(t *testing.T) {
 
 			req := httptest.NewRequest(
 				http.MethodPost,
-				"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+				"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
 				bytes.NewBuffer(b))
 
 			req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -297,7 +297,7 @@ func TestWriteHasBrandAnnotation(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	handler := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
 	router := mux.NewRouter()
-	router.HandleFunc("/drafts/content/{uuid}/annotations", handler.WriteAnnotations).Methods(http.MethodPut)
+	router.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.WriteAnnotations).Methods(http.MethodPut)
 
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
@@ -377,7 +377,7 @@ func TestWriteHasBrandAnnotation(t *testing.T) {
 
 			req := httptest.NewRequest(
 				http.MethodPut,
-				"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+				"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
 				bytes.NewBuffer(b))
 
 			req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -411,7 +411,7 @@ func TestReplaceHasBrandAnnotation(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	handler := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
 	router := mux.NewRouter()
-	router.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", handler.ReplaceAnnotation).Methods(http.MethodPatch)
+	router.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", handler.ReplaceAnnotation).Methods(http.MethodPatch)
 
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
@@ -511,7 +511,7 @@ func TestReplaceHasBrandAnnotation(t *testing.T) {
 			}
 
 			b, _ := json.Marshal(test.replaceWith)
-			url := "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/" + test.toReplace
+			url := "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/" + test.toReplace
 			req := httptest.NewRequest(
 				http.MethodPatch,
 				url,
@@ -549,9 +549,9 @@ func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
 
-	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
@@ -583,9 +583,9 @@ func TestUnHappyAugmenter(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
 
-	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
@@ -624,9 +624,9 @@ func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annotationsAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
 
-	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
@@ -661,9 +661,9 @@ func TestFetchFromAnnotationsAPI404(t *testing.T) {
 	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword, log)
 	h := handler.New(rw, annotationsAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
 
-	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
@@ -695,9 +695,9 @@ func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword, log)
 	h := handler.New(rw, annotationsAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
 
-	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
@@ -728,9 +728,9 @@ func TestFetchFromAnnotationsAPI500(t *testing.T) {
 	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword, log)
 	h := handler.New(rw, annotationsAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
 
-	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
@@ -759,9 +759,9 @@ func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
 	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, ":#", testBasicAuthUsername, testBasicAuthPassword, log)
 	h := handler.New(rw, annotationsAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
 
-	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
@@ -791,9 +791,9 @@ func TestFetchFromAnnotationsAPIWithConnectionError(t *testing.T) {
 	annotationsAPI := annotations.NewUPPAnnotationsAPI(testClient, annotationsAPIServerMock.URL, testBasicAuthUsername, testBasicAuthPassword, log)
 	h := handler.New(rw, annotationsAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
 
-	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
@@ -1317,7 +1317,7 @@ func TestSaveAnnotations(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annotationsAPI, canonicalizer, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.WriteAnnotations).Methods(http.MethodPut)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.WriteAnnotations).Methods(http.MethodPut)
 
 	entity := bytes.Buffer{}
 	err := json.NewEncoder(&entity).Encode(&expectedAnnotationsWithPublication)
@@ -1327,7 +1327,7 @@ func TestSaveAnnotations(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPut,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
 		&entity)
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -1363,11 +1363,11 @@ func TestSaveAnnotationsInvalidContentUUID(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.WriteAnnotations).Methods(http.MethodPut)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.WriteAnnotations).Methods(http.MethodPut)
 
 	req := httptest.NewRequest(
 		http.MethodPut,
-		"http://api.ft.com/drafts/content/not-a-valid-uuid/annotations",
+		"http://api.ft.com/draft-annotations/content/not-a-valid-uuid/annotations",
 		strings.NewReader(expectedAnnotationsBody))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -1399,11 +1399,11 @@ func TestSaveAnnotationsInvalidAnnotationsBody(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annotationsAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.WriteAnnotations).Methods(http.MethodPut)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.WriteAnnotations).Methods(http.MethodPut)
 
 	req := httptest.NewRequest(
 		http.MethodPut,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
 		strings.NewReader(`{invalid-json}`))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -1444,7 +1444,7 @@ func TestSaveAnnotationsErrorFromRW(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annotationsAPI, canonicalizer, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.WriteAnnotations).Methods(http.MethodPut)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.WriteAnnotations).Methods(http.MethodPut)
 
 	entity := bytes.Buffer{}
 	err := json.NewEncoder(&entity).Encode(&expectedAnnotationsWithPublication)
@@ -1454,7 +1454,7 @@ func TestSaveAnnotationsErrorFromRW(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPut,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
 		&entity)
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -1487,9 +1487,9 @@ func TestAnnotationsReadTimeoutGenericRW(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
 
-	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
@@ -1518,9 +1518,9 @@ func TestAnnotationsReadTimeoutUPP(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
 
-	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
 	w := httptest.NewRecorder()
@@ -1577,7 +1577,7 @@ func TestAnnotationsWriteTimeout(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annotationsAPI, canonicalizer, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.WriteAnnotations).Methods(http.MethodPut)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.WriteAnnotations).Methods(http.MethodPut)
 
 	entity := bytes.Buffer{}
 	err := json.NewEncoder(&entity).Encode(&expectedAnnotationsWithPublication)
@@ -1587,7 +1587,7 @@ func TestAnnotationsWriteTimeout(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPut,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
 		&entity)
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -1636,11 +1636,11 @@ func TestHappyDeleteAnnotations(t *testing.T) {
 	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
 
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.DeleteAnnotation).Methods(http.MethodDelete)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", h.DeleteAnnotation).Methods(http.MethodDelete)
 
 	req := httptest.NewRequest(
 		http.MethodDelete,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
@@ -1668,11 +1668,11 @@ func TestUnHappyDeleteAnnotationsMissingContentUUID(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.DeleteAnnotation).Methods(http.MethodDelete)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", h.DeleteAnnotation).Methods(http.MethodDelete)
 
 	req := httptest.NewRequest(
 		http.MethodDelete,
-		"http://api.ft.com/drafts/content/foo/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
+		"http://api.ft.com/draft-annotations/content/foo/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
 		nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	w := httptest.NewRecorder()
@@ -1694,11 +1694,11 @@ func TestUnHappyDeleteAnnotationsInvalidConceptUUID(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.DeleteAnnotation).Methods(http.MethodDelete)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", h.DeleteAnnotation).Methods(http.MethodDelete)
 
 	req := httptest.NewRequest(
 		http.MethodDelete,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/bar",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/bar",
 		nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	w := httptest.NewRecorder()
@@ -1722,11 +1722,11 @@ func TestUnHappyDeleteAnnotationsWhenRetrievingAnnotationsFails(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.DeleteAnnotation).Methods(http.MethodDelete)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", h.DeleteAnnotation).Methods(http.MethodDelete)
 
 	req := httptest.NewRequest(
 		http.MethodDelete,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
 		nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
@@ -1754,11 +1754,11 @@ func TestUnHappyDeleteAnnotationsWhenNoAnnotationsFound(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/:uuid/annotations/{cuuid}", h.DeleteAnnotation).Methods(http.MethodDelete)
+	r.HandleFunc("/draft-annotations/content/:uuid/annotations/{cuuid}", h.DeleteAnnotation).Methods(http.MethodDelete)
 
 	req := httptest.NewRequest(
 		http.MethodDelete,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
 		nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
@@ -1793,11 +1793,11 @@ func TestUnHappyDeleteAnnotationsWhenWritingAnnotationsFails(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.DeleteAnnotation).Methods(http.MethodDelete)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", h.DeleteAnnotation).Methods(http.MethodDelete)
 
 	req := httptest.NewRequest(
 		http.MethodDelete,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
 		nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
@@ -1834,7 +1834,7 @@ func TestHappyAddAnnotation(t *testing.T) {
 	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
 	r := mux.NewRouter()
 
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -1847,7 +1847,7 @@ func TestHappyAddAnnotation(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPost,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -1890,7 +1890,7 @@ func TestHappyAddExistingAnnotation(t *testing.T) {
 	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
 	r := mux.NewRouter()
 
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -1903,7 +1903,7 @@ func TestHappyAddExistingAnnotation(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPost,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -1945,7 +1945,7 @@ func TestHappyAddAnnotationWithExistingConceptIdDifferentPredicate(t *testing.T)
 	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
 	r := mux.NewRouter()
 
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -1958,7 +1958,7 @@ func TestHappyAddAnnotationWithExistingConceptIdDifferentPredicate(t *testing.T)
 
 	req := httptest.NewRequest(
 		http.MethodPost,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -1987,11 +1987,11 @@ func TestUnHappyAddAnnotationInvalidContentId(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
 
 	req := httptest.NewRequest(
 		http.MethodPost,
-		"http://api.ft.com/drafts/content/foo/annotations",
+		"http://api.ft.com/draft-annotations/content/foo/annotations",
 		nil)
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2015,7 +2015,7 @@ func TestUnHappyAddAnnotationInvalidConceptIdPrefix(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -2027,7 +2027,7 @@ func TestUnHappyAddAnnotationInvalidConceptIdPrefix(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPost,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2051,7 +2051,7 @@ func TestUnHappyAddAnnotationEmptyConceptId(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -2062,7 +2062,7 @@ func TestUnHappyAddAnnotationEmptyConceptId(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPost,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2086,7 +2086,7 @@ func TestUnHappyAddAnnotationInvalidConceptUuid(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -2098,7 +2098,7 @@ func TestUnHappyAddAnnotationInvalidConceptUuid(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPost,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2122,7 +2122,7 @@ func TestUnHappyAddAnnotationInvalidPredicate(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -2134,7 +2134,7 @@ func TestUnHappyAddAnnotationInvalidPredicate(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPost,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2169,7 +2169,7 @@ func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
 	r := mux.NewRouter()
 
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -2182,7 +2182,7 @@ func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPost,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2209,7 +2209,7 @@ func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
 	r := mux.NewRouter()
 
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -2222,7 +2222,7 @@ func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPost,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2251,7 +2251,7 @@ func TestUnhappyAddAnnotationWhenNoAnnotationsFound(t *testing.T) {
 	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
 	r := mux.NewRouter()
 
-	r.HandleFunc("/drafts/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -2264,7 +2264,7 @@ func TestUnhappyAddAnnotationWhenNoAnnotationsFound(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPost,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2303,7 +2303,7 @@ func TestHappyReplaceAnnotation(t *testing.T) {
 	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
 	r := mux.NewRouter()
 
-	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -2315,7 +2315,7 @@ func TestHappyReplaceAnnotation(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPatch,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2399,7 +2399,7 @@ func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
 	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
 	r := mux.NewRouter()
 
-	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -2412,7 +2412,7 @@ func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPatch,
-		"/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		"/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2450,7 +2450,7 @@ func TestHappyReplaceExistingAnnotation(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -2463,7 +2463,7 @@ func TestHappyReplaceExistingAnnotation(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPatch,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/0a619d71-9af5-3755-90dd-f789b686c67a",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/0a619d71-9af5-3755-90dd-f789b686c67a",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2492,11 +2492,11 @@ func TestUnHappyReplaceAnnotationsInvalidContentUUID(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
 
 	req := httptest.NewRequest(
 		http.MethodPatch,
-		"http://api.ft.com/drafts/content/foo/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
+		"http://api.ft.com/draft-annotations/content/foo/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
 		nil)
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2520,7 +2520,7 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInURI(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
 
 	ann := map[string]interface{}{
 		"id": "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
@@ -2529,7 +2529,7 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInURI(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPatch,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/bar",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/bar",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2553,11 +2553,11 @@ func TestUnHappyReplaceAnnotationEmptyBody(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
 
 	req := httptest.NewRequest(
 		http.MethodPatch,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		nil)
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2581,7 +2581,7 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInBody(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -2592,7 +2592,7 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInBody(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPatch,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2616,7 +2616,7 @@ func TestUnHappyReplaceAnnotationInvalidPredicate(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -2628,7 +2628,7 @@ func TestUnHappyReplaceAnnotationInvalidPredicate(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPatch,
-		"/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		"/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2662,7 +2662,7 @@ func TestUnhappyReplaceAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -2674,7 +2674,7 @@ func TestUnhappyReplaceAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPatch,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2700,7 +2700,7 @@ func TestUnhappyReplaceAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -2713,7 +2713,7 @@ func TestUnhappyReplaceAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPatch,
-		"http://api.ft.com/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2741,7 +2741,7 @@ func TestUnhappyReplaceAnnotationWhenNoAnnotationsFound(t *testing.T) {
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
 	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
 	r := mux.NewRouter()
-	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
 
 	ann := map[string]interface{}{
 		"annotation": map[string]interface{}{
@@ -2754,7 +2754,7 @@ func TestUnhappyReplaceAnnotationWhenNoAnnotationsFound(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodPatch,
-		"/drafts/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
+		"/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/9577c6d4-b09e-4552-b88f-e52745abe02b",
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -2881,14 +2881,14 @@ func TestValidate(t *testing.T) {
 		h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
 
 		r := mux.NewRouter()
-		r.HandleFunc("/drafts/validate", h.Validate).Methods(http.MethodPost)
+		r.HandleFunc("/draft-annotations/validate", h.Validate).Methods(http.MethodPost)
 
 		b, err := json.Marshal(tt.requestBody)
 		require.NoError(t, err)
 
 		req := httptest.NewRequest(
 			http.MethodPost,
-			"/drafts/validate",
+			"/draft-annotations/validate",
 			bytes.NewBuffer(b))
 
 		w := httptest.NewRecorder()
@@ -2911,7 +2911,7 @@ func TestListSchemas(t *testing.T) {
 	}{
 		{
 			"List schemas",
-			`{"_links":{"application/vnd.ft-upp-annotations-pac-add.json":[{"href":"/drafts/schemas/draft-annotations-pac-add.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-pac-replace.json":[{"href":"/drafts/schemas/draft-annotations-pac-replace.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-pac-write.json":[{"href":"/drafts/schemas/draft-annotations-pac-write.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-sv-add.json":[{"href":"/drafts/schemas/draft-annotations-sv-add.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-sv-replace.json":[{"href":"/drafts/schemas/draft-annotations-sv-replace.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-sv-write.json":[{"href":"/drafts/schemas/draft-annotations-sv-write.json","name":"latest-version"}],"self":{"href":"/drafts/schemas"}}}`,
+			`{"_links":{"application/vnd.ft-upp-annotations-pac-add.json":[{"href":"/draft-annotations/schemas/draft-annotations-pac-add.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-pac-replace.json":[{"href":"/draft-annotations/schemas/draft-annotations-pac-replace.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-pac-write.json":[{"href":"/draft-annotations/schemas/draft-annotations-pac-write.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-sv-add.json":[{"href":"/draft-annotations/schemas/draft-annotations-sv-add.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-sv-replace.json":[{"href":"/draft-annotations/schemas/draft-annotations-sv-replace.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-sv-write.json":[{"href":"/draft-annotations/schemas/draft-annotations-sv-write.json","name":"latest-version"}],"self":{"href":"/draft-annotations/schemas"}}}`,
 		},
 	}
 
@@ -2920,11 +2920,11 @@ func TestListSchemas(t *testing.T) {
 		s := validator.NewSchemaValidator(log).GetSchemaHandler()
 
 		r := mux.NewRouter()
-		r.HandleFunc("/drafts/schemas", s.ListSchemas).Methods(http.MethodGet)
+		r.HandleFunc("/draft-annotations/schemas", s.ListSchemas).Methods(http.MethodGet)
 
 		req := httptest.NewRequest(
 			http.MethodGet,
-			"/drafts/schemas",
+			"/draft-annotations/schemas",
 			nil)
 
 		w := httptest.NewRecorder()
@@ -2968,11 +2968,11 @@ func TestGetSchemas(t *testing.T) {
 		s := validator.NewSchemaValidator(log).GetSchemaHandler()
 
 		r := mux.NewRouter()
-		r.HandleFunc("/drafts/schemas/{schemaName}", s.GetSchema).Methods(http.MethodGet)
+		r.HandleFunc("/draft-annotations/schemas/{schemaName}", s.GetSchema).Methods(http.MethodGet)
 
 		req := httptest.NewRequest(
 			http.MethodGet,
-			"/drafts/schemas/"+tt.schemaName,
+			"/draft-annotations/schemas/"+tt.schemaName,
 			nil)
 
 		w := httptest.NewRecorder()

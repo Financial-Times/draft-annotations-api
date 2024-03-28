@@ -17,7 +17,7 @@ schemes:
   - https
 
 paths:
-  /drafts/content/{uuid}/annotations:
+  /draft-annotations/content/{uuid}/annotations:
     get:
       summary: Get Annotations Drafts for Content
       description: Returns the draft annotations for the content with the given uuid.
@@ -197,7 +197,7 @@ paths:
           description: The content with the specified UUID was not found.
         500:
           description: Internal server error
-  /drafts/content/{uuid}/annotations/{conceptUUID}:
+  /draft-annotations/content/{uuid}/annotations/{conceptUUID}:
     delete:
       summary: Delete all annotations with a given concept from the draft annotations for a specified content
       description: Returns the draft annotations for the content after the delete operation.
