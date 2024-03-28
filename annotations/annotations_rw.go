@@ -59,7 +59,7 @@ func (rw *annotationsRW) Read(ctx context.Context, contentUUID string) (map[stri
 
 	readLog := rw.log.WithTransactionID(tid).WithUUID(contentUUID)
 
-	req, err := http.NewRequest("GET", fmt.Sprintf(rwURLPattern, rw.endpoint, contentUUID), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf(rwURLPattern, rw.endpoint, contentUUID), nil)
 	if err != nil {
 		readLog.WithError(err).Error("Error in creating the HTTP read request to annotations RW")
 		return nil, "", false, err

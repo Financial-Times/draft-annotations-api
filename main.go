@@ -135,14 +135,14 @@ func main() {
 func serveEndpoints(port string, apiYml string, handler *handler.Handler, healthService *health.HealthService, schemaHandler *schema.SchemasHandler, log *logger.UPPLogger) {
 	r := mux.NewRouter()
 
-	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", handler.DeleteAnnotation).Methods("DELETE")
-	r.HandleFunc("/drafts/content/{uuid}/annotations", handler.ReadAnnotations).Methods("GET")
-	r.HandleFunc("/drafts/content/{uuid}/annotations", handler.WriteAnnotations).Methods("PUT")
-	r.HandleFunc("/drafts/content/{uuid}/annotations", handler.AddAnnotation).Methods("POST")
-	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", handler.ReplaceAnnotation).Methods("PATCH")
-	r.HandleFunc("/drafts/validate", handler.Validate).Methods("POST")
-	r.HandleFunc("/drafts/schemas", schemaHandler.ListSchemas).Methods("GET")
-	r.HandleFunc("/drafts/schemas/{schemaName}", schemaHandler.GetSchema).Methods("GET")
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", handler.DeleteAnnotation).Methods(http.MethodDelete)
+	r.HandleFunc("/drafts/content/{uuid}/annotations", handler.ReadAnnotations).Methods(http.MethodGet)
+	r.HandleFunc("/drafts/content/{uuid}/annotations", handler.WriteAnnotations).Methods(http.MethodPut)
+	r.HandleFunc("/drafts/content/{uuid}/annotations", handler.AddAnnotation).Methods(http.MethodPost)
+	r.HandleFunc("/drafts/content/{uuid}/annotations/{cuuid}", handler.ReplaceAnnotation).Methods(http.MethodPatch)
+	r.HandleFunc("/drafts/validate", handler.Validate).Methods(http.MethodPost)
+	r.HandleFunc("/drafts/schemas", schemaHandler.ListSchemas).Methods(http.MethodGet)
+	r.HandleFunc("/drafts/schemas/{schemaName}", schemaHandler.GetSchema).Methods(http.MethodGet)
 
 	if apiYml != "" {
 		if endpoint, err := apiEndpoint.NewAPIEndpointForFile(apiYml); err == nil {

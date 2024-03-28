@@ -154,7 +154,7 @@ func TestAnnotationsAPITimeout(t *testing.T) {
 	r := mux.NewRouter()
 	r.HandleFunc("/content/{uuid}/annotations", func(_ http.ResponseWriter, _ *http.Request) {
 		time.Sleep(500 * time.Millisecond)
-	}).Methods("GET")
+	}).Methods(http.MethodGet)
 
 	s := httptest.NewServer(r)
 	log := logger.NewUPPLogger("draft-annotations-api", "INFO")

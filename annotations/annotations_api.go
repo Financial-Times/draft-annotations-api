@@ -69,7 +69,7 @@ type UPPAnnotationsAPI struct {
 	endpointTemplate string
 	username         string
 	password         string
-	httpClient       *http.Client ``
+	httpClient       *http.Client
 	log              *logger.UPPLogger
 }
 

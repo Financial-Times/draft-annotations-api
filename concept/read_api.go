@@ -78,7 +78,7 @@ func (search *internalConcordancesAPI) searchConceptBatch(ctx context.Context, c
 	tid, _ := tidUtils.GetTransactionIDFromContext(ctx)
 	batchConceptsLog := search.log.WithTransactionID(tid)
 
-	req, err := http.NewRequest("GET", search.endpoint, nil)
+	req, err := http.NewRequest(http.MethodGet, search.endpoint, nil)
 	if err != nil {
 		batchConceptsLog.WithError(err).Error("Error in creating the HTTP request to concept search API")
 		return nil, err

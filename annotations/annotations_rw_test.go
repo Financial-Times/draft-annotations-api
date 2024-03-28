@@ -254,7 +254,7 @@ func TestRWTimeout(t *testing.T) {
 	r := mux.NewRouter()
 	r.HandleFunc("/draft-annotations/{uuid}", func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(500 * time.Millisecond)
-	}).Methods("POST")
+	}).Methods(http.MethodPost)
 
 	s := httptest.NewServer(r)
 	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
@@ -333,7 +333,7 @@ func TestRW503GTG(t *testing.T) {
 
 func newAnnotationsRWGTGServerMock(t *testing.T, status int, body string) *httptest.Server {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, http.MethodGet, r.Method)
 		assert.Equal(t, "/__gtg", r.URL.Path)
 		w.WriteHeader(status)
 		w.Write([]byte(body))
