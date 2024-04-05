@@ -98,6 +98,29 @@ var expectedAugmentedAnnotations = []interface{}{
 	},
 }
 
+var expectedAugmentedAnnotationsSV = []interface{}{
+	map[string]interface{}{
+		"predicate": "http://www.ft.com/ontology/classification/isClassifiedBy",
+		"id":        "http://www.ft.com/thing/b224ad07-c818-3ad6-94af-a4d351dbb619",
+	},
+	map[string]interface{}{
+		"predicate": "http://www.ft.com/ontology/annotation/mentions",
+		"id":        "http://www.ft.com/thing/1a2a1a0a-7199-38b8-8a73-e651e2172471",
+	},
+	map[string]interface{}{
+		"predicate": "http://www.ft.com/ontology/hasContributor",
+		"id":        "http://www.ft.com/thing/5bd49568-6d7c-3c10-a5b0-2f3fd5974a6b",
+	},
+	map[string]interface{}{
+		"predicate": "http://www.ft.com/ontology/annotation/mentions",
+		"id":        "http://www.ft.com/thing/1fb3faf1-bf00-3a15-8efb-1038a59653f7",
+	},
+	map[string]interface{}{
+		"predicate": "http://www.ft.com/ontology/annotation/mentions",
+		"id":        "http://www.ft.com/thing/7b7dafa0-d54e-4c1d-8e22-3d452792acd2",
+	},
+}
+
 var testReturnSingleConceptID = []string{
 	"b224ad07-c818-3ad6-94af-a4d351dbb619",
 }
@@ -131,6 +154,21 @@ func TestAugmentAnnotations(t *testing.T) {
 	assert.Equal(t, len(expectedAugmentedAnnotations), len(annotations))
 	assert.ElementsMatch(t, annotations, expectedAugmentedAnnotations)
 	conceptRead.AssertExpectations(t)
+}
+
+func TestAugmentAnnotationsSustainableViews(t *testing.T) {
+	conceptRead := new(ConceptReadAPIMock)
+	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
+	ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), "http://cmdb.ft.com/systems/spark")
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	a := NewAugmenter(conceptRead, log)
+
+	annotations, err := a.AugmentAnnotations(ctx, testCanonicalizedAnnotations)
+
+	assert.NoError(t, err)
+	assert.Equal(t, len(expectedAugmentedAnnotationsSV), len(annotations))
+	assert.ElementsMatch(t, annotations, expectedAugmentedAnnotationsSV)
+	conceptRead.AssertNotCalled(t, "GetConceptsByIDs")
 }
 
 func TestAugmentAnnotationsFixtures(t *testing.T) {
