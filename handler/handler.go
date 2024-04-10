@@ -20,6 +20,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const SchemaNameHeader = "Schema-Name"
+
 // AnnotationsAPI interface encapsulates logic for getting published annotations from API
 type AnnotationsAPI interface {
 	GetAll(context.Context, string) ([]interface{}, error)
@@ -33,7 +35,8 @@ type Augmenter interface {
 
 // Interface for json validator
 type jsonValidator interface {
-	Validate(interface{}) error
+	ValidateByAPI(interface{}, string, string, []interface{}) error
+	ValidateBySchema(content interface{}, schemaName string) (err error)
 }
 
 // Handler provides endpoints for reading annotations - draft or published, and writing draft annotations.
@@ -146,7 +149,19 @@ func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.validator.Validate(addedAnnotationBody)
+	var publication []interface{}
+	var ok bool
+	if v, found := addedAnnotationBody["publication"]; found {
+		if publication, ok = v.([]interface{}); !ok {
+			handleWriteErrors("Invalid request", errors.New("publication is not in correct format"), writeLog, w, http.StatusBadRequest)
+			return
+		}
+	} else {
+		handleWriteErrors("Invalid request", errors.New("publication is missing"), writeLog, w, http.StatusBadRequest)
+		return
+	}
+
+	err = h.validator.ValidateByAPI(addedAnnotationBody, r.Method, r.RequestURI, publication)
 	if err != nil {
 		handleWriteErrors("Failed to validate request body", err, writeLog, w, http.StatusBadRequest)
 		return
@@ -276,7 +291,19 @@ func (h *Handler) WriteAnnotations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.validator.Validate(draftAnnotationsBody)
+	var publication []interface{}
+	var ok bool
+	if v, found := draftAnnotationsBody["publication"]; found {
+		if publication, ok = v.([]interface{}); !ok {
+			handleWriteErrors("Invalid request", errors.New("publication is not in correct format"), writeLog, w, http.StatusBadRequest)
+			return
+		}
+	} else {
+		handleWriteErrors("Invalid request", errors.New("publication is missing"), writeLog, w, http.StatusBadRequest)
+		return
+	}
+
+	err = h.validator.ValidateByAPI(draftAnnotationsBody, r.Method, r.RequestURI, publication)
 	if err != nil {
 		handleWriteErrors("Failed to validate request body", err, writeLog, w, http.StatusBadRequest)
 		return
@@ -338,7 +365,19 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.validator.Validate(addedAnnotationBody)
+	var publication []interface{}
+	var ok bool
+	if v, found := addedAnnotationBody["publication"]; found {
+		if publication, ok = v.([]interface{}); !ok {
+			handleWriteErrors("Invalid request", errors.New("publication is not in correct format"), writeLog, w, http.StatusBadRequest)
+			return
+		}
+	} else {
+		handleWriteErrors("Invalid request", errors.New("publication is missing"), writeLog, w, http.StatusBadRequest)
+		return
+	}
+
+	err = h.validator.ValidateByAPI(addedAnnotationBody, r.Method, r.RequestURI, publication)
 	if err != nil {
 		handleWriteErrors("Failed to validate request body", err, writeLog, w, http.StatusBadRequest)
 		return
@@ -385,6 +424,12 @@ func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
 	tID := tidutils.GetTransactionIDFromRequest(r)
 	validateLog := h.log.WithTransactionID(tID)
 
+	schemaName := r.Header.Get(SchemaNameHeader)
+	if schemaName == "" {
+		handleWriteErrors("Invalid request", errors.New("Schema-Name header missing"), validateLog, w, http.StatusBadRequest)
+		return
+	}
+
 	requestBody := map[string]interface{}{}
 	dec := json.NewDecoder(r.Body)
 	err := dec.Decode(&requestBody)
@@ -393,7 +438,7 @@ func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.validator.Validate(requestBody)
+	err = h.validator.ValidateBySchema(requestBody, schemaName)
 	if err != nil {
 		handleWriteErrors("Failed to validate request body", err, validateLog, w, http.StatusBadRequest)
 		return

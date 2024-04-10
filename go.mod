@@ -1,17 +1,17 @@
 module github.com/Financial-Times/draft-annotations-api
 
-go 1.21
+go 1.22
 
 require (
 	github.com/Financial-Times/api-endpoint v1.0.1
-	github.com/Financial-Times/cm-annotations-ontology v1.0.3
+	github.com/Financial-Times/cm-annotations-ontology v1.0.5-validate-api
 	github.com/Financial-Times/go-ft-http v0.0.0-20180309161359-d97cffa9d18b
 	github.com/Financial-Times/go-fthealth v0.0.0-20200609161010-4c53fbef65fa
 	github.com/Financial-Times/go-logger/v2 v2.0.1
 	github.com/Financial-Times/http-handlers-go/v2 v2.1.0
 	github.com/Financial-Times/service-status-go v0.3.0
 	github.com/Financial-Times/transactionid-utils-go v0.2.0
-	github.com/Financial-Times/upp-content-validator-kit/v3 v3.0.2
+	github.com/Financial-Times/upp-content-validator-kit/v3 v3.0.3-validate-api
 	github.com/Pallinder/go-randomdata v0.0.0-20170410161340-8c3362a5e678
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
