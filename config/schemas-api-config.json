@@ -1,0 +1,50 @@
+[
+  {
+    "http_method": "PUT",
+    "url": "/draft-annotations/content/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/annotations.*$",
+    "publication": [
+      "8e6c705e-1132-42a2-8db0-c295e29e8658"
+    ],
+    "schema_file_name": "draft-annotations-sv-write.json"
+  },
+  {
+    "http_method": "PUT",
+    "url": "/draft-annotations/content/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/annotations.*$",
+    "publication": [
+      "88fdde6c-2aa4-4f78-af02-9f680097cfd6"
+    ],
+    "schema_file_name": "draft-annotations-pac-write.json"
+  },
+  {
+    "http_method": "POST",
+    "url": "/draft-annotations/content/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/annotations.*$",
+    "publication": [
+      "8e6c705e-1132-42a2-8db0-c295e29e8658"
+    ],
+    "schema_file_name": "draft-annotations-sv-add.json"
+  },
+  {
+    "http_method": "POST",
+    "url": "/draft-annotations/content/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/annotations.*$",
+    "publication": [
+      "88fdde6c-2aa4-4f78-af02-9f680097cfd6"
+    ],
+    "schema_file_name": "draft-annotations-pac-add.json"
+  },
+  {
+    "http_method": "PATCH",
+    "url": "/draft-annotations/content/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/annotations/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}.*$",
+    "publication": [
+      "8e6c705e-1132-42a2-8db0-c295e29e8658"
+    ],
+    "schema_file_name": "draft-annotations-sv-replace.json"
+  },
+  {
+    "http_method": "PATCH",
+    "url": "/draft-annotations/content/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/annotations/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}.*$",
+    "publication": [
+      "88fdde6c-2aa4-4f78-af02-9f680097cfd6"
+    ],
+    "schema_file_name": "draft-annotations-pac-replace.json"
+  }
+]
