@@ -52,6 +52,8 @@ spec:
           value: "{{ .Values.env.JSON_SCHEMAS_PATH }}"
         - name: JSON_SCHEMA_NAME
           value: "{{ .Values.env.JSON_SCHEMA_NAME }}"
+        - name: JSON_SCHEMAS_API_CONFIG_PATH
+          value: "{{ .Values.env.JSON_SCHEMAS_API_CONFIG_PATH }}"
         ports:
         - containerPort: 8080
         livenessProbe:

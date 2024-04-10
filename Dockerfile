@@ -20,6 +20,8 @@ RUN BUILDINFO_PACKAGE="${ORG_PATH}/service-status-go/buildinfo." \
   && git config --global url."https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com".insteadOf "https://github.com" \
   && mkdir -p /artifacts/schemas/ \
   && cp -r /${SRC_FOLDER}/schemas /artifacts/schemas \
+    && mkdir -p /artifacts/config/ \
+      && cp -r /${SRC_FOLDER}/config /artifacts/config \
   && CGO_ENABLED=0 GO111MODULE=on go build -mod=readonly -o /artifacts/${PROJECT} -v -ldflags="${LDFLAGS}"
 
 
