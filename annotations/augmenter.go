@@ -90,7 +90,7 @@ func (a *Augmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations
 }
 
 func dedupeCanonicalAnnotations(annotations []interface{}) ([]interface{}, error) {
-	var deduped []interface{}
+	deduped := make([]interface{}, 0)
 	dedupedMap := make(map[string]bool)
 
 	for _, ann := range annotations {
