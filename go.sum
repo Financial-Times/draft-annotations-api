@@ -1,7 +1,7 @@
 github.com/Financial-Times/api-endpoint v1.0.1 h1:0us25WVHB5iyg9axY0SanXOz75KvcJb2ZNP8cI/18n8=
 github.com/Financial-Times/api-endpoint v1.0.1/go.mod h1:C5qRqxFKya6ra3v9Ml0Xac3Y7v6/p/Tb39jOYEwo7ZY=
-github.com/Financial-Times/cm-annotations-ontology v1.0.5-validate-api h1:/8H8lx2G84BRhRp4vjk8ll/IYlnn9b29t994+j8L8lM=
-github.com/Financial-Times/cm-annotations-ontology v1.0.5-validate-api/go.mod h1:UepBFIibGYZRoD8VSMU2+lhgN5EwfVXSNWA2paWXl6c=
+github.com/Financial-Times/cm-annotations-ontology v1.0.5 h1:5svzfUi8qbTEQQaj3UtSa+Tixq3sTblGZPLPnIL2eds=
+github.com/Financial-Times/cm-annotations-ontology v1.0.5/go.mod h1:/9uneekJE5KFWipqreEWMh2JEnxAivnHomEslrsNY9g=
 github.com/Financial-Times/go-ft-http v0.0.0-20180309161359-d97cffa9d18b h1:R9MiBTp/oAGOyL1kEq7ZYx3MYIupPf5Ysew7RhiRDOU=
 github.com/Financial-Times/go-ft-http v0.0.0-20180309161359-d97cffa9d18b/go.mod h1:X3hd/QU0XL6w1s4MW97T8M8Do7or+BtuJ93SXUNp/TE=
 github.com/Financial-Times/go-fthealth v0.0.0-20200609161010-4c53fbef65fa h1:jhrRhI2ihDmhAhmCucnabU6gyuQIDBcId7kKjnyp7Ec=
@@ -14,8 +14,8 @@ github.com/Financial-Times/service-status-go v0.3.0 h1:ADfpc/0j1G9gz8Q4+moJgnA1c
 github.com/Financial-Times/service-status-go v0.3.0/go.mod h1:LNNWeeKgUn5qnMsa4Ld8hJ5jcuvExjDxBGRPJMT1qSk=
 github.com/Financial-Times/transactionid-utils-go v0.2.0 h1:YcET5Hd1fUGWWpQSVszYUlAc15ca8tmjRetUuQKRqEQ=
 github.com/Financial-Times/transactionid-utils-go v0.2.0/go.mod h1:tPAcAFs/dR6Q7hBDGNyUyixHRvg/n9NW/JTq8C58oZ0=
-github.com/Financial-Times/upp-content-validator-kit/v3 v3.0.3-validate-api h1:uCNkipWTuUhHnK31F8YuRx7UREHOBZ699W71w9qc24k=
-github.com/Financial-Times/upp-content-validator-kit/v3 v3.0.3-validate-api/go.mod h1:k1iBktNPczrn5YTNECelVtFSO0jN6ESvjA4OjRLyB90=
+github.com/Financial-Times/upp-content-validator-kit/v3 v3.0.3 h1:LDfumxR953TVoFIBe+7nEanvXcQRaJOUeGZe/WDochY=
+github.com/Financial-Times/upp-content-validator-kit/v3 v3.0.3/go.mod h1:k1iBktNPczrn5YTNECelVtFSO0jN6ESvjA4OjRLyB90=
 github.com/Pallinder/go-randomdata v0.0.0-20170410161340-8c3362a5e678 h1:vIKeNyQ5PcCF+SyJisV2++w5cUFtU23WjzZQVrCDfk0=
 github.com/Pallinder/go-randomdata v0.0.0-20170410161340-8c3362a5e678/go.mod h1:yHmJgulpD2Nfrm0cR9tI/+oAgRqCQQixsA8HyRZfV9Y=
 github.com/davecgh/go-spew v0.0.0-20170829195320-a47672248388/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
