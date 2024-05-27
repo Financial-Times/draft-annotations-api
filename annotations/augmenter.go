@@ -50,43 +50,40 @@ func (a *Augmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations
 	origin := ctx.Value(OriginSystemIDHeaderKey(OriginSystemIDHeader)).(string)
 	if origin == PACOriginSystemID {
 		dedupedCanonical = filterOutInvalidPredicates(dedupedCanonical)
-
-		uuids := getConceptUUIDs(dedupedCanonical)
-
-		concepts, err := a.conceptRead.GetConceptsByIDs(ctx, uuids)
-
-		if err != nil {
-			a.log.WithTransactionID(tid).
-				WithError(err).Error("Request failed when attempting to augment annotations from UPP concept data")
-			return nil, err
-		}
-
-		augmentedAnnotations := make([]interface{}, 0)
-		for _, annotation := range dedupedCanonical {
-			ann := make(map[string]interface{})
-			maps.Copy(ann, annotation.(map[string]interface{}))
-			uuid := extractUUID(ann["id"].(string))
-			concept, found := concepts[uuid]
-			if found {
-				ann["id"] = concept.ID
-				ann["apiUrl"] = concept.ApiUrl
-				ann["prefLabel"] = concept.PrefLabel
-				ann["isFTAuthor"] = concept.IsFTAuthor
-				ann["type"] = concept.Type
-				augmentedAnnotations = append(augmentedAnnotations, ann)
-			} else {
-				a.log.WithTransactionID(tid).
-					WithUUID(ann["id"].(string)).
-					Warn("Concept data for this annotation was not found, and will be removed from the list of annotations.")
-			}
-		}
-
-		a.log.WithTransactionID(tid).Info("PAC Annotations augmented with concept data")
-		return augmentedAnnotations, nil
 	}
 
-	a.log.WithTransactionID(tid).Info("Annotations are not eligible to be augmented with concept data")
-	return dedupedCanonical, nil
+	uuids := getConceptUUIDs(dedupedCanonical)
+
+	concepts, err := a.conceptRead.GetConceptsByIDs(ctx, uuids)
+
+	if err != nil {
+		a.log.WithTransactionID(tid).
+			WithError(err).Error("Request failed when attempting to augment annotations from UPP concept data")
+		return nil, err
+	}
+
+	augmentedAnnotations := make([]interface{}, 0)
+	for _, annotation := range dedupedCanonical {
+		ann := make(map[string]interface{})
+		maps.Copy(ann, annotation.(map[string]interface{}))
+		uuid := extractUUID(ann["id"].(string))
+		concept, found := concepts[uuid]
+		if found {
+			ann["id"] = concept.ID
+			ann["apiUrl"] = concept.ApiUrl
+			ann["prefLabel"] = concept.PrefLabel
+			ann["isFTAuthor"] = concept.IsFTAuthor
+			ann["type"] = concept.Type
+			augmentedAnnotations = append(augmentedAnnotations, ann)
+		} else {
+			a.log.WithTransactionID(tid).
+				WithUUID(ann["id"].(string)).
+				Warn("Concept data for this annotation was not found, and will be removed from the list of annotations.")
+		}
+	}
+
+	a.log.WithTransactionID(tid).Info("Annotations augmented with concept data")
+	return augmentedAnnotations, nil
 }
 
 func dedupeCanonicalAnnotations(annotations []interface{}) ([]interface{}, error) {
