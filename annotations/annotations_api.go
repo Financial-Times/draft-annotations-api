@@ -115,7 +115,7 @@ func (api *UPPAnnotationsAPI) getAnnotations(ctx context.Context, contentUUID st
 
 	origin := ctx.Value(OriginSystemIDHeaderKey(OriginSystemIDHeader)).(string)
 	var convertedBody []byte
-	if origin == PACOriginSystemID {
+	if origin == FTPinkOriginSystemID {
 		convertedBody, err = mapper.ConvertPredicates(respBody)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to map predicates from UPP response")

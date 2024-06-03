@@ -59,7 +59,7 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -147,7 +147,7 @@ func TestReadHasBrandAnnotation(t *testing.T) {
 			q.Add("sendHasBrand", strconv.FormatBool(test.sendHasBrand))
 			req.URL.RawQuery = q.Encode()
 			req.Header.Set(tidutils.TransactionIDHeader, testTID)
-			req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+			req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 			w := httptest.NewRecorder()
 
 			r.ServeHTTP(w, req)
@@ -271,7 +271,7 @@ func TestAddAnnotation(t *testing.T) {
 
 			req.Header.Set(tidutils.TransactionIDHeader, testTID)
 			req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
-			req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+			req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -386,7 +386,7 @@ func TestWriteHasBrandAnnotation(t *testing.T) {
 
 			req.Header.Set(tidutils.TransactionIDHeader, testTID)
 			req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
-			req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+			req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -524,7 +524,7 @@ func TestReplaceHasBrandAnnotation(t *testing.T) {
 
 			req.Header.Set(tidutils.TransactionIDHeader, testTID)
 			req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
-			req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+			req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -559,7 +559,7 @@ func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -594,7 +594,7 @@ func TestUnHappyAugmenter(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -636,7 +636,7 @@ func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -674,7 +674,7 @@ func TestFetchFromAnnotationsAPI404(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -709,7 +709,7 @@ func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -743,7 +743,7 @@ func TestFetchFromAnnotationsAPI500(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -775,7 +775,7 @@ func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -808,7 +808,7 @@ func TestFetchFromAnnotationsAPIWithConnectionError(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1346,7 +1346,7 @@ func TestSaveAnnotations(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1387,7 +1387,7 @@ func TestSaveAnnotationsInvalidContentUUID(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1424,7 +1424,7 @@ func TestSaveAnnotationsInvalidAnnotationsBody(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1476,7 +1476,7 @@ func TestSaveAnnotationsErrorFromRW(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1509,7 +1509,7 @@ func TestAnnotationsReadTimeoutGenericRW(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1541,7 +1541,7 @@ func TestAnnotationsReadTimeoutUPP(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1613,7 +1613,7 @@ func TestAnnotationsWriteTimeout(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -1666,7 +1666,7 @@ func TestHappyDeleteAnnotations(t *testing.T) {
 		nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1754,7 +1754,7 @@ func TestUnHappyDeleteAnnotationsWhenRetrievingAnnotationsFails(t *testing.T) {
 		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
 		nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1787,7 +1787,7 @@ func TestUnHappyDeleteAnnotationsWhenNoAnnotationsFound(t *testing.T) {
 		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
 		nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1827,7 +1827,7 @@ func TestUnHappyDeleteAnnotationsWhenWritingAnnotationsFails(t *testing.T) {
 		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/eccb0da2-54f3-4f9f-bafa-fcec10e1758c",
 		nil)
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1880,7 +1880,7 @@ func TestHappyAddAnnotation(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1937,7 +1937,7 @@ func TestHappyAddExistingAnnotation(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -1993,7 +1993,7 @@ func TestHappyAddAnnotationWithExistingConceptIdDifferentPredicate(t *testing.T)
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2026,7 +2026,7 @@ func TestUnHappyAddAnnotationInvalidContentId(t *testing.T) {
 		nil)
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2064,7 +2064,7 @@ func TestUnHappyAddAnnotationInvalidConceptIdPrefix(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2101,7 +2101,7 @@ func TestUnHappyAddAnnotationEmptyConceptId(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2139,7 +2139,7 @@ func TestUnHappyAddAnnotationInvalidConceptUuid(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2177,7 +2177,7 @@ func TestUnHappyAddAnnotationInvalidPredicate(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2226,7 +2226,7 @@ func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2267,7 +2267,7 @@ func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2310,7 +2310,7 @@ func TestUnhappyAddAnnotationWhenNoAnnotationsFound(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2363,7 +2363,7 @@ func TestHappyReplaceAnnotation(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2461,7 +2461,7 @@ func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2513,7 +2513,7 @@ func TestHappyReplaceExistingAnnotation(t *testing.T) {
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
 	req.Header.Set(annotations.PreviousDocumentHashHeader, oldHash)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2546,7 +2546,7 @@ func TestUnHappyReplaceAnnotationsInvalidContentUUID(t *testing.T) {
 		nil)
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2580,7 +2580,7 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInURI(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2609,7 +2609,7 @@ func TestUnHappyReplaceAnnotationEmptyBody(t *testing.T) {
 		nil)
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2645,7 +2645,7 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInBody(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2682,7 +2682,7 @@ func TestUnHappyReplaceAnnotationInvalidPredicate(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2729,7 +2729,7 @@ func TestUnhappyReplaceAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2769,7 +2769,7 @@ func TestUnhappyReplaceAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -2811,7 +2811,7 @@ func TestUnhappyReplaceAnnotationWhenNoAnnotationsFound(t *testing.T) {
 		bytes.NewBuffer(b))
 
 	req.Header.Set(tidutils.TransactionIDHeader, testTID)
-	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.FTPinkOriginSystemID)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)

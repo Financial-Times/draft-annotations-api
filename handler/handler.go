@@ -168,7 +168,7 @@ func (h *Handler) AddAnnotation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	addedAnnotation := addedAnnotationBody["annotation"].(map[string]interface{})
-	if origin == annotations.PACOriginSystemID && !mapper.IsValidPACPredicate(addedAnnotation["predicate"].(string)) {
+	if origin == annotations.FTPinkOriginSystemID && !mapper.IsValidFTPinkPredicate(addedAnnotation["predicate"].(string)) {
 		handleWriteErrors("Invalid request", errors.New("invalid predicate"), writeLog, w, http.StatusBadRequest)
 		return
 	}
@@ -385,7 +385,7 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 
 	addedAnnotation := addedAnnotationBody["annotation"].(map[string]interface{})
 	if addedAnnotation["predicate"] != nil {
-		if origin == annotations.PACOriginSystemID && !mapper.IsValidPACPredicate(addedAnnotation["predicate"].(string)) {
+		if origin == annotations.FTPinkOriginSystemID && !mapper.IsValidFTPinkPredicate(addedAnnotation["predicate"].(string)) {
 			handleWriteErrors("Invalid request", errors.New("invalid predicate"), writeLog, w, http.StatusBadRequest)
 			return
 		}
@@ -487,7 +487,7 @@ func (h *Handler) saveAndReturnAnnotations(ctx context.Context, uppList map[stri
 	}
 
 	origin := ctx.Value(annotations.OriginSystemIDHeaderKey(annotations.OriginSystemIDHeader)).(string)
-	if origin == annotations.PACOriginSystemID {
+	if origin == annotations.FTPinkOriginSystemID {
 		anns = switchToHasBrand(anns)
 	}
 

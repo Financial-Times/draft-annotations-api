@@ -118,7 +118,7 @@ func TestAugmentAnnotations(t *testing.T) {
 
 	conceptRead := new(ConceptReadAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
-	ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), PACOriginSystemID)
+	ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), FTPinkOriginSystemID)
 	conceptRead.
 		On("GetConceptsByIDs", ctx, matcher).
 		Return(testConcepts, nil)
@@ -151,7 +151,7 @@ func TestAugmentAnnotationsFixtures(t *testing.T) {
 
 			conceptRead := new(ConceptReadAPIMock)
 			ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
-			ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), PACOriginSystemID)
+			ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), FTPinkOriginSystemID)
 			conceptRead.
 				On("GetConceptsByIDs", ctx, matcher).
 				Return(testReturnSingleConcept, nil)
@@ -182,7 +182,7 @@ func TestAugmentAnnotationsArrayShouldNotBeNull(t *testing.T) {
 	})
 	conceptRead := new(ConceptReadAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
-	ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), PACOriginSystemID)
+	ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), FTPinkOriginSystemID)
 	conceptRead.
 		On("GetConceptsByIDs", ctx, matcher).
 		Return(make(map[string]concept.Concept), nil)
@@ -209,7 +209,7 @@ func TestAugmentAnnotationsMissingTransactionID(t *testing.T) {
 	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
 	a := NewAugmenter(conceptRead, log)
 
-	ctx := context.WithValue(context.Background(), OriginSystemIDHeaderKey(OriginSystemIDHeader), PACOriginSystemID)
+	ctx := context.WithValue(context.Background(), OriginSystemIDHeaderKey(OriginSystemIDHeader), FTPinkOriginSystemID)
 	// nolint errcheck
 	a.AugmentAnnotations(ctx, testCanonicalizedAnnotations)
 
@@ -234,7 +234,7 @@ func TestAugmentAnnotationsConceptSearchError(t *testing.T) {
 	})
 	conceptRead := new(ConceptReadAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
-	ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), PACOriginSystemID)
+	ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), FTPinkOriginSystemID)
 	conceptRead.
 		On("GetConceptsByIDs", ctx, matcher).
 		Return(map[string]concept.Concept{}, errors.New("one minute to midnight"))
@@ -254,7 +254,7 @@ func TestAugmentAnnotationsWithInvalidConceptID(t *testing.T) {
 	})
 	conceptRead := new(ConceptReadAPIMock)
 	ctx := tidUtils.TransactionAwareContext(context.Background(), tidUtils.NewTransactionID())
-	ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), PACOriginSystemID)
+	ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), FTPinkOriginSystemID)
 	conceptRead.
 		On("GetConceptsByIDs", ctx, matcher).
 		Return(testConcepts, nil)

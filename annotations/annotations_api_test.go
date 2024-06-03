@@ -262,7 +262,7 @@ func TestGetAnnotationsHappy(t *testing.T) {
 			uuid := uuid.New().String()
 			tid := "tid_all-good"
 			ctx := tidUtils.TransactionAwareContext(context.TODO(), tid)
-			ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), PACOriginSystemID)
+			ctx = context.WithValue(ctx, OriginSystemIDHeaderKey(OriginSystemIDHeader), FTPinkOriginSystemID)
 
 			annotationsServerMock := newAnnotationsAPIServerMock(t, tid, uuid, "", test.annotationsStatus, test.annotationsBody)
 			defer annotationsServerMock.Close()

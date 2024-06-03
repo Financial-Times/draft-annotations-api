@@ -83,7 +83,7 @@ func ConvertPredicates(body []byte) ([]byte, error) {
 		case PredicateImplicitlyAbout, PredicateImplicitlyClassifiedBy:
 			continue
 		default:
-			if !IsValidPACPredicate(predicate) {
+			if !IsValidFTPinkPredicate(predicate) {
 				log.Infof("Invalid PAC predicated not mapped: %s", predicate)
 				continue
 			}
@@ -120,7 +120,7 @@ func getLeafType(listOfTypes []string) string {
 	return listOfTypes[len(listOfTypes)-1]
 }
 
-func IsValidPACPredicate(pr string) bool {
+func IsValidFTPinkPredicate(pr string) bool {
 	var predicates = [...]string{
 		PredicateAbout,
 		PredicateHasAuthor,

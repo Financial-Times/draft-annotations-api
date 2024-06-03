@@ -17,7 +17,7 @@ type OriginSystemIDHeaderKey string
 
 const (
 	OriginSystemIDHeader = "X-Origin-System-Id"
-	PACOriginSystemID    = "http://cmdb.ft.com/systems/pac"
+	FTPinkOriginSystemID = "http://cmdb.ft.com/systems/ft-pink-annotations"
 )
 
 type Augmenter struct {
@@ -48,7 +48,7 @@ func (a *Augmenter) AugmentAnnotations(ctx context.Context, canonicalAnnotations
 	}
 
 	origin := ctx.Value(OriginSystemIDHeaderKey(OriginSystemIDHeader)).(string)
-	if origin == PACOriginSystemID {
+	if origin == FTPinkOriginSystemID {
 		dedupedCanonical = filterOutInvalidPredicates(dedupedCanonical)
 	}
 
@@ -109,7 +109,7 @@ func dedupeCanonicalAnnotations(annotations []interface{}) ([]interface{}, error
 func filterOutInvalidPredicates(annotations []interface{}) []interface{} {
 	i := 0
 	for _, item := range annotations {
-		if !mapper.IsValidPACPredicate(item.(map[string]interface{})["predicate"].(string)) {
+		if !mapper.IsValidFTPinkPredicate(item.(map[string]interface{})["predicate"].(string)) {
 			continue
 		}
 		annotations[i] = item

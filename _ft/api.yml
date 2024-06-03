@@ -36,10 +36,10 @@ paths:
           in: header
           type: string
           required: true
-          x-example: http://cmdb.ft.com/systems/pac
+          x-example: http://cmdb.ft.com/systems/ft-pink-annotations
       responses:
         200:
-          description: Returns an array of PAC format annotations for the given content uuid.
+          description: Returns an array of annotations for the given content uuid.
           examples:
             application/json:
               annotations:
@@ -71,11 +71,11 @@ paths:
           in: header
           type: string
           required: true
-          x-example: http://cmdb.ft.com/systems/pac
+          x-example: http://cmdb.ft.com/systems/ft-pink-annotations
         - name: body
           in: body
           required: true
-          description: An object containing an array of PAC format annotations for the given content uuid.
+          description: An object containing an array of annotations for the given content uuid.
           schema:
             type: object
             properties:
@@ -127,7 +127,7 @@ paths:
                 - 88fdde6c-2aa4-4f78-af02-9f680097cfd6
       responses:
         200:
-          description: Returns the canonicalized input array of annotations that have been successufully written in PAC.
+          description: Returns the canonicalized input array of annotations.
           examples:
             application/json:
               annotations:
@@ -157,7 +157,7 @@ paths:
           in: header
           type: string
           required: true
-          x-example: http://cmdb.ft.com/systems/pac
+          x-example: http://cmdb.ft.com/systems/ft-pink-annotations
         - name: body
           in: body
           description: An annotation for specific content
@@ -196,7 +196,7 @@ paths:
                 - 88fdde6c-2aa4-4f78-af02-9f680097cfd6
       responses:
         200:
-          description: The annotation was successfully saved to the cannonicalized list of annotations in PAC.
+          description: The annotation was successfully saved to the cannonicalized list of annotations.
         400:
           description: Invalid content UUID, concept UUID or predicate supplied.
         404:
@@ -220,7 +220,7 @@ paths:
           in: header
           type: string
           required: true
-          x-example: http://cmdb.ft.com/systems/pac
+          x-example: http://cmdb.ft.com/systems/ft-pink-annotations
         - name: conceptUUID
           in: path
           description: The UUID of the concept to be deleted
@@ -229,7 +229,7 @@ paths:
           x-example: 0667615f-499e-4fa6-8130-f3430450228d
       responses:
         200:
-          description: The annotation was successfully deleted from the cannonicalized list of annotations in PAC.
+          description: The annotation was successfully deleted from the cannonicalized list of annotations.
         400:
           description: Invalid content or concept UUID supplied
         404:
@@ -254,7 +254,7 @@ paths:
           in: header
           type: string
           required: true
-          x-example: http://cmdb.ft.com/systems/pac
+          x-example: http://cmdb.ft.com/systems/ft-pink-annotations
         - name: conceptUUID
           in: path
           description: The UUID of the concept to be replaced
@@ -299,7 +299,7 @@ paths:
                 - 88fdde6c-2aa4-4f78-af02-9f680097cfd6
       responses:
         200:
-          description: The annotation was successfully replaced in the cannonicalized list of annotations in PAC.
+          description: The annotation was successfully replaced in the cannonicalized list of annotations.
         400:
           description: Invalid content or concept UUID supplied
         404:
@@ -325,7 +325,7 @@ paths:
               schemaVersion: 1
               systemCode: draft-annotations-api
               name: draft-annotations-api
-              description: PAC Draft Annotations API
+              description: Draft Annotations API
               checks:
                 - id: check-api-health
                   name: Check API Health
