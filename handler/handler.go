@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Financial-Times/draft-annotations-api/policy"
 	"github.com/Financial-Times/go-logger/v2"
 	"github.com/gorilla/mux"
 
@@ -248,11 +249,59 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(annotations.DocumentHashHeader, hash)
 	}
 
+	if !showResponseBasedOnPolicy(r, result, policy.Read) {
+		readLog.WithFields(map[string]interface{}{"X-Policy": r.Header.Get("X-Policy")}).Error("access is restricted based on the X-Policy and response")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte("Forbidden"))
+		return
+	}
+
 	err = json.NewEncoder(w).Encode(&result)
 	if err != nil {
 		readLog.WithError(err).Error("Failed to encode response")
 		handleReadErrors(err, readLog, w)
 	}
+}
+
+func showResponseBasedOnPolicy(r *http.Request, result map[string]interface{}, policyType string) bool {
+	af := r.Header.Get("Access-From")
+	if af == "" {
+		//if access-from header is missing, we skip the policy check
+		return true
+	}
+
+	policyHeader := r.Header.Get("X-Policy")
+	//empty policy header means internal request, so we allow it
+	if policyHeader == "" {
+		return true
+	}
+
+	//missing result publications means ft pink annotations, so we allow it
+	resultPublication, ok := result["publication"].([]interface{})
+	if !ok {
+		return true
+	}
+
+	//extract the publication from the policy header
+	incomingPublication := ""
+	if policyType == policy.Read {
+		incomingPublication = policyHeader[10:]
+	} else if policyType == policy.Write {
+		incomingPublication = policyHeader[11:]
+	}
+
+	//verify if the extracted uuid is valid
+	_, err := uuid.Parse(incomingPublication)
+	if err != nil {
+		return false
+	}
+
+	for _, pub := range resultPublication {
+		if incomingPublication == pub {
+			return true
+		}
+	}
+	return false
 }
 
 // WriteAnnotations writes draft annotations for given content.
