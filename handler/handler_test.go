@@ -78,6 +78,43 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 	annAPI.AssertExpectations(t)
 }
 
+func TestUnhappyFetchFromAnnotationsRWUnauthorized(t *testing.T) {
+	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	hash := randomdata.RandStringRunes(56)
+
+	rw := new(RWMock)
+	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotationsRead, hash, true, nil)
+	aug := new(AugmenterMock)
+	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotationsRead["annotations"]).Return(expectedAnnotationsRead["annotations"], nil)
+	annAPI := new(AnnotationsAPIMock)
+
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, nil, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.ReadAnnotations).Methods(http.MethodGet)
+
+	req := httptest.NewRequest(http.MethodGet, "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations", nil)
+	req.Header.Set("Access-From", "API Gateway")
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+
+	actual := make(map[string]interface{})
+	err := json.NewDecoder(resp.Body).Decode(&actual)
+	assert.Error(t, err)
+
+	rw.AssertExpectations(t)
+	aug.AssertExpectations(t)
+	annAPI.AssertExpectations(t)
+}
+
 func TestReadHasBrandAnnotation(t *testing.T) {
 	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
 	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
@@ -966,6 +1003,40 @@ var expectedAnnotations = map[string]interface{}{
 			"prefLabel": "US interest rates",
 		},
 	},
+}
+
+var expectedAnnotationsRead = map[string]interface{}{
+	"annotations": []interface{}{
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/mentions",
+			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"apiUrl":    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
+			"type":      "http://www.ft.com/ontology/person/Person",
+			"prefLabel": "Barack H. Obama",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
+			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			"apiUrl":    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
+			"type":      "http://www.ft.com/ontology/person/Person",
+			"prefLabel": "David J Lynch",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/annotation/about",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"apiUrl":    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"type":      "http://www.ft.com/ontology/Topic",
+			"prefLabel": "US interest rates",
+		},
+		map[string]interface{}{
+			"predicate": "http://www.ft.com/ontology/hasDisplayTag",
+			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"apiUrl":    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
+			"type":      "http://www.ft.com/ontology/Topic",
+			"prefLabel": "US interest rates",
+		},
+	},
+	"publication": []interface{}{"8e6c705e-1132-42a2-8db0-c295e29e8658"},
 }
 
 var expectedAnnotationsWithPublication = map[string]interface{}{
@@ -3153,4 +3224,80 @@ func (m *AnnotationsAPIMock) GTG() error {
 	}
 	args := m.Called()
 	return args.Error(0)
+}
+
+func TestShowResponseBasedOnPolicy(t *testing.T) {
+	type args struct {
+		r          *http.Request
+		result     map[string]interface{}
+		policyType string
+	}
+	tests := []struct {
+		name     string
+		args     args
+		expected bool
+	}{
+		{
+			name: "no policies",
+			args: args{
+				r:          &http.Request{Header: http.Header{}},
+				result:     expectedAnnotationsRead,
+				policyType: "READ",
+			},
+			expected: true,
+		},
+		{
+			name: "missing x-policy",
+			args: args{
+				r: &http.Request{Header: http.Header{
+					"Access-From": []string{"API Gateway"},
+				}},
+				result:     expectedAnnotationsRead,
+				policyType: "READ",
+			},
+			expected: false,
+		},
+		{
+			name: "x-policy is empty string but did not match ft pink",
+			args: args{
+				r: &http.Request{Header: http.Header{
+					"Access-From": []string{"API Gateway"},
+					"X-Policy":    []string{""},
+				}},
+				result:     expectedAnnotationsRead,
+				policyType: "READ",
+			},
+			expected: false,
+		},
+		{
+			name: "x-policy is empty string allow ft pink",
+			args: args{
+				r: &http.Request{Header: http.Header{
+					"Access-From": []string{"API Gateway"},
+					"X-Policy":    []string{""},
+				}},
+				result:     expectedAnnotations,
+				policyType: "READ",
+			},
+			expected: true,
+		},
+		{
+			name: "x-policy internal_unstable allow ft pink",
+			args: args{
+				r: &http.Request{Header: http.Header{
+					"Access-From": []string{"API Gateway"},
+					"X-Policy":    []string{"INTERNAL_UNSTABLE"},
+				}},
+				result:     expectedAnnotations,
+				policyType: "READ",
+			},
+			expected: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := handler.ShowResponseBasedOnPolicy(tt.args.r, tt.args.result, tt.args.policyType)
+			assert.Equal(t, tt.expected, actual)
+		})
+	}
 }

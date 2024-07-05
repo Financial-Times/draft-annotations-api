@@ -249,7 +249,7 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(annotations.DocumentHashHeader, hash)
 	}
 
-	if !showResponseBasedOnPolicy(r, result, policy.Read) {
+	if !ShowResponseBasedOnPolicy(r, result, policy.Read) {
 		readLog.WithFields(map[string]interface{}{"X-Policy": r.Header.Get("X-Policy")}).Error("access is restricted based on the X-Policy and response")
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte("Forbidden"))
@@ -263,7 +263,7 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func showResponseBasedOnPolicy(r *http.Request, result map[string]interface{}, policyType string) bool {
+func ShowResponseBasedOnPolicy(r *http.Request, result map[string]interface{}, policyType string) bool {
 	af := r.Header.Get("Access-From")
 	if af == "" {
 		//if access-from header is missing, we skip the policy check

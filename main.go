@@ -1,15 +1,18 @@
 package main
 
 import (
-	"github.com/Financial-Times/cm-annotations-ontology/validator"
-	"github.com/Financial-Times/go-logger/v2"
-	"github.com/Financial-Times/upp-content-validator-kit/v3/schema"
-	"github.com/gorilla/mux"
-	"github.com/rcrowley/go-metrics"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/Financial-Times/cm-annotations-ontology/validator"
+	"github.com/Financial-Times/draft-annotations-api/policy"
+	"github.com/Financial-Times/go-logger/v2"
+	"github.com/Financial-Times/opa-client-go"
+	"github.com/Financial-Times/upp-content-validator-kit/v3/schema"
+	"github.com/gorilla/mux"
+	"github.com/rcrowley/go-metrics"
 
 	apiEndpoint "github.com/Financial-Times/api-endpoint"
 	"github.com/Financial-Times/draft-annotations-api/annotations"
@@ -93,6 +96,12 @@ func main() {
 		Desc:   "Log level",
 		EnvVar: "LOG_LEVEL",
 	})
+	OPAAddress := app.String(cli.StringOpt{
+		Name:   "OPAAddress",
+		Desc:   "Open policy agent sidecar address",
+		Value:  "http://localhost:8181",
+		EnvVar: "OPA_ADDRESS",
+	})
 
 	log := logger.NewUPPLogger(*appName, *logLevel)
 
@@ -122,7 +131,13 @@ func main() {
 		annotationsHandler := handler.New(rw, annotationsAPI, c14n, augmenter, jsonValidator, time.Millisecond*httpTimeout, log)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, rw, annotationsAPI, conceptRead)
 
-		serveEndpoints(*port, *apiYml, annotationsHandler, healthService, schemaHandler, log)
+		paths := map[string]string{
+			policy.Key: policy.OpaPolicyPath,
+		}
+
+		opaClient := opa.NewOpenPolicyAgentClient(*OPAAddress, paths)
+
+		serveEndpoints(*port, *apiYml, annotationsHandler, healthService, schemaHandler, log, opaClient)
 	}
 
 	err := app.Run(os.Args)
@@ -132,14 +147,20 @@ func main() {
 	}
 }
 
-func serveEndpoints(port string, apiYml string, handler *handler.Handler, healthService *health.HealthService, schemaHandler *schema.SchemasHandler, log *logger.UPPLogger) {
+func serveEndpoints(port string, apiYml string, handler *handler.Handler, healthService *health.HealthService, schemaHandler *schema.SchemasHandler, log *logger.UPPLogger, opaClient *opa.OpenPolicyAgentClient) {
 	r := mux.NewRouter()
 
+	middlewareFunc := opa.CreateRequestMiddleware(opaClient, policy.Key, log, policy.Middleware)
+
+	authorizedRoutes := r.NewRoute().Subrouter()
+	authorizedRoutes.Use(middlewareFunc)
+	authorizedRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.ReadAnnotations).Methods(http.MethodGet)
+
+	authorizedRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.WriteAnnotations).Methods(http.MethodPut)
+	authorizedRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.AddAnnotation).Methods(http.MethodPost)
+	authorizedRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", handler.ReplaceAnnotation).Methods(http.MethodPatch)
+
 	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", handler.DeleteAnnotation).Methods(http.MethodDelete)
-	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.ReadAnnotations).Methods(http.MethodGet)
-	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.WriteAnnotations).Methods(http.MethodPut)
-	r.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.AddAnnotation).Methods(http.MethodPost)
-	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", handler.ReplaceAnnotation).Methods(http.MethodPatch)
 	r.HandleFunc("/draft-annotations/validate", handler.Validate).Methods(http.MethodPost)
 	r.HandleFunc("/draft-annotations/schemas", schemaHandler.ListSchemas).Methods(http.MethodGet)
 	r.HandleFunc("/draft-annotations/schemas/{schemaName}", schemaHandler.GetSchema).Methods(http.MethodGet)
