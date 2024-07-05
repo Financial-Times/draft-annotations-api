@@ -40,9 +40,9 @@ const (
 var testClient = fthttp.NewClientWithDefaultTimeout("PAC", "draft-annotations-api")
 
 func TestHappyFetchFromAnnotationsRW(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	hash := randomdata.RandStringRunes(56)
 
 	rw := new(RWMock)
@@ -79,9 +79,9 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 }
 
 func TestUnhappyFetchFromAnnotationsRWUnauthorized(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	hash := randomdata.RandStringRunes(56)
 
 	rw := new(RWMock)
@@ -116,9 +116,9 @@ func TestUnhappyFetchFromAnnotationsRWUnauthorized(t *testing.T) {
 }
 
 func TestReadHasBrandAnnotation(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	tests := map[string]struct {
 		readAnnotations     []interface{}
 		expectedAnnotations []interface{}
@@ -189,7 +189,9 @@ func TestReadHasBrandAnnotation(t *testing.T) {
 
 			r.ServeHTTP(w, req)
 			resp := w.Result()
-			defer resp.Body.Close()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(resp.Body)
 			assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 			actual := make(map[string]interface{})
@@ -198,24 +200,23 @@ func TestReadHasBrandAnnotation(t *testing.T) {
 
 			assert.Equal(t, map[string]interface{}{"annotations": test.expectedAnnotations}, actual)
 			assert.Equal(t, hash, resp.Header.Get(annotations.DocumentHashHeader))
-
 		})
 	}
 }
 
 func TestAddAnnotation(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := &RWMock{}
 	annAPI := &AnnotationsAPIMock{}
 	aug := &AugmenterMock{}
 
 	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
-	handler := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
+	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
 	router := mux.NewRouter()
-	router.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.AddAnnotation).Methods(http.MethodPost)
+	router.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.AddAnnotation).Methods(http.MethodPost)
 
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
@@ -314,31 +315,32 @@ func TestAddAnnotation(t *testing.T) {
 			router.ServeHTTP(w, req)
 
 			resp := w.Result()
-			defer resp.Body.Close()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(resp.Body)
 			assert.Equal(t, test.requestStatusCode, resp.StatusCode)
 			if test.requestStatusCode != http.StatusOK {
 				return
 			}
 			assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 			assert.True(t, calledGetAll, "expect to request latest annotations from UPP")
-
 		})
 	}
 }
 
 func TestWriteHasBrandAnnotation(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := &RWMock{}
 	annAPI := &AnnotationsAPIMock{}
 	aug := &AugmenterMock{}
 
 	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
-	handler := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
+	h := handler.New(rw, annAPI, annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter), aug, v, time.Second, log)
 	router := mux.NewRouter()
-	router.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.WriteAnnotations).Methods(http.MethodPut)
+	router.HandleFunc("/draft-annotations/content/{uuid}/annotations", h.WriteAnnotations).Methods(http.MethodPut)
 
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
@@ -429,7 +431,9 @@ func TestWriteHasBrandAnnotation(t *testing.T) {
 			router.ServeHTTP(w, req)
 
 			resp := w.Result()
-			defer resp.Body.Close()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(resp.Body)
 			assert.Equal(t, test.requestStatusCode, resp.StatusCode)
 
 			if test.requestStatusCode != http.StatusOK {
@@ -441,9 +445,9 @@ func TestWriteHasBrandAnnotation(t *testing.T) {
 }
 
 func TestReplaceHasBrandAnnotation(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := &RWMock{}
 	annAPI := &AnnotationsAPIMock{}
 	aug := &AugmenterMock{}
@@ -451,9 +455,9 @@ func TestReplaceHasBrandAnnotation(t *testing.T) {
 
 	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
 	v := validator.NewSchemaValidator(log).GetJSONValidator()
-	handler := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
+	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
 	router := mux.NewRouter()
-	router.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", handler.ReplaceAnnotation).Methods(http.MethodPatch)
+	router.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", h.ReplaceAnnotation).Methods(http.MethodPatch)
 
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
@@ -553,10 +557,10 @@ func TestReplaceHasBrandAnnotation(t *testing.T) {
 			}
 
 			b, _ := json.Marshal(test.replaceWith)
-			url := "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/" + test.toReplace
+			target := "http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/" + test.toReplace
 			req := httptest.NewRequest(
 				http.MethodPatch,
-				url,
+				target,
 				bytes.NewBuffer(b))
 
 			req.Header.Set(tidutils.TransactionIDHeader, testTID)
@@ -567,7 +571,9 @@ func TestReplaceHasBrandAnnotation(t *testing.T) {
 			router.ServeHTTP(w, req)
 
 			resp := w.Result()
-			defer resp.Body.Close()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(resp.Body)
 			assert.Equal(t, test.requestStatusCode, resp.StatusCode)
 
 			if test.requestStatusCode != http.StatusOK {
@@ -580,9 +586,9 @@ func TestReplaceHasBrandAnnotation(t *testing.T) {
 }
 
 func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, errors.New("computer says no"))
 	aug := new(AugmenterMock)
@@ -614,9 +620,9 @@ func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
 }
 
 func TestUnHappyAugmenter(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(expectedAnnotations, "", true, nil)
 	aug := new(AugmenterMock)
@@ -649,9 +655,9 @@ func TestUnHappyAugmenter(t *testing.T) {
 }
 
 func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	aug := new(AugmenterMock)
 	aug.On("AugmentAnnotations", mock.Anything, expectedAnnotations["annotations"]).Return(expectedAnnotations["annotations"], nil)
 
@@ -692,9 +698,9 @@ func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 }
 
 func TestFetchFromAnnotationsAPI404(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	aug := new(AugmenterMock)
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
@@ -727,9 +733,9 @@ func TestFetchFromAnnotationsAPI404(t *testing.T) {
 }
 
 func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 	aug := new(AugmenterMock)
@@ -762,9 +768,9 @@ func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 }
 
 func TestFetchFromAnnotationsAPI500(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 	aug := new(AugmenterMock)
@@ -796,9 +802,9 @@ func TestFetchFromAnnotationsAPI500(t *testing.T) {
 }
 
 func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 	aug := new(AugmenterMock)
@@ -827,13 +833,13 @@ func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
 }
 
 func TestFetchFromAnnotationsAPIWithConnectionError(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 	aug := new(AugmenterMock)
-	annotationsAPIServerMock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	annotationsAPIServerMock := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
 	annotationsAPIServerMock.Close()
 
 	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
@@ -874,7 +880,7 @@ func newAnnotationsAPIServerMock(t *testing.T, status int, body string) *httptes
 
 		assert.Equal(t, testTID, r.Header.Get(tidutils.TransactionIDHeader))
 		w.WriteHeader(status)
-		w.Write([]byte(body))
+		_, _ = w.Write([]byte(body))
 	}))
 	return ts
 }
@@ -1380,9 +1386,9 @@ var augmentedAnnotationsSameConceptID = map[string]interface{}{
 }
 
 func TestSaveAnnotations(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
 	rw := new(RWMock)
@@ -1437,9 +1443,9 @@ func TestSaveAnnotations(t *testing.T) {
 }
 
 func TestSaveAnnotationsInvalidContentUUID(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	oldHash := randomdata.RandStringRunes(56)
 	rw := new(RWMock)
 	aug := new(AugmenterMock)
@@ -1474,9 +1480,9 @@ func TestSaveAnnotationsInvalidContentUUID(t *testing.T) {
 }
 
 func TestSaveAnnotationsInvalidAnnotationsBody(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	oldHash := randomdata.RandStringRunes(56)
 	rw := new(RWMock)
 	aug := new(AugmenterMock)
@@ -1511,9 +1517,9 @@ func TestSaveAnnotationsInvalidAnnotationsBody(t *testing.T) {
 }
 
 func TestSaveAnnotationsErrorFromRW(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	oldHash := randomdata.RandStringRunes(56)
 	rw := new(RWMock)
 	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsBodyWriteWithPublication, oldHash).Return("", errors.New("computer says no"))
@@ -1563,9 +1569,9 @@ func TestSaveAnnotationsErrorFromRW(t *testing.T) {
 }
 
 func TestAnnotationsReadTimeoutGenericRW(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, &url.Error{Err: context.DeadlineExceeded})
 
@@ -1594,9 +1600,9 @@ func TestAnnotationsReadTimeoutGenericRW(t *testing.T) {
 }
 
 func TestAnnotationsReadTimeoutUPP(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	rw.On("Read", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").Return(nil, "", false, nil)
 
@@ -1626,9 +1632,9 @@ func TestAnnotationsReadTimeoutUPP(t *testing.T) {
 }
 
 func TestIsTimeoutErr(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	r := mux.NewRouter()
 	r.HandleFunc("/", func(_ http.ResponseWriter, _ *http.Request) {
 		time.Sleep(500 * time.Millisecond)
@@ -1648,9 +1654,9 @@ func TestIsTimeoutErr(t *testing.T) {
 }
 
 func TestAnnotationsWriteTimeout(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	oldHash := randomdata.RandStringRunes(56)
 	rw := new(RWMock)
 	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsBodyWriteWithPublication, oldHash).Return("", &url.Error{Err: context.DeadlineExceeded})
@@ -1702,9 +1708,9 @@ func TestAnnotationsWriteTimeout(t *testing.T) {
 }
 
 func TestHappyDeleteAnnotations(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
@@ -1751,9 +1757,9 @@ func TestHappyDeleteAnnotations(t *testing.T) {
 }
 
 func TestUnHappyDeleteAnnotationsMissingContentUUID(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -1778,9 +1784,9 @@ func TestUnHappyDeleteAnnotationsMissingContentUUID(t *testing.T) {
 }
 
 func TestUnHappyDeleteAnnotationsInvalidConceptUUID(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -1805,9 +1811,9 @@ func TestUnHappyDeleteAnnotationsInvalidConceptUUID(t *testing.T) {
 }
 
 func TestUnHappyDeleteAnnotationsWhenRetrievingAnnotationsFails(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").
@@ -1835,9 +1841,9 @@ func TestUnHappyDeleteAnnotationsWhenRetrievingAnnotationsFails(t *testing.T) {
 }
 
 func TestUnHappyDeleteAnnotationsWhenNoAnnotationsFound(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 
@@ -1863,15 +1869,17 @@ func TestUnHappyDeleteAnnotationsWhenNoAnnotationsFound(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
 func TestUnHappyDeleteAnnotationsWhenWritingAnnotationsFails(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsBodyWrite, "").Return(mock.Anything, errors.New("sorry something failed"))
 	annAPI := new(AnnotationsAPIMock)
@@ -1908,9 +1916,9 @@ func TestUnHappyDeleteAnnotationsWhenWritingAnnotationsFails(t *testing.T) {
 }
 
 func TestHappyAddAnnotation(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 
@@ -1965,9 +1973,9 @@ func TestHappyAddAnnotation(t *testing.T) {
 }
 
 func TestHappyAddExistingAnnotation(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 
@@ -2022,9 +2030,9 @@ func TestHappyAddExistingAnnotation(t *testing.T) {
 }
 
 func TestHappyAddAnnotationWithExistingConceptIdDifferentPredicate(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	oldHash := randomdata.RandStringRunes(56)
 	newHash := randomdata.RandStringRunes(56)
@@ -2078,9 +2086,9 @@ func TestHappyAddAnnotationWithExistingConceptIdDifferentPredicate(t *testing.T)
 }
 
 func TestUnHappyAddAnnotationInvalidContentId(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -2107,9 +2115,9 @@ func TestUnHappyAddAnnotationInvalidContentId(t *testing.T) {
 }
 
 func TestUnHappyAddAnnotationInvalidConceptIdPrefix(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -2145,9 +2153,9 @@ func TestUnHappyAddAnnotationInvalidConceptIdPrefix(t *testing.T) {
 }
 
 func TestUnHappyAddAnnotationEmptyConceptId(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -2182,9 +2190,9 @@ func TestUnHappyAddAnnotationEmptyConceptId(t *testing.T) {
 }
 
 func TestUnHappyAddAnnotationInvalidConceptUuid(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -2220,9 +2228,9 @@ func TestUnHappyAddAnnotationInvalidConceptUuid(t *testing.T) {
 }
 
 func TestUnHappyAddAnnotationInvalidPredicate(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -2258,9 +2266,9 @@ func TestUnHappyAddAnnotationInvalidPredicate(t *testing.T) {
 }
 
 func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 
@@ -2306,9 +2314,9 @@ func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 }
 
 func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -2347,9 +2355,9 @@ func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 }
 
 func TestUnhappyAddAnnotationWhenNoAnnotationsFound(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -2386,15 +2394,17 @@ func TestUnhappyAddAnnotationWhenNoAnnotationsFound(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
 func TestHappyReplaceAnnotation(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 
@@ -2444,9 +2454,9 @@ func TestHappyReplaceAnnotation(t *testing.T) {
 }
 
 func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 
@@ -2542,9 +2552,9 @@ func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
 }
 
 func TestHappyReplaceExistingAnnotation(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 
@@ -2598,9 +2608,9 @@ func TestHappyReplaceExistingAnnotation(t *testing.T) {
 }
 
 func TestUnHappyReplaceAnnotationsInvalidContentUUID(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -2627,9 +2637,9 @@ func TestUnHappyReplaceAnnotationsInvalidContentUUID(t *testing.T) {
 }
 
 func TestUnHappyReplaceAnnotationInvalidConceptIdInURI(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -2661,9 +2671,9 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInURI(t *testing.T) {
 }
 
 func TestUnHappyReplaceAnnotationEmptyBody(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -2690,9 +2700,9 @@ func TestUnHappyReplaceAnnotationEmptyBody(t *testing.T) {
 }
 
 func TestUnHappyReplaceAnnotationInvalidConceptIdInBody(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -2726,9 +2736,9 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInBody(t *testing.T) {
 }
 
 func TestUnHappyReplaceAnnotationInvalidPredicate(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -2763,9 +2773,9 @@ func TestUnHappyReplaceAnnotationInvalidPredicate(t *testing.T) {
 }
 
 func TestUnhappyReplaceAnnotationWhenWritingAnnotationsFails(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 
@@ -2809,9 +2819,9 @@ func TestUnhappyReplaceAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 }
 
 func TestUnhappyReplaceAnnotationWhenGettingAnnotationsFails(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -2849,9 +2859,9 @@ func TestUnhappyReplaceAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 }
 
 func TestUnhappyReplaceAnnotationWhenNoAnnotationsFound(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 	rw := new(RWMock)
 	annAPI := new(AnnotationsAPIMock)
 	aug := new(AugmenterMock)
@@ -2887,15 +2897,17 @@ func TestUnhappyReplaceAnnotationWhenNoAnnotationsFound(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
 func TestValidate(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 
 	tests := []struct {
 		name               string
@@ -3030,16 +3042,18 @@ func TestValidate(t *testing.T) {
 
 		r.ServeHTTP(w, req)
 		resp := w.Result()
-		defer resp.Body.Close()
+		defer func(Body io.ReadCloser) {
+			_ = Body.Close()
+		}(resp.Body)
 
 		assert.Equal(t, tt.expectedStatusCode, resp.StatusCode)
 	}
 }
 
 func TestListSchemas(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 
 	tests := []struct {
 		name            string
@@ -3067,16 +3081,18 @@ func TestListSchemas(t *testing.T) {
 
 		r.ServeHTTP(w, req)
 		resp := w.Result()
-		defer resp.Body.Close()
+		defer func(Body io.ReadCloser) {
+			_ = Body.Close()
+		}(resp.Body)
 
 		assert.Equal(t, tt.expectedMessage, strings.TrimSpace(w.Body.String()))
 	}
 }
 
 func TestGetSchemas(t *testing.T) {
-	os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
-	os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
 
 	tests := []struct {
 		name            string
@@ -3116,7 +3132,9 @@ func TestGetSchemas(t *testing.T) {
 
 		r.ServeHTTP(w, req)
 		resp := w.Result()
-		defer resp.Body.Close()
+		defer func(Body io.ReadCloser) {
+			_ = Body.Close()
+		}(resp.Body)
 
 		body := &bytes.Buffer{}
 		err := json.Compact(body, w.Body.Bytes())

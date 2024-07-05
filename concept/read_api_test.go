@@ -277,13 +277,13 @@ func (h *mockedSearchServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 
 	b, err := json.Marshal(SearchResult{concepts})
 	assert.NoError(h.t, err)
-	w.Write(b)
+	_, _ = w.Write(b)
 }
 
 func newMockedUnhappySearchService(status int, msg string) *httptest.Server {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(status)
-		fmt.Fprint(w, msg)
+		_, _ = fmt.Fprint(w, msg)
 	}))
 	return ts
 }

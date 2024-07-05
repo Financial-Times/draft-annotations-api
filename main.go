@@ -181,7 +181,15 @@ func serveEndpoints(port string, apiYml string, handler *handler.Handler, health
 
 	http.Handle("/", monitoringRouter)
 
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	srv := &http.Server{
+		Addr:         ":" + port,
+		Handler:      monitoringRouter,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	log.Infof("Starting server on port %s", port)
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("Unable to start: %v", err)
 	}
 }

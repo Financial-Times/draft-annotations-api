@@ -455,6 +455,18 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	annotationsBody := prepareAnnBody(uppList, conceptUUID, addedAnnotation, addedAnnotationBody)
+
+	_, newHash, err := h.saveAndReturnAnnotations(ctx, annotationsBody, writeLog, oldHash, contentUUID)
+	if err != nil {
+		handleWriteErrors("Error writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set(annotations.DocumentHashHeader, newHash)
+}
+
+func prepareAnnBody(uppList []interface{}, conceptUUID string, addedAnnotation map[string]interface{}, addedAnnotationBody map[string]interface{}) map[string]interface{} {
 	for i := range uppList {
 		ann := uppList[i].(map[string]interface{})
 		if ann["id"] == conceptUUID {
@@ -468,13 +480,7 @@ func (h *Handler) ReplaceAnnotation(w http.ResponseWriter, r *http.Request) {
 	annotationsBody := make(map[string]interface{})
 	annotationsBody["annotations"] = uppList
 	annotationsBody["publication"] = addedAnnotationBody["publication"]
-	_, newHash, err := h.saveAndReturnAnnotations(ctx, annotationsBody, writeLog, oldHash, contentUUID)
-	if err != nil {
-		handleWriteErrors("Error writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set(annotations.DocumentHashHeader, newHash)
+	return annotationsBody
 }
 
 // Validate request body against the available schemas
@@ -610,7 +616,10 @@ func handleReadErrors(err error, readLog *logger.LogEntry, w http.ResponseWriter
 		if uppErr.UPPBody() != nil {
 			readLog.WithError(err).Error("UPP responded with a client error, forwarding UPP response back to client.")
 			w.WriteHeader(uppErr.Status())
-			w.Write(uppErr.UPPBody())
+			_, err = w.Write(uppErr.UPPBody())
+			if err != nil {
+				return
+			}
 			return
 		}
 		writeMessage(w, readLog, uppErr.Error(), uppErr.Status())
