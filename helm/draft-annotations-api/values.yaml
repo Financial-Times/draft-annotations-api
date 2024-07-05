@@ -21,3 +21,9 @@ env:
   JSON_SCHEMAS_PATH: "/schemas"
   JSON_SCHEMA_NAME: "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json"
   JSON_SCHEMAS_API_CONFIG_PATH: "/config/schemas-api-config.json"
+openPolicyAgentSidecar:
+  name: open-policy-agent
+  repository: openpolicyagent/opa
+  tag: 0.62.1
+  pullPolicy: IfNotPresent
+serviceAccount: eksctl-draft-annotations-api-serviceaccount
