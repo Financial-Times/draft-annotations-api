@@ -84,10 +84,10 @@ func TestGetConceptsByIDsMissingTID(t *testing.T) {
 		if i == 0 {
 			assert.Equal(t, "INFO", e.Level)
 			assert.Equal(t, "No Transaction ID provided for concept request, so a new one has been generated.", e.Message)
-			tid = e.Data[tidUtils.TransactionIDKey].(string)
+			tid = e.Data[tidUtils.NewTransactionID()].(string)
 			assert.NotEmpty(t, tid)
 		} else {
-			assert.Equal(t, tid, e.Data[tidUtils.TransactionIDKey])
+			assert.Equal(t, tid, e.Data[tidUtils.NewTransactionID()])
 		}
 	}
 }

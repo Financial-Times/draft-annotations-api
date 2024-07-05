@@ -146,10 +146,10 @@ func TestReadMissingTID(t *testing.T) {
 		if i == 0 {
 			assert.Equal(t, "WARN", e.Level)
 			assert.Equal(t, "Transaction ID error in getting annotations from RW with concept data: Generated a new transaction ID", e.Message)
-			tid = e.Data[tidUtils.TransactionIDKey].(string)
+			tid = e.Data[tidUtils.NewTransactionID()].(string)
 			assert.NotEmpty(t, tid)
 		} else {
-			assert.Equal(t, tid, e.Data[tidUtils.TransactionIDKey])
+			assert.Equal(t, tid, e.Data[tidUtils.NewTransactionID()])
 		}
 	}
 }
@@ -241,10 +241,10 @@ func TestWriteMissingTID(t *testing.T) {
 		if i == 0 {
 			assert.Equal(t, "WARN", e.Level)
 			assert.Equal(t, "Transaction ID error in writing annotations to RW with concept data: Generated a new transaction ID", e.Message)
-			tid = e.Data[tidUtils.TransactionIDKey].(string)
+			tid = e.Data[tidUtils.NewTransactionID()].(string)
 			assert.NotEmpty(t, tid)
 		} else {
-			assert.Equal(t, tid, e.Data[tidUtils.TransactionIDKey])
+			assert.Equal(t, tid, e.Data[tidUtils.NewTransactionID()])
 		}
 	}
 }
