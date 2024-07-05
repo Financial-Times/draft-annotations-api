@@ -270,10 +270,13 @@ func showResponseBasedOnPolicy(r *http.Request, result map[string]interface{}, p
 		return true
 	}
 
-	policyHeader := r.Header.Get("X-Policy")
-	//empty policy header means internal request, so we allow it
-	if policyHeader == "" {
-		return true
+	policyHeaders := r.Header.Get("X-Policy")
+	policyHeaders = strings.ReplaceAll(policyHeaders, " ", "")
+	splitPolicyHeaders := strings.Split(policyHeaders, ",")
+
+	//empty policy header means and present API Gateway header means we allow FT PINK
+	if policyHeaders == "" && len(splitPolicyHeaders) == 1 {
+		splitPolicyHeaders[0] = "PBLC_READ_88fdde6c-2aa4-4f78-af02-9f680097cfd6"
 	}
 
 	//missing result publications means ft pink annotations, so we allow it
@@ -282,25 +285,31 @@ func showResponseBasedOnPolicy(r *http.Request, result map[string]interface{}, p
 		return true
 	}
 
-	//extract the publication from the policy header
-	incomingPublication := ""
-	if policyType == policy.Read {
-		incomingPublication = policyHeader[10:]
-	} else if policyType == policy.Write {
-		incomingPublication = policyHeader[11:]
-	}
+	//usePolicyWithHigherPriority := false
+	for _, header := range splitPolicyHeaders {
+		//extract the publication from the policy header
+		incomingPublication := ""
+		if policyType == policy.Read {
+			incomingPublication = strings.ReplaceAll(header, "PBLC_READ_", "")
+		} else if policyType == policy.Write {
+			incomingPublication = strings.ReplaceAll(header, "PBLC_WRITE_", "")
+		}
 
-	//verify if the extracted uuid is valid
-	_, err := uuid.Parse(incomingPublication)
-	if err != nil {
-		return false
-	}
+		//verify if the extracted uuid is valid
+		_, err := uuid.Parse(incomingPublication)
+		if err != nil {
+			//if the extracted uuid is invalid, we assume its an old policy header
+			//for example INTERNAL_UNSTABLE, which belongs to FT PINK
+			incomingPublication = "88fdde6c-2aa4-4f78-af02-9f680097cfd6"
+		}
 
-	for _, pub := range resultPublication {
-		if incomingPublication == pub {
-			return true
+		for _, pub := range resultPublication {
+			if incomingPublication == pub {
+				return true
+			}
 		}
 	}
+
 	return false
 }
 
