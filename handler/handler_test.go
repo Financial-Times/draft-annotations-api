@@ -64,6 +64,9 @@ func TestHappyFetchFromAnnotationsRW(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	actual := make(map[string]interface{})
@@ -104,6 +107,9 @@ func TestUnhappyFetchFromAnnotationsRWUnauthorized(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 
 	actual := make(map[string]interface{})
@@ -607,6 +613,9 @@ func TestUnHappyFetchFromAnnotationsRW(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	body, err := io.ReadAll(resp.Body)
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
@@ -642,6 +651,9 @@ func TestUnHappyAugmenter(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	body, err := io.ReadAll(resp.Body)
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
@@ -684,6 +696,9 @@ func TestFetchFromAnnotationsAPIIfNotFoundInRW(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	actual := make(map[string]interface{})
@@ -722,6 +737,9 @@ func TestFetchFromAnnotationsAPI404(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	body, err := io.ReadAll(resp.Body)
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
@@ -757,6 +775,9 @@ func TestFetchFromAnnotationsAPI404NoAnnoPostMapping(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	body, err := io.ReadAll(resp.Body)
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
@@ -791,6 +812,9 @@ func TestFetchFromAnnotationsAPI500(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	body, err := io.ReadAll(resp.Body)
 
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
@@ -823,6 +847,9 @@ func TestFetchFromAnnotationsAPIWithInvalidURL(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	body, err := io.ReadAll(resp.Body)
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
@@ -856,6 +883,9 @@ func TestFetchFromAnnotationsAPIWithConnectionError(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	_, err := io.ReadAll(resp.Body)
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
@@ -1428,6 +1458,9 @@ func TestSaveAnnotations(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	actual := make(map[string]interface{})
@@ -1469,6 +1502,9 @@ func TestSaveAnnotationsInvalidContentUUID(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	body, err := io.ReadAll(resp.Body)
 	assert.NoError(t, err)
@@ -1506,6 +1542,9 @@ func TestSaveAnnotationsInvalidAnnotationsBody(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	body, err := io.ReadAll(resp.Body)
 	assert.NoError(t, err)
@@ -1558,6 +1597,9 @@ func TestSaveAnnotationsErrorFromRW(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 	body, err := io.ReadAll(resp.Body)
 	assert.NoError(t, err)
@@ -1591,6 +1633,9 @@ func TestAnnotationsReadTimeoutGenericRW(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusGatewayTimeout, resp.StatusCode)
 	assert.JSONEq(t, `{"message":"Timeout while reading annotations"}`, w.Body.String())
 
@@ -1623,6 +1668,9 @@ func TestAnnotationsReadTimeoutUPP(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusGatewayTimeout, resp.StatusCode)
 	assert.JSONEq(t, `{"message":"Timeout while reading annotations"}`, w.Body.String())
 
@@ -1696,6 +1744,9 @@ func TestAnnotationsWriteTimeout(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusGatewayTimeout, resp.StatusCode)
 
 	body, err := io.ReadAll(resp.Body)
@@ -1748,6 +1799,9 @@ func TestHappyDeleteAnnotations(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 
@@ -1779,6 +1833,9 @@ func TestUnHappyDeleteAnnotationsMissingContentUUID(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
@@ -1806,6 +1863,9 @@ func TestUnHappyDeleteAnnotationsInvalidConceptUUID(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
@@ -1836,6 +1896,9 @@ func TestUnHappyDeleteAnnotationsWhenRetrievingAnnotationsFails(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 }
@@ -1911,6 +1974,9 @@ func TestUnHappyDeleteAnnotationsWhenWritingAnnotationsFails(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 }
@@ -1964,6 +2030,9 @@ func TestHappyAddAnnotation(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 
@@ -2021,6 +2090,9 @@ func TestHappyAddExistingAnnotation(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 
@@ -2077,6 +2149,9 @@ func TestHappyAddAnnotationWithExistingConceptIdDifferentPredicate(t *testing.T)
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 
@@ -2110,6 +2185,9 @@ func TestUnHappyAddAnnotationInvalidContentId(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
@@ -2148,6 +2226,9 @@ func TestUnHappyAddAnnotationInvalidConceptIdPrefix(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
@@ -2185,6 +2266,9 @@ func TestUnHappyAddAnnotationEmptyConceptId(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
@@ -2223,6 +2307,9 @@ func TestUnHappyAddAnnotationInvalidConceptUuid(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
@@ -2261,6 +2348,9 @@ func TestUnHappyAddAnnotationInvalidPredicate(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
@@ -2310,6 +2400,9 @@ func TestUnhappyAddAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 }
 
@@ -2351,6 +2444,9 @@ func TestUnhappyAddAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 }
 
@@ -2449,6 +2545,9 @@ func TestHappyReplaceAnnotation(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 }
@@ -2547,6 +2646,9 @@ func TestHappyReplaceAnnotationWithPredicate(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 }
@@ -2599,6 +2701,9 @@ func TestHappyReplaceExistingAnnotation(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, newHash, resp.Header.Get(annotations.DocumentHashHeader))
 
@@ -2632,6 +2737,9 @@ func TestUnHappyReplaceAnnotationsInvalidContentUUID(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
@@ -2666,6 +2774,9 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInURI(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
@@ -2695,6 +2806,9 @@ func TestUnHappyReplaceAnnotationEmptyBody(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
@@ -2731,6 +2845,9 @@ func TestUnHappyReplaceAnnotationInvalidConceptIdInBody(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
@@ -2768,6 +2885,9 @@ func TestUnHappyReplaceAnnotationInvalidPredicate(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
@@ -2815,6 +2935,9 @@ func TestUnhappyReplaceAnnotationWhenWritingAnnotationsFails(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 }
 
@@ -2855,6 +2978,9 @@ func TestUnhappyReplaceAnnotationWhenGettingAnnotationsFails(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	resp := w.Result()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 }
 
