@@ -9,7 +9,7 @@ require (
 	github.com/Financial-Times/go-fthealth v0.0.0-20200609161010-4c53fbef65fa
 	github.com/Financial-Times/go-logger/v2 v2.0.1
 	github.com/Financial-Times/http-handlers-go/v2 v2.1.0
-	github.com/Financial-Times/opa-client-go v1.1.4-dev-add-req-method
+	github.com/Financial-Times/opa-client-go v1.1.4
 	github.com/Financial-Times/service-status-go v0.3.0
 	github.com/Financial-Times/transactionid-utils-go v1.0.0
 	github.com/Financial-Times/upp-content-validator-kit/v3 v3.0.3
