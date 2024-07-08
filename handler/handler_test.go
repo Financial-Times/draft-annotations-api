@@ -1655,9 +1655,11 @@ func TestIsTimeoutErr(t *testing.T) {
 	defer cancel()
 
 	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
+	if err == nil {
+		defer resp.Body.Close()
+	}
 	var e net.Error
 	assert.True(t, errors.As(err, &e))
-	defer resp.Body.Close()
 	assert.True(t, e.Timeout())
 }
 
