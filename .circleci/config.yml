@@ -1,8 +1,9 @@
 version: 2.1
 orbs:
   ft-golang-ci: financial-times/golang-ci@1
-jobs:
-  dredd:
+
+executors:
+  default-with-opa:
     working_directory: /go/src/github.com/Financial-Times/draft-annotations-api
     docker:
       - image: golang:1
@@ -15,7 +16,17 @@ jobs:
           JSON_SCHEMAS_PATH: ./schemas
           JSON_SCHEMA_NAME: draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json
           JSON_SCHEMAS_API_CONFIG_PATH: ./config/schemas-api-config.json
+          OPA_ADDRESS: "http://localhost:8181"
+
       - image: peteclarkft/ersatz:stable
+      - image: openpolicyagent/opa:0.62.1
+        command: [ "run", "--server", "--addr=0.0.0.0:8181", "--log-level=error", "--log-format=json" ]
+
+
+
+jobs:
+  dredd:
+    executor: default-with-opa
     steps:
       - checkout
       - run:
