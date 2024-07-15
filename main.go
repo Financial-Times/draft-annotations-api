@@ -171,9 +171,9 @@ func serveEndpoints(port string, apiYml string, handler *handler.Handler, health
 		}
 	}
 
-	http.HandleFunc("/__health", healthService.HealthCheckHandleFunc())
-	http.HandleFunc(status.GTGPath, status.NewGoodToGoHandler(healthService.GTG))
-	http.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
+	r.HandleFunc("/__health", healthService.HealthCheckHandleFunc())
+	r.HandleFunc(status.GTGPath, status.NewGoodToGoHandler(healthService.GTG))
+	r.HandleFunc(status.BuildInfoPath, status.BuildInfoHandler)
 
 	var monitoringRouter http.Handler = r
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log, monitoringRouter)
