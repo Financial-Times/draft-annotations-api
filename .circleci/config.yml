@@ -58,6 +58,12 @@ jobs:
       - run:
           name: Dredd API Testing
           command: dredd
+      - run:
+          name: Add a dummy OPA policy.
+          command: |
+            curl --location --request PUT 'localhost:8181/v1/policies/c1d20fbc-e9bc-44fb-8b88-0e01d6b13225' \
+            --header 'Content-Type: text/plain' \
+            --data 'package draft_annotations_api/publication_based_authorization" default is_authorized := true'
 workflows:
   test-and-build-docker:
     jobs:
