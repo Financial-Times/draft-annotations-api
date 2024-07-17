@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Financial-Times/draft-annotations-api/policy"
 	"github.com/Financial-Times/go-logger/v2"
 	"github.com/gorilla/mux"
 
@@ -249,68 +248,12 @@ func (h *Handler) ReadAnnotations(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(annotations.DocumentHashHeader, hash)
 	}
 
-	if !ShowResponseBasedOnPolicy(r, result, policy.Read) {
-		readLog.WithFields(map[string]interface{}{"X-Policy": r.Header.Get("X-Policy")}).Error("access is restricted based on the X-Policy and response")
-		w.WriteHeader(http.StatusForbidden)
-		_, _ = w.Write([]byte("Forbidden"))
-		return
-	}
-
+	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(&result)
 	if err != nil {
 		readLog.WithError(err).Error("Failed to encode response")
 		handleReadErrors(err, readLog, w)
 	}
-}
-
-func ShowResponseBasedOnPolicy(r *http.Request, result map[string]interface{}, policyType string) bool {
-	af := r.Header.Get("Access-From")
-	if af == "" {
-		//if access-from header is missing, we skip the policy check
-		return true
-	}
-
-	policyHeaders := r.Header.Get("X-Policy")
-	policyHeaders = strings.ReplaceAll(policyHeaders, " ", "")
-	splitPolicyHeaders := strings.Split(policyHeaders, ",")
-
-	//empty policy header means and present API Gateway header means we allow FT PINK
-	if policyHeaders == "" && len(splitPolicyHeaders) == 1 {
-		splitPolicyHeaders[0] = "PBLC_READ_88fdde6c-2aa4-4f78-af02-9f680097cfd6"
-	}
-
-	//missing result publications means ft pink annotations, so we allow it
-	resultPublication, ok := result["publication"].([]interface{})
-	if !ok {
-		return true
-	}
-
-	//usePolicyWithHigherPriority := false
-	for _, header := range splitPolicyHeaders {
-		//extract the publication from the policy header
-		incomingPublication := ""
-		if policyType == policy.Read {
-			incomingPublication = strings.ReplaceAll(header, "PBLC_READ_", "")
-		} else if policyType == policy.Write {
-			incomingPublication = strings.ReplaceAll(header, "PBLC_WRITE_", "")
-		}
-
-		//verify if the extracted uuid is valid
-		_, err := uuid.Parse(incomingPublication)
-		if err != nil {
-			//if the extracted uuid is invalid, we assume its an old policy header
-			//for example INTERNAL_UNSTABLE, which belongs to FT PINK
-			incomingPublication = "88fdde6c-2aa4-4f78-af02-9f680097cfd6"
-		}
-
-		for _, pub := range resultPublication {
-			if incomingPublication == pub {
-				return true
-			}
-		}
-	}
-
-	return false
 }
 
 // WriteAnnotations writes draft annotations for given content.

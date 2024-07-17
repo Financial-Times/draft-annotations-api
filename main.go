@@ -151,10 +151,15 @@ func serveEndpoints(port string, apiYml string, handler *handler.Handler, health
 	r := mux.NewRouter()
 
 	middlewareFunc := opa.CreateRequestMiddleware(opaClient, policy.Key, log, policy.Middleware)
+	responseMiddleware := opa.CreateResponseMiddleware(opaClient, policy.Key, log, policy.ResponseMiddleware)
 
 	authorizedRoutes := r.NewRoute().Subrouter()
+	authorizedGetRoute := r.NewRoute().Subrouter()
+
 	authorizedRoutes.Use(middlewareFunc)
-	authorizedRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.ReadAnnotations).Methods(http.MethodGet)
+	authorizedGetRoute.Use(responseMiddleware)
+
+	authorizedGetRoute.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.ReadAnnotations).Methods(http.MethodGet)
 
 	authorizedRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.WriteAnnotations).Methods(http.MethodPut)
 	authorizedRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.AddAnnotation).Methods(http.MethodPost)
