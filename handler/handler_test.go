@@ -975,40 +975,6 @@ var expectedAnnotations = map[string]interface{}{
 	},
 }
 
-var expectedAnnotationsRead = map[string]interface{}{
-	"annotations": []interface{}{
-		map[string]interface{}{
-			"predicate": "http://www.ft.com/ontology/annotation/mentions",
-			"id":        "http://www.ft.com/thing/0a619d71-9af5-3755-90dd-f789b686c67a",
-			"apiUrl":    "http://api.ft.com/people/0a619d71-9af5-3755-90dd-f789b686c67a",
-			"type":      "http://www.ft.com/ontology/person/Person",
-			"prefLabel": "Barack H. Obama",
-		},
-		map[string]interface{}{
-			"predicate": "http://www.ft.com/ontology/annotation/hasAuthor",
-			"id":        "http://www.ft.com/thing/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
-			"apiUrl":    "http://api.ft.com/people/838b3fbe-efbc-3cfe-b5c0-d38c046492a4",
-			"type":      "http://www.ft.com/ontology/person/Person",
-			"prefLabel": "David J Lynch",
-		},
-		map[string]interface{}{
-			"predicate": "http://www.ft.com/ontology/annotation/about",
-			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
-			"apiUrl":    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
-			"type":      "http://www.ft.com/ontology/Topic",
-			"prefLabel": "US interest rates",
-		},
-		map[string]interface{}{
-			"predicate": "http://www.ft.com/ontology/hasDisplayTag",
-			"id":        "http://www.ft.com/thing/9577c6d4-b09e-4552-b88f-e52745abe02b",
-			"apiUrl":    "http://api.ft.com/concepts/9577c6d4-b09e-4552-b88f-e52745abe02b",
-			"type":      "http://www.ft.com/ontology/Topic",
-			"prefLabel": "US interest rates",
-		},
-	},
-	"publication": []interface{}{"8e6c705e-1132-42a2-8db0-c295e29e8658"},
-}
-
 var expectedAnnotationsWithPublication = map[string]interface{}{
 	"annotations": []interface{}{
 		map[string]interface{}{
