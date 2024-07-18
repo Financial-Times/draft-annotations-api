@@ -218,10 +218,10 @@ func TestAugmentAnnotationsMissingTransactionID(t *testing.T) {
 		if i == 0 {
 			assert.Equal(t, "WARN", e.Level)
 			assert.Equal(t, "Transaction ID error in augmenting annotations with concept data: Generated a new transaction ID", e.Message)
-			tid = e.Data[tidUtils.TransactionIDKey].(string)
+			tid = e.Data[tidUtils.NewTransactionID()].(string)
 			assert.NotEmpty(t, tid)
 		} else {
-			assert.Equal(t, tid, e.Data[tidUtils.TransactionIDKey])
+			assert.Equal(t, tid, e.Data[tidUtils.NewTransactionID()])
 		}
 	}
 

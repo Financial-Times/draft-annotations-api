@@ -140,16 +140,16 @@ func TestReadMissingTID(t *testing.T) {
 
 	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
 	rw := NewRW(testClient, "", log)
-	rw.Read(context.Background(), testContentUUID)
+	_, _, _, _ = rw.Read(context.Background(), testContentUUID)
 	var tid string
 	for i, e := range hook.AllEntries() {
 		if i == 0 {
 			assert.Equal(t, "WARN", e.Level)
 			assert.Equal(t, "Transaction ID error in getting annotations from RW with concept data: Generated a new transaction ID", e.Message)
-			tid = e.Data[tidUtils.TransactionIDKey].(string)
+			tid = e.Data[tidUtils.NewTransactionID()].(string)
 			assert.NotEmpty(t, tid)
 		} else {
-			assert.Equal(t, tid, e.Data[tidUtils.TransactionIDKey])
+			assert.Equal(t, tid, e.Data[tidUtils.NewTransactionID()])
 		}
 	}
 }
@@ -241,10 +241,10 @@ func TestWriteMissingTID(t *testing.T) {
 		if i == 0 {
 			assert.Equal(t, "WARN", e.Level)
 			assert.Equal(t, "Transaction ID error in writing annotations to RW with concept data: Generated a new transaction ID", e.Message)
-			tid = e.Data[tidUtils.TransactionIDKey].(string)
+			tid = e.Data[tidUtils.NewTransactionID()].(string)
 			assert.NotEmpty(t, tid)
 		} else {
-			assert.Equal(t, tid, e.Data[tidUtils.TransactionIDKey])
+			assert.Equal(t, tid, e.Data[tidUtils.NewTransactionID()])
 		}
 	}
 }
@@ -285,7 +285,7 @@ func newAnnotationsRWServerMock(t *testing.T, method string, status int, body st
 
 		switch r.Method {
 		case http.MethodGet:
-			w.Write([]byte(body))
+			_, _ = w.Write([]byte(body))
 		case http.MethodPut:
 			assert.Equal(t, hashIn, r.Header.Get(PreviousDocumentHashHeader))
 			rBody, _ := io.ReadAll(r.Body)
@@ -336,7 +336,7 @@ func newAnnotationsRWGTGServerMock(t *testing.T, status int, body string) *httpt
 		assert.Equal(t, http.MethodGet, r.Method)
 		assert.Equal(t, "/__gtg", r.URL.Path)
 		w.WriteHeader(status)
-		w.Write([]byte(body))
+		_, _ = w.Write([]byte(body))
 	}))
 	return ts
 }

@@ -84,10 +84,10 @@ func TestGetConceptsByIDsMissingTID(t *testing.T) {
 		if i == 0 {
 			assert.Equal(t, "INFO", e.Level)
 			assert.Equal(t, "No Transaction ID provided for concept request, so a new one has been generated.", e.Message)
-			tid = e.Data[tidUtils.TransactionIDKey].(string)
+			tid = e.Data[tidUtils.NewTransactionID()].(string)
 			assert.NotEmpty(t, tid)
 		} else {
-			assert.Equal(t, tid, e.Data[tidUtils.TransactionIDKey])
+			assert.Equal(t, tid, e.Data[tidUtils.NewTransactionID()])
 		}
 	}
 }
@@ -277,13 +277,13 @@ func (h *mockedSearchServiceHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 
 	b, err := json.Marshal(SearchResult{concepts})
 	assert.NoError(h.t, err)
-	w.Write(b)
+	_, _ = w.Write(b)
 }
 
 func newMockedUnhappySearchService(status int, msg string) *httptest.Server {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(status)
-		fmt.Fprint(w, msg)
+		_, _ = fmt.Fprint(w, msg)
 	}))
 	return ts
 }
