@@ -1,5 +1,4 @@
-go test ./... -v -race  # Draft Annotations API
-
+# Draft Annotations API
 [![Circle CI](https://circleci.com/gh/Financial-Times/draft-annotations-api/tree/master.png?style=shield)](https://circleci.com/gh/Financial-Times/draft-annotations-api/tree/master)[![Go Report Card](https://goreportcard.com/badge/github.com/Financial-Times/draft-annotations-api)](https://goreportcard.com/report/github.com/Financial-Times/draft-annotations-api) [![Coverage Status](https://coveralls.io/repos/github/Financial-Times/draft-annotations-api/badge.svg)](https://coveralls.io/github/Financial-Times/draft-annotations-api)
 
 ## Introduction
