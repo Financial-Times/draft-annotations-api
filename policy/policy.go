@@ -8,10 +8,9 @@ import (
 )
 
 const (
-	Key           = "publication_based_authorization"
-	OpaPolicyPath = "draft_annotations_api/publication_based_authorization"
-	Read          = "READ"
-	Write         = "WRITE"
+	OpaPolicyPath = "draft_annotations_api/"
+	ReadKey       = "read"
+	WriteKey      = "write"
 )
 
 type Result struct {
