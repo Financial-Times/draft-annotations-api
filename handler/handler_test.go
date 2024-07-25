@@ -2865,7 +2865,7 @@ func TestUnhappyReplaceAnnotationWhenNoAnnotationsFound(t *testing.T) {
 func TestValidate(t *testing.T) {
 	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
 	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
-	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json;draft-annotations-ftpc-add.json;draft-annotations-ftpc-write.json")
 
 	tests := []struct {
 		name               string
@@ -2899,6 +2899,20 @@ func TestValidate(t *testing.T) {
 				"publication": []string{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 			},
 			"draft-annotations-sv-write.json",
+			200,
+		},
+		{
+			"Valid FTPC annotations write request",
+			map[string]interface{}{
+				"annotations": []interface{}{
+					map[string]interface{}{
+						"predicate": "http://www.ft.com/ontology/annotation/hasSource",
+						"id":        "http://api.ft.com/things/1541d7d1-6e2f-44ba-927a-f9b002d23715",
+					},
+				},
+				"publication": []string{"724b5e36-6d45-4cf1-b1c2-3f676b21f21b"},
+			},
+			"draft-annotations-ftpc-write.json",
 			200,
 		},
 		{
@@ -2949,6 +2963,18 @@ func TestValidate(t *testing.T) {
 				"publication": []string{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
 			},
 			"draft-annotations-sv-add.json",
+			200,
+		},
+		{
+			"Valid FTPC annotations add request",
+			map[string]interface{}{
+				"annotation": map[string]interface{}{
+					"predicate": "http://www.ft.com/ontology/annotation/hasSource",
+					"id":        "http://api.ft.com/things/1541d7d1-6e2f-44ba-927a-f9b002d23715",
+				},
+				"publication": []string{"724b5e36-6d45-4cf1-b1c2-3f676b21f21b"},
+			},
+			"draft-annotations-ftpc-add.json",
 			200,
 		},
 		{
@@ -3016,7 +3042,7 @@ func TestListSchemas(t *testing.T) {
 	}{
 		{
 			"List schemas",
-			`{"_links":{"application/vnd.ft-upp-annotations-pac-add.json":[{"href":"/draft-annotations/schemas/draft-annotations-pac-add.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-pac-replace.json":[{"href":"/draft-annotations/schemas/draft-annotations-pac-replace.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-pac-write.json":[{"href":"/draft-annotations/schemas/draft-annotations-pac-write.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-sv-add.json":[{"href":"/draft-annotations/schemas/draft-annotations-sv-add.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-sv-replace.json":[{"href":"/draft-annotations/schemas/draft-annotations-sv-replace.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-sv-write.json":[{"href":"/draft-annotations/schemas/draft-annotations-sv-write.json","name":"latest-version"}],"self":{"href":"/draft-annotations/schemas"}}}`,
+			`{"_links":{"application/vnd.ft-upp-annotations-ftpc-add.json":[{"href":"/draft-annotations/schemas/draft-annotations-ftpc-add.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-ftpc-replace.json":[{"href":"/draft-annotations/schemas/draft-annotations-ftpc-replace.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-ftpc-write.json":[{"href":"/draft-annotations/schemas/draft-annotations-ftpc-write.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-pac-add.json":[{"href":"/draft-annotations/schemas/draft-annotations-pac-add.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-pac-replace.json":[{"href":"/draft-annotations/schemas/draft-annotations-pac-replace.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-pac-write.json":[{"href":"/draft-annotations/schemas/draft-annotations-pac-write.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-sv-add.json":[{"href":"/draft-annotations/schemas/draft-annotations-sv-add.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-sv-replace.json":[{"href":"/draft-annotations/schemas/draft-annotations-sv-replace.json","name":"latest-version"}],"application/vnd.ft-upp-annotations-sv-write.json":[{"href":"/draft-annotations/schemas/draft-annotations-sv-write.json","name":"latest-version"}],"self":{"href":"/draft-annotations/schemas"}}}`,
 		},
 	}
 
