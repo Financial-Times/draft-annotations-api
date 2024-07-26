@@ -14,7 +14,7 @@ executors:
           ANNOTATIONS_ENDPOINT: http://localhost:9000/content/%v/annotations
           INTERNAL_CONCORDANCES_ENDPOINT: http://localhost:9000/internalconcordances
           JSON_SCHEMAS_PATH: ./schemas
-          JSON_SCHEMA_NAME: draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json;draft-annotations-ftpc-add.json;draft-annotations-ftpc-replace.json;draft-annotations-ftpc-write.json; draft-annotations-fta-add.json;draft-annotations-fta-replace.json;draft-annotations-fta-write.json
+          JSON_SCHEMA_NAME: draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json;draft-annotations-ftpc-add.json;draft-annotations-ftpc-replace.json;draft-annotations-ftpc-write.json;draft-annotations-fta-add.json;draft-annotations-fta-replace.json;draft-annotations-fta-write.json
           JSON_SCHEMAS_API_CONFIG_PATH: ./config/schemas-api-config.json
           OPA_ADDRESS: "http://localhost:8181"
 
