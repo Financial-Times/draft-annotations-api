@@ -1,12 +1,35 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "http://upp-publishing-prod.ft.com/schema/draft-annotations-ftpc-add+json",
-  "title": "Draft FTPC Annotations Replace Endpoint",
+  "$id": "http://upp-publishing-prod.ft.com/schema/draft-annotations-fta-write+json",
+  "title": "Draft FTA Annotations",
   "type": "object",
-  "description": "Schema for Draft FTPC Annotations",
+  "description": "Schema for Draft FTA Annotations",
   "properties": {
+    "annotations": {
+      "type": "array",
+      "description": "Draft FTA annotations",
+      "items": {
+        "$ref": "#/$defs/annotation"
+      }
+    },
+    "publication": {
+      "type": "array",
+      "description": "Indicates which titles are aware of this content",
+      "items": {
+        "type": "string",
+        "pattern": "[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"
+      }
+    }
+  },
+  "required": [
+    "annotations",
+    "publication"
+  ],
+  "additionalProperties": false,
+  "$defs": {
     "annotation": {
       "type": "object",
+      "description": "Schema for FTA Annotations",
       "properties": {
         "id": {
           "type": "string",
@@ -20,7 +43,8 @@
             "http://www.ft.com/ontology/annotation/mentions",
             "http://www.ft.com/ontology/classification/isClassifiedBy",
             "http://www.ft.com/ontology/annotation/about",
-            "http://www.ft.com/ontology/annotation/hasSource"
+            "http://www.ft.com/ontology/hasDisplayTag",
+            "http://www.ft.com/ontology/annotation/isSponsoredBy"
           ]
         },
         "apiUrl": {
@@ -41,22 +65,10 @@
         }
       },
       "required": [
-        "id"
+        "id",
+        "predicate"
       ],
       "additionalProperties": false
-    },
-    "publication": {
-      "type": "array",
-      "description": "Indicates which titles are aware of this content",
-      "items": {
-        "type": "string",
-        "pattern": "[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"
-      }
     }
-  },
-  "required": [
-    "annotation",
-    "publication"
-  ],
-  "additionalProperties": false
+  }
 }

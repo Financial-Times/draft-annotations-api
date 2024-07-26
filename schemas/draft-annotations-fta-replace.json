@@ -1,12 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "http://upp-publishing-prod.ft.com/schema/draft-annotations-ftpc-add+json",
-  "title": "Draft FTPC Annotations Replace Endpoint",
+  "$id": "http://upp-publishing-prod.ft.com/schema/draft-annotations-fta-add+json",
+  "title": "Draft FTA Annotations Replace Endpoint",
   "type": "object",
-  "description": "Schema for Draft FTPC Annotations",
+  "description": "Schema for Draft FTA Annotations",
   "properties": {
     "annotation": {
       "type": "object",
+      "description": "Schema for FTA Annotations",
       "properties": {
         "id": {
           "type": "string",
@@ -20,7 +21,8 @@
             "http://www.ft.com/ontology/annotation/mentions",
             "http://www.ft.com/ontology/classification/isClassifiedBy",
             "http://www.ft.com/ontology/annotation/about",
-            "http://www.ft.com/ontology/annotation/hasSource"
+            "http://www.ft.com/ontology/hasDisplayTag",
+            "http://www.ft.com/ontology/annotation/isSponsoredBy"
           ]
         },
         "apiUrl": {
@@ -41,7 +43,8 @@
         }
       },
       "required": [
-        "id"
+        "id",
+        "predicate"
       ],
       "additionalProperties": false
     },
