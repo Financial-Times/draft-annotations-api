@@ -24,6 +24,14 @@
     "schema_file_name": "draft-annotations-ftpc-write.json"
   },
   {
+    "http_method": "PUT",
+    "url": "/draft-annotations/content/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/annotations.*$",
+    "publication": [
+      "19d50190-8656-4e91-8d34-82e646ada9c9"
+    ],
+    "schema_file_name": "draft-annotations-fta-write.json"
+  },
+  {
     "http_method": "POST",
     "url": "/draft-annotations/content/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/annotations.*$",
     "publication": [
@@ -48,6 +56,14 @@
     "schema_file_name": "draft-annotations-ftpc-add.json"
   },
   {
+    "http_method": "POST",
+    "url": "/draft-annotations/content/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/annotations.*$",
+    "publication": [
+      "19d50190-8656-4e91-8d34-82e646ada9c9"
+    ],
+    "schema_file_name": "draft-annotations-fta-add.json"
+  },
+  {
     "http_method": "PATCH",
     "url": "/draft-annotations/content/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/annotations/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}.*$",
     "publication": [
@@ -70,5 +86,13 @@
       "724b5e36-6d45-4cf1-b1c2-3f676b21f21b"
     ],
     "schema_file_name": "draft-annotations-ftpc-replace.json"
+  },
+  {
+    "http_method": "PATCH",
+    "url": "/draft-annotations/content/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/annotations/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}.*$",
+    "publication": [
+      "19d50190-8656-4e91-8d34-82e646ada9c9"
+    ],
+    "schema_file_name": "draft-annotations-fta-replace.json"
   }
 ]
