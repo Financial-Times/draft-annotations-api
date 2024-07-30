@@ -3161,6 +3161,76 @@ func TestGetSchemas(t *testing.T) {
 	}
 }
 
+func TestIsAuthorizedForDelete(t *testing.T) {
+	tests := []struct {
+		name               string
+		requestHeaders     map[string]string
+		scheduledForDelete interface{}
+		expectedResult     bool
+	}{
+		{
+			name: "authorized deletion",
+			requestHeaders: map[string]string{
+				"Access-From": "test",
+				"X-Policy":    "PBLC_WRITE_88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+			},
+			scheduledForDelete: map[string]interface{}{
+				"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
+			},
+			expectedResult: true,
+		},
+		{
+			name: "authorized deletion no returned publication",
+			requestHeaders: map[string]string{
+				"Access-From": "test",
+				"X-Policy":    "PBLC_WRITE_88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+			},
+			scheduledForDelete: map[string]interface{}{},
+			expectedResult:     true,
+		},
+		{
+			name: "unauthorized deletion with read policy",
+			requestHeaders: map[string]string{
+				"Access-From": "test",
+				"X-Policy":    "PBLC_READ_88fdde6c-2aa4-4f78-af02-9f680097cfd6",
+			},
+			scheduledForDelete: map[string]interface{}{},
+			expectedResult:     false,
+		},
+		{
+			name:           "authorized deletion no access header",
+			requestHeaders: map[string]string{},
+			scheduledForDelete: map[string]interface{}{
+				"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
+			},
+			expectedResult: true,
+		},
+		{
+			name: "unauthorized deletion",
+			requestHeaders: map[string]string{
+				"Access-From": "API Gateway",
+				"X-Policy":    "PBLC_WRITE_11fdde6c-2aa4-4f78-af02-9f680097cfd6",
+			},
+			scheduledForDelete: map[string]interface{}{
+				"publication": []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"},
+			},
+			expectedResult: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, _ := http.NewRequest("GET", "/", nil)
+			for k, v := range tt.requestHeaders {
+				req.Header.Set(k, v)
+			}
+
+			result := isAuthorizedForDelete(req, tt.scheduledForDelete)
+			assert.Equal(t, tt.expectedResult, result)
+		})
+	}
+}
+
 type AugmenterMock struct {
 	mock.Mock
 	augment func(ctx context.Context, depletedAnnotations []interface{}) ([]interface{}, error)
