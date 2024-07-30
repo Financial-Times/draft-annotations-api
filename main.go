@@ -165,12 +165,11 @@ func serveEndpoints(port string, apiYml string, handler *handler.Handler, health
 	authorizedWriteRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.WriteAnnotations).Methods(http.MethodPut)
 	authorizedWriteRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.AddAnnotation).Methods(http.MethodPost)
 	authorizedWriteRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", handler.ReplaceAnnotation).Methods(http.MethodPatch)
+	authorizedWriteRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", handler.DeleteAnnotation).Methods(http.MethodDelete)
 
 	r.HandleFunc("/draft-annotations/validate", handler.Validate).Methods(http.MethodPost)
 	r.HandleFunc("/draft-annotations/schemas", schemaHandler.ListSchemas).Methods(http.MethodGet)
 	r.HandleFunc("/draft-annotations/schemas/{schemaName}", schemaHandler.GetSchema).Methods(http.MethodGet)
-
-	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", handler.DeleteAnnotation).Methods(http.MethodDelete)
 
 	if apiYml != "" {
 		if endpoint, err := apiEndpoint.NewAPIEndpointForFile(apiYml); err == nil {

@@ -95,7 +95,7 @@ func TestHappyAnnotationsAPIWithLifecycles(t *testing.T) {
 	tid := "tid_all-good"
 	ctx := tidUtils.TransactionAwareContext(context.TODO(), tid)
 
-	annotationsServerMock := newAnnotationsAPIServerMock(t, tid, uuid, "lifecycle=pac&lifecycle=v1&lifecycle=next-video", http.StatusOK, "I am happy!")
+	annotationsServerMock := newAnnotationsAPIServerMock(t, tid, uuid, "lifecycle=pac&lifecycle=v1&lifecycle=next-video&showPublication=true", http.StatusOK, "I am happy!")
 	defer annotationsServerMock.Close()
 
 	log := logger.NewUPPLogger("draft-annotations-api", "INFO")

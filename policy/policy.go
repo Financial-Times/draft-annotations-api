@@ -11,6 +11,7 @@ const (
 	OpaPolicyPath = "draft_annotations_api/"
 	ReadKey       = "read"
 	WriteKey      = "write"
+	WritePBLC     = "PBLC_WRITE_"
 )
 
 type Result struct {

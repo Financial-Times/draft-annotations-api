@@ -151,6 +151,10 @@ func (api *UPPAnnotationsAPI) getUPPAnnotationsResponse(ctx context.Context, con
 			params.Add("lifecycle", lc)
 		}
 
+		//by default publications are not returned from public-annotations-api,
+		//so we need to add this parameter to the query
+		params.Add("showPublication", "true")
+
 		baseURL.RawQuery = params.Encode()
 		apiReqURI = baseURL.String()
 	}

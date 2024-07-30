@@ -2862,6 +2862,48 @@ func TestUnhappyReplaceAnnotationWhenNoAnnotationsFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
+func TestUnHappyDeleteAnnotationsWhenAuthorizationFails(t *testing.T) {
+	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
+	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
+	_ = os.Setenv("JSON_SCHEMA_NAME", "draft-annotations-pac-add.json;draft-annotations-pac-replace.json;draft-annotations-pac-write.json;draft-annotations-sv-add.json;draft-annotations-sv-replace.json;draft-annotations-sv-write.json")
+	rw := new(RWMock)
+	rw.On("Write", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895", expectedCanonicalisedAnnotationsBodyWrite, "").Return(mock.Anything, errors.New("sorry something failed"))
+	annAPI := new(AnnotationsAPIMock)
+	annAPI.On("GetAllButV2", mock.Anything, "83a201c6-60cd-11e7-91a7-502f7ee26895").
+		Return(expectedAnnotations["annotations"], nil)
+	canonicalizer := annotations.NewCanonicalizer(annotations.NewCanonicalAnnotationSorter)
+
+	aug := &AugmenterMock{
+		augment: func(_ context.Context, depletedAnnotations []interface{}) ([]interface{}, error) {
+			depletedAnnotations = canonicalizer.Canonicalize(depletedAnnotations)
+			assert.Equal(t, expectedCanonicalisedAnnotationsBody["annotations"], depletedAnnotations)
+			return expectedAnnotations["annotations"].([]interface{}), nil
+		},
+	}
+
+	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
+	v := validator.NewSchemaValidator(log).GetJSONValidator()
+	h := handler.New(rw, annAPI, canonicalizer, aug, v, time.Second, log)
+	r := mux.NewRouter()
+	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", h.DeleteAnnotation).Methods(http.MethodDelete)
+
+	req := httptest.NewRequest(
+		http.MethodDelete,
+		"http://api.ft.com/draft-annotations/content/83a201c6-60cd-11e7-91a7-502f7ee26895/annotations/0a619d71-9af5-3755-90dd-f789b686c67a",
+		nil)
+	req.Header.Set(tidutils.TransactionIDHeader, testTID)
+	req.Header.Set(annotations.OriginSystemIDHeader, annotations.PACOriginSystemID)
+	req.Header.Set("X-Policy", "PBLC_WRITE_8e6c705e-1132-42a2-8db0-c295e29e8658")
+	req.Header.Set("Access-From", "API Gateway")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+}
+
 func TestValidate(t *testing.T) {
 	_ = os.Setenv("JSON_SCHEMAS_PATH", "../schemas")
 	_ = os.Setenv("JSON_SCHEMAS_API_CONFIG_PATH", "../config/schemas-api-config.json")
