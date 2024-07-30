@@ -112,7 +112,7 @@ func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
 	if !isAuthorizedForDelete(r, scheduledForDelete) {
 		writeLog.Infof("Not authorized to delete annotation with current policy: %s", r.Header.Get("X-Policy"))
 		w.WriteHeader(http.StatusForbidden)
-		_, err = w.Write([]byte("Forbidden"))
+		_, _ = w.Write([]byte("Forbidden"))
 		return
 	}
 
