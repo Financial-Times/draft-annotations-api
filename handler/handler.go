@@ -118,6 +118,15 @@ func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
 
 	annotationsBody := make(map[string]interface{})
 	annotationsBody["annotations"] = uppList
+
+	//if the policy and the publication from the annotation match, set the publication in the annotations body
+	if scheduledForDelete != nil {
+		pub, ok := scheduledForDelete.(map[string]interface{})["publication"]
+		if ok {
+			annotationsBody["publication"] = pub
+		}
+	}
+
 	_, newHash, err := h.saveAndReturnAnnotations(ctx, annotationsBody, writeLog, oldHash, contentUUID)
 	if err != nil {
 		handleWriteErrors("Error writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
