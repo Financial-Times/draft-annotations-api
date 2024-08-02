@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Financial-Times/draft-annotations-api/policy"
 	"github.com/Financial-Times/go-logger/v2"
 	"github.com/gorilla/mux"
 
@@ -96,9 +97,11 @@ func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var scheduledForDelete interface{}
 	i := 0
 	for _, item := range uppList {
 		if item.(map[string]interface{})["id"] == conceptID {
+			scheduledForDelete = item
 			continue
 		}
 		uppList[i] = item
@@ -106,8 +109,24 @@ func (h *Handler) DeleteAnnotation(w http.ResponseWriter, r *http.Request) {
 	}
 	uppList = uppList[:i]
 
+	if !isAuthorizedForDelete(r, scheduledForDelete) {
+		writeLog.Infof("Not authorized to delete annotation with current policy: %s", r.Header.Get("X-Policy"))
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte("Forbidden"))
+		return
+	}
+
 	annotationsBody := make(map[string]interface{})
 	annotationsBody["annotations"] = uppList
+
+	//if the policy and the publication from the annotation match, set the publication in the annotations body
+	if scheduledForDelete != nil {
+		pub, ok := scheduledForDelete.(map[string]interface{})["publication"]
+		if ok {
+			annotationsBody["publication"] = pub
+		}
+	}
+
 	_, newHash, err := h.saveAndReturnAnnotations(ctx, annotationsBody, writeLog, oldHash, contentUUID)
 	if err != nil {
 		handleWriteErrors("Error writing draft annotations", err, writeLog, w, http.StatusInternalServerError)
@@ -639,4 +658,52 @@ func switchToIsClassifiedBy(toChange []interface{}) []interface{} {
 		changed[idx] = ann
 	}
 	return changed
+}
+
+func isAuthorizedForDelete(r *http.Request, scheduledForDelete interface{}) bool {
+	if scheduledForDelete == nil {
+		return true
+	}
+
+	publication, ok := scheduledForDelete.(map[string]interface{})["publication"].([]interface{})
+	if !ok {
+		//if no publication is returned, we assume its FT PINK
+		publication = []interface{}{"88fdde6c-2aa4-4f78-af02-9f680097cfd6"}
+	}
+
+	af := r.Header.Get("Access-From")
+	if af == "" {
+		//if access-from header is missing, we skip the policy check
+		return true
+	}
+
+	policyHeaders := r.Header.Get("X-Policy")
+	policyHeaders = strings.ReplaceAll(policyHeaders, " ", "")
+	splitPolicyHeaders := strings.Split(policyHeaders, ",")
+	allowDelete := false
+
+	for _, header := range splitPolicyHeaders {
+		//extract the publication from the policy header
+		incomingPublication := strings.ReplaceAll(header, policy.WritePBLC, "")
+
+		//verify if the extracted uuid is valid
+		_, err := uuid.Parse(incomingPublication)
+		if err != nil {
+			continue
+		}
+
+		if contains(incomingPublication, publication) {
+			allowDelete = true
+		}
+	}
+	return allowDelete
+}
+
+func contains(needle string, haystack []interface{}) bool {
+	for _, v := range haystack {
+		if v == needle {
+			return true
+		}
+	}
+	return false
 }

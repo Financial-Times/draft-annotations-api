@@ -132,7 +132,8 @@ func main() {
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, rw, annotationsAPI, conceptRead)
 
 		paths := map[string]string{
-			policy.Key: policy.OpaPolicyPath,
+			policy.ReadKey:  policy.OpaPolicyPath + policy.ReadKey,
+			policy.WriteKey: policy.OpaPolicyPath + policy.WriteKey,
 		}
 
 		opaClient := opa.NewOpenPolicyAgentClient(*OPAAddress, paths)
@@ -150,26 +151,25 @@ func main() {
 func serveEndpoints(port string, apiYml string, handler *handler.Handler, healthService *health.HealthService, schemaHandler *schema.SchemasHandler, log *logger.UPPLogger, opaClient *opa.OpenPolicyAgentClient) {
 	r := mux.NewRouter()
 
-	middlewareFunc := opa.CreateRequestMiddleware(opaClient, policy.Key, log, policy.Middleware)
-	responseMiddleware := opa.CreateResponseMiddleware(opaClient, policy.Key, log, policy.ResponseMiddleware)
+	writeMiddleware := opa.CreateRequestMiddleware(opaClient, policy.WriteKey, log, policy.Middleware)
+	respMiddleware := opa.CreateResponseMiddleware(opaClient, policy.ReadKey, log, policy.ResponseMiddleware)
 
-	authorizedRoutes := r.NewRoute().Subrouter()
-	authorizedGetRoute := r.NewRoute().Subrouter()
+	authorizedWriteRoutes := r.NewRoute().Subrouter()
+	authorizedReadRoutes := r.NewRoute().Subrouter()
 
-	authorizedRoutes.Use(middlewareFunc)
-	authorizedGetRoute.Use(responseMiddleware)
+	authorizedWriteRoutes.Use(writeMiddleware)
+	authorizedReadRoutes.Use(respMiddleware)
 
-	authorizedGetRoute.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.ReadAnnotations).Methods(http.MethodGet)
+	authorizedReadRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.ReadAnnotations).Methods(http.MethodGet)
 
-	authorizedRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.WriteAnnotations).Methods(http.MethodPut)
-	authorizedRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.AddAnnotation).Methods(http.MethodPost)
-	authorizedRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", handler.ReplaceAnnotation).Methods(http.MethodPatch)
+	authorizedWriteRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.WriteAnnotations).Methods(http.MethodPut)
+	authorizedWriteRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations", handler.AddAnnotation).Methods(http.MethodPost)
+	authorizedWriteRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", handler.ReplaceAnnotation).Methods(http.MethodPatch)
+	authorizedWriteRoutes.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", handler.DeleteAnnotation).Methods(http.MethodDelete)
 
-	authorizedRoutes.HandleFunc("/draft-annotations/validate", handler.Validate).Methods(http.MethodPost)
-	authorizedRoutes.HandleFunc("/draft-annotations/schemas", schemaHandler.ListSchemas).Methods(http.MethodGet)
-	authorizedRoutes.HandleFunc("/draft-annotations/schemas/{schemaName}", schemaHandler.GetSchema).Methods(http.MethodGet)
-
-	r.HandleFunc("/draft-annotations/content/{uuid}/annotations/{cuuid}", handler.DeleteAnnotation).Methods(http.MethodDelete)
+	r.HandleFunc("/draft-annotations/validate", handler.Validate).Methods(http.MethodPost)
+	r.HandleFunc("/draft-annotations/schemas", schemaHandler.ListSchemas).Methods(http.MethodGet)
+	r.HandleFunc("/draft-annotations/schemas/{schemaName}", schemaHandler.GetSchema).Methods(http.MethodGet)
 
 	if apiYml != "" {
 		if endpoint, err := apiEndpoint.NewAPIEndpointForFile(apiYml); err == nil {

@@ -66,7 +66,7 @@ func TestAnnotationsAPIGTGInvalidURL(t *testing.T) {
 }
 
 func TestAnnotationsAPIGTGConnectionError(t *testing.T) {
-	annotationsServerMock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	annotationsServerMock := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
 	annotationsServerMock.Close()
 
 	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
@@ -87,6 +87,7 @@ func TestHappyAnnotationsAPI(t *testing.T) {
 	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword, log)
 	resp, err := annotationsAPI.getUPPAnnotationsResponse(ctx, uuid)
 	assert.NoError(t, err)
+	defer resp.Body.Close()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
@@ -95,13 +96,14 @@ func TestHappyAnnotationsAPIWithLifecycles(t *testing.T) {
 	tid := "tid_all-good"
 	ctx := tidUtils.TransactionAwareContext(context.TODO(), tid)
 
-	annotationsServerMock := newAnnotationsAPIServerMock(t, tid, uuid, "lifecycle=pac&lifecycle=v1&lifecycle=next-video", http.StatusOK, "I am happy!")
+	annotationsServerMock := newAnnotationsAPIServerMock(t, tid, uuid, "lifecycle=pac&lifecycle=v1&lifecycle=next-video&showPublication=true", http.StatusOK, "I am happy!")
 	defer annotationsServerMock.Close()
 
 	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
 	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword, log)
 	resp, err := annotationsAPI.getUPPAnnotationsResponse(ctx, uuid, pacAnnotationLifecycle, v1AnnotationLifecycle, nextVideoAnnotationLifecycle)
 	assert.NoError(t, err)
+	defer resp.Body.Close()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
@@ -117,6 +119,7 @@ func TestUnhappyAnnotationsAPI(t *testing.T) {
 	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword, log)
 	resp, err := annotationsAPI.getUPPAnnotationsResponse(ctx, uuid)
 	assert.NoError(t, err)
+	defer resp.Body.Close()
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 }
 
@@ -129,6 +132,7 @@ func TestNoTIDAnnotationsAPI(t *testing.T) {
 	annotationsAPI := NewUPPAnnotationsAPI(testClient, annotationsServerMock.URL+"/content/%v/annotations", testBasicAuthUsername, testBasicAuthPassword, log)
 	resp, err := annotationsAPI.getUPPAnnotationsResponse(context.TODO(), uuid)
 	assert.NoError(t, err)
+	defer resp.Body.Close()
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 }
 
@@ -136,7 +140,9 @@ func TestRequestFailsAnnotationsAPI(t *testing.T) {
 	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
 	annotationsAPI := NewUPPAnnotationsAPI(testClient, ":#", testBasicAuthUsername, testBasicAuthPassword, log)
 	resp, err := annotationsAPI.getUPPAnnotationsResponse(context.TODO(), "")
-
+	if err == nil {
+		defer resp.Body.Close()
+	}
 	assert.Error(t, err)
 	assert.Nil(t, resp)
 }
@@ -145,7 +151,9 @@ func TestResponseFailsAnnotationsAPI(t *testing.T) {
 	log := logger.NewUPPLogger("draft-annotations-api", "INFO")
 	annotationsAPI := NewUPPAnnotationsAPI(testClient, "#:", testBasicAuthUsername, testBasicAuthPassword, log)
 	resp, err := annotationsAPI.getUPPAnnotationsResponse(context.TODO(), "")
-
+	if err == nil {
+		defer resp.Body.Close()
+	}
 	assert.Error(t, err)
 	assert.Nil(t, resp)
 }
@@ -163,13 +171,15 @@ func TestAnnotationsAPITimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel()
 
-	_, err := annotationsAPI.getUPPAnnotationsResponse(ctx, testContentUUID)
+	resp, err := annotationsAPI.getUPPAnnotationsResponse(ctx, testContentUUID)
+	if err == nil {
+		defer resp.Body.Close()
+	}
 	assert.Error(t, err)
 	assert.True(t, (err.(net.Error)).Timeout())
 }
 
 func TestGetAnnotationsHappy(t *testing.T) {
-
 	var testCases = []struct {
 		name                string
 		annotationsStatus   int
