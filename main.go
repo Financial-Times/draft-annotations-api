@@ -11,6 +11,7 @@ import (
 	"github.com/Financial-Times/draft-annotations-api/concept"
 	"github.com/Financial-Times/draft-annotations-api/handler"
 	"github.com/Financial-Times/draft-annotations-api/health"
+	"github.com/Financial-Times/draft-annotations-api/synchronise"
 	"github.com/Financial-Times/go-ft-http/fthttp"
 	"github.com/Financial-Times/http-handlers-go/httphandlers"
 	status "github.com/Financial-Times/service-status-go/httphandlers"
@@ -20,7 +21,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const appDescription = "PAC Draft Annotations API"
+const (
+	platform       = "PAC"
+	appDescription = "PAC Draft Annotations API"
+)
 
 func main() {
 	app := cli.App("draft-annotations-api", appDescription)
@@ -92,6 +96,20 @@ func main() {
 		EnvVar: "LOG_LEVEL",
 	})
 
+	draftAnnotationsPublishEndpoint := app.String(cli.StringOpt{
+		Name:   "draft-annotations-publish-endpoint",
+		Value:  "http://localhost:8081",
+		Desc:   "Endpoint to sync requests between pac and publish cluster",
+		EnvVar: "DRAFT_ANNOTATIONS_PUBLISH_ENDPOINT",
+	})
+
+	publishBasicAuth := app.String(cli.StringOpt{
+		Name:   "publish-basic-auth",
+		Value:  "username:password",
+		Desc:   "Basic auth for access to the publish UPP clusters",
+		EnvVar: "PUBLISH_BASIC_AUTH",
+	})
+
 	log.SetFormatter(&log.JSONFormatter{})
 	log.Infof("[Startup] %v is starting", *appSystemCode)
 
@@ -111,11 +129,16 @@ func main() {
 			log.WithError(err).Fatal("Please provide a valid timeout duration")
 		}
 
-		client := fthttp.NewClientWithDefaultTimeout("PAC", *appSystemCode)
+		client := fthttp.NewClientWithDefaultTimeout(platform, *appSystemCode)
 
 		basicAuthCredentials := strings.Split(*deliveryBasicAuth, ":")
 		if len(basicAuthCredentials) != 2 {
 			log.Fatal("error while resolving basic auth")
+		}
+
+		publishBasicAuthCredentials := strings.Split(*publishBasicAuth, ":")
+		if len(publishBasicAuthCredentials) != 2 {
+			log.Fatal("error while resolving publish basic auth")
 		}
 
 		rw := annotations.NewRW(client, *annotationsRWEndpoint)
@@ -125,8 +148,8 @@ func main() {
 		augmenter := annotations.NewAugmenter(conceptRead)
 		annotationsHandler := handler.New(rw, annotationsAPI, c14n, augmenter, time.Millisecond*httpTimeout)
 		healthService := health.NewHealthService(*appSystemCode, *appName, appDescription, rw, annotationsAPI, conceptRead)
-
-		serveEndpoints(*port, apiYml, annotationsHandler, healthService)
+		syncAPI := synchronise.NewAPI(client, publishBasicAuthCredentials[0], publishBasicAuthCredentials[1], *draftAnnotationsPublishEndpoint)
+		serveEndpoints(*port, apiYml, annotationsHandler, healthService, syncAPI)
 	}
 
 	err := app.Run(os.Args)
@@ -136,14 +159,26 @@ func main() {
 	}
 }
 
-func serveEndpoints(port string, apiYml *string, handler *handler.Handler, healthService *health.HealthService) {
+func serveEndpoints(port string, apiYml *string, handler *handler.Handler, healthService *health.HealthService, sapi *synchronise.API) {
 	r := vestigo.NewRouter()
 
-	r.Delete("/drafts/content/:uuid/annotations/:cuuid", handler.DeleteAnnotation)
+	requestMiddleware := func(f http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			err := sapi.SyncWithPublishingCluster(r)
+			if err != nil {
+				log.WithError(err).Info("error while sending request to publishing cluster")
+			}
+			// before the request
+			f(w, r)
+			// after the request
+		}
+	}
+
+	r.Delete("/drafts/content/:uuid/annotations/:cuuid", handler.DeleteAnnotation, requestMiddleware)
 	r.Get("/drafts/content/:uuid/annotations", handler.ReadAnnotations)
-	r.Put("/drafts/content/:uuid/annotations", handler.WriteAnnotations)
-	r.Post("/drafts/content/:uuid/annotations", handler.AddAnnotation)
-	r.Patch("/drafts/content/:uuid/annotations/:cuuid", handler.ReplaceAnnotation)
+	r.Put("/drafts/content/:uuid/annotations", handler.WriteAnnotations, requestMiddleware)
+	r.Post("/drafts/content/:uuid/annotations", handler.AddAnnotation, requestMiddleware)
+	r.Patch("/drafts/content/:uuid/annotations/:cuuid", handler.ReplaceAnnotation, requestMiddleware)
 
 	var monitoringRouter http.Handler = r
 	monitoringRouter = httphandlers.TransactionAwareRequestLoggingHandler(log.StandardLogger(), monitoringRouter)
