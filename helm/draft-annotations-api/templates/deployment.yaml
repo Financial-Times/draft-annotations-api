@@ -52,6 +52,16 @@ spec:
             configMapKeyRef:
               name: global-config
               key: internal-concordances-endpoint
+        - name: DRAFT_ANNOTATIONS_PUBLISH_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: global-config
+              key: draft-annotations-publish-endpoint
+        - name: PUBLISH_BASIC_AUTH
+          valueFrom:
+            secretKeyRef:
+              name: doppler-global-secrets
+              key: PUBLISH_BASIC_AUTH
         - name: DELIVERY_BASIC_AUTH
           valueFrom:
             secretKeyRef:
