@@ -11,7 +11,7 @@ require (
 	github.com/Financial-Times/transactionid-utils-go v0.2.0
 	github.com/Pallinder/go-randomdata v0.0.0-20170410161340-8c3362a5e678
 	github.com/google/uuid v1.3.0
-	github.com/husobee/vestigo v1.0.2
+	github.com/husobee/vestigo v1.1.1
 	github.com/jawher/mow.cli v0.0.0-20170712113824-a6088643acff
 	github.com/pkg/errors v0.8.1
 	github.com/rcrowley/go-metrics v0.0.0-20161128210544-1f30fe9094a5
