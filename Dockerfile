@@ -18,7 +18,6 @@ RUN BUILDINFO_PACKAGE="${ORG_PATH}/service-status-go/buildinfo." \
   && REVISION="revision=$(git rev-parse HEAD)" \
   && BUILDER="builder=$(go version)" \
   && if [ ! -z ${GITHUB_USERNAME} ] && [ ! -z ${GITHUB_TOKEN} ]; then \
-    GOPRIVATE="github.com/Financial-Times" ; \
     git config --global url."https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com".insteadOf "https://github.com" ; \
     fi \
   && LDFLAGS="-X '"${BUILDINFO_PACKAGE}$VERSION"' -X '"${BUILDINFO_PACKAGE}$DATETIME"' -X '"${BUILDINFO_PACKAGE}$REPOSITORY"' -X '"${BUILDINFO_PACKAGE}$REVISION"' -X '"${BUILDINFO_PACKAGE}$BUILDER"'" \
