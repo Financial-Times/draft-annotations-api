@@ -23,16 +23,6 @@ const (
 	FTPinkPublication    = "88fdde6c-2aa4-4f78-af02-9f680097cfd6"
 )
 
-type AnnotationsBody struct {
-	Annotations []Annotation `json:"annotations"`
-	Publication []string     `json:"publication"`
-}
-
-type Annotation struct {
-	ID        string `json:"id"`
-	Predicate string `json:"predicate"`
-}
-
 type API struct {
 	client   *http.Client
 	username string
@@ -67,7 +57,7 @@ func (api *API) SyncWithPublishingCluster(req *http.Request) error {
 	// Restore the io.ReadCloser after reading from it
 	req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-	bodyBytes, err = prepareAnnotationsBody(bodyBytes)
+	bodyBytes, err = addPublicationToBody(bodyBytes)
 	if err != nil {
 		return err
 	}
@@ -116,25 +106,24 @@ func (api *API) SyncWithPublishingCluster(req *http.Request) error {
 	return nil
 }
 
-func prepareAnnotationsBody(bodyBytes []byte) ([]byte, error) {
-	// Decode the body into an AnnotationsBody struct which matches the expected schema in publishing cluster
-	var ann AnnotationsBody
-	err := json.Unmarshal(bodyBytes, &ann)
+func addPublicationToBody(bodyBytes []byte) ([]byte, error) {
+	// Decode the body into a map
+	var bodyMap map[string]interface{}
+	err := json.Unmarshal(bodyBytes, &bodyMap)
 	if err != nil {
 		return nil, err
 	}
 
-	// Add publication so we pass the validation in publishing cluster
-	if ann.Publication == nil {
+	// Check if the map contains a key for "publication"
+	if _, ok := bodyMap["publication"]; !ok {
 		// If not, add it
-		ann.Publication = []string{FTPinkPublication}
-	}
+		bodyMap["publication"] = []string{FTPinkPublication}
 
-	// Re-encode the body into JSON
-	bodyBytes, err = json.Marshal(ann)
-	if err != nil {
-		return nil, err
+		// Re-encode the body into JSON
+		bodyBytes, err = json.Marshal(bodyMap)
+		if err != nil {
+			return nil, err
+		}
 	}
-
 	return bodyBytes, nil
 }
