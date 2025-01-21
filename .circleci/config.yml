@@ -1,6 +1,6 @@
 version: 2.1
 orbs:
-  ft-golang-ci: financial-times/golang-ci@2
+  ft-golang-ci: financial-times/golang-ci@1
 jobs:
   dredd:
     working_directory: /go/src/github.com/Financial-Times/draft-annotations-api
@@ -41,3 +41,8 @@ workflows:
           name: build-docker-image
           requires:
             - build-and-test-project
+  snyk-scanning:
+    jobs:
+      - ft-golang-ci/scan:
+          name: scan-dependencies
+          context: cm-team-snyk
